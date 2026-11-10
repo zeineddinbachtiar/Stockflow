@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import authRouter from "./routes/auth.routes";
+import categoryRouter from "./routes/category.routes";
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.use(express.json());
 
 // Routes
 app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/categories", categoryRouter);
 
 // Health check endpoint
 app.get("/api/v1/health", (_req, res) => {
