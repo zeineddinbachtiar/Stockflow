@@ -58,12 +58,39 @@ function getOrderId(
   return parsed.data;
 }
 
+/**
+ * Read PostgreSQL SQLSTATE code from an unknown error.
+ */
+function hasPostgresErrorCode(
+  error: unknown,
+  expectedCode: string
+): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === expectedCode
+  );
+}
+
+
 function handleOrderError(
   res: Response,
   error: unknown
 ): Response {
+  // PostgreSQL unique constraint violation.
+  if (hasPostgresErrorCode(error, "23505")) {
+    return res.status(409).json({
+      status: "error",
+      code: "DUPLICATE_ORDER",
+      message: "An order or related record already exists."
+    });
+  }
+
   const code =
-    error instanceof Error ? error.message : "INTERNAL_SERVER_ERROR";
+    error instanceof Error
+      ? error.message
+      : "INTERNAL_SERVER_ERROR";
 
   const notFoundErrors: Record<string, string> = {
     ORDER_NOT_FOUND: "Order was not found",
@@ -80,7 +107,8 @@ function handleOrderError(
     ORDER_ALREADY_CANCELLED: "Order has already been cancelled",
     ORDER_HAS_NO_ITEMS: "An order must contain at least one item",
     INSUFFICIENT_STOCK: "Insufficient stock to confirm this order",
-    INVALID_ORDER_STATUS: "Order status does not allow this operation"
+    INVALID_ORDER_STATUS: "Order status does not allow this operation",
+    ORDER_PRODUCT_INACTIVE: "One or more products in this order are inactive and cannot be confirmed"
   };
 
   if (code === "ORDER_ACCESS_DENIED") {
@@ -115,14 +143,6 @@ function handleOrderError(
     });
   }
 
-  if (code === "23505") {
-    return res.status(409).json({
-      status: "error",
-      code: "DUPLICATE_ORDER",
-      message: "A duplicate order value was detected"
-    });
-  }
-
   console.error("Order controller error:", error);
 
   return res.status(500).json({
@@ -131,6 +151,7 @@ function handleOrderError(
     message: "An unexpected error occurred"
   });
 }
+
 
 export async function listOrders(
   req: Request,

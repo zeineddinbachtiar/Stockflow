@@ -1,5 +1,6 @@
 
 import type { RequestHandler, Response } from "express";
+import { positiveBigIntIdSchema } from "../validators/common.validator";
 
 import {
   CategoryServiceError,
@@ -18,21 +19,26 @@ import type {
 /**
  * Validate and retrieve category ID from route parameters.
  */
+/**
+ * Validate and retrieve category ID from route parameters.
+ */
 function getCategoryId(
   param: unknown,
   res: Response
 ): string | null {
-  if (typeof param !== "string" || !/^[1-9]\d*$/.test(param)) {
+  const parsed = positiveBigIntIdSchema.safeParse(param);
+
+  if (!parsed.success) {
     res.status(400).json({
       status: "error",
       code: "INVALID_CATEGORY_ID",
-      message: "Category ID must be a positive integer.",
+      message: "Category ID must be a valid positive BIGINT.",
     });
 
     return null;
   }
 
-  return param;
+  return parsed.data;
 }
 
 

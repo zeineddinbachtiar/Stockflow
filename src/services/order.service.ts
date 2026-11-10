@@ -1,8 +1,6 @@
 
 import { randomUUID } from "node:crypto";
 
-import type { PoolClient } from "pg";
-
 import { pool } from "../config/database";
 
 import type { UserRole } from "../types/user.types";
@@ -12,7 +10,6 @@ import type {
   OrderItemRecord,
   OrderQuery,
   OrderRecord,
-  OrderStatus,
   PublicOrder,
   PublicOrderItem,
   RepositoryOrderQuery,
@@ -142,15 +139,15 @@ function assertCanCreateOrder(actor: OrderActor): void {
   }
 }
 
-function assertSalesCanViewOrder(
-  order: OrderRecord,
+function assertSalesOrderOwnership(
+  order: { created_by: string },
   actor: OrderActor
 ): void {
   if (
     actor.role === "SALES_STAFF" &&
     order.created_by !== actor.id
   ) {
-    throw createError("ORDER_ACCESS_DENIED");
+    throw createError("ORDER_NOT_FOUND");
   }
 }
 
@@ -191,7 +188,7 @@ export async function getOrderById(
     return null;
   }
 
-  assertSalesCanViewOrder(result.order, actor);
+  assertSalesOrderOwnership(result.order, actor);
 
   return toPublicOrder(result.order, result.items);
 }
@@ -308,11 +305,14 @@ export async function updateOrder(
     const order = await findOrderForUpdate(client, orderId);
 
     if (!order) {
-      throw createError("ORDER_NOT_FOUND");
+        throw createError("ORDER_NOT_FOUND");
     }
 
+    // Check ownership before revealing order status.
+    assertSalesOrderOwnership(order, actor);
+
     if (order.status !== "DRAFT") {
-      throw createError("ORDER_NOT_DRAFT");
+        throw createError("ORDER_NOT_DRAFT");
     }
 
     assertCanManageDraft(order, actor);
@@ -463,7 +463,7 @@ export async function confirmOrder(
     );
 
     if (products.length !== productIds.length) {
-      throw createError("PRODUCT_NOT_FOUND_OR_INACTIVE");
+        throw createError("ORDER_PRODUCT_INACTIVE");
     }
 
     // Ensure all inventory rows exist before locking balances.
@@ -567,11 +567,14 @@ export async function cancelOrder(
     const order = await findOrderForUpdate(client, orderId);
 
     if (!order) {
-      throw createError("ORDER_NOT_FOUND");
+        throw createError("ORDER_NOT_FOUND");
     }
 
+        // Check ownership before revealing cancellation status.
+        assertSalesOrderOwnership(order, actor);
+
     if (order.status === "CANCELLED") {
-      throw createError("ORDER_ALREADY_CANCELLED");
+        throw createError("ORDER_ALREADY_CANCELLED");
     }
 
     if (order.status === "DRAFT") {

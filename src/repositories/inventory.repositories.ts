@@ -77,7 +77,7 @@ export async function findAllInventory(
   const result = await pool.query<InventoryRecord>(
     `${INVENTORY_SELECT}
      ${whereClause}
-     ORDER BY w.code ASC, p.name ASC
+     ORDER BY w.code ASC, p.name ASC, i.id ASC
      LIMIT $${limitPosition}
      OFFSET $${offsetPosition}`,
     pageValues

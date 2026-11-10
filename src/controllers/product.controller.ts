@@ -1,5 +1,6 @@
 
 import type { RequestHandler, Response } from "express";
+import { positiveBigIntIdSchema } from "../validators/common.validator";
 
 import {
   ProductServiceError,
@@ -22,17 +23,19 @@ function getProductId(
   param: unknown,
   res: Response
 ): string | null {
-  if (typeof param !== "string" || !/^[1-9]\d*$/.test(param)) {
+  const parsed = positiveBigIntIdSchema.safeParse(param);
+
+  if (!parsed.success) {
     res.status(400).json({
       status: "error",
       code: "INVALID_PRODUCT_ID",
-      message: "Product ID must be a positive integer.",
+      message: "Product ID must be a valid positive BIGINT.",
     });
 
     return null;
   }
 
-  return param;
+  return parsed.data;
 }
 
 /**

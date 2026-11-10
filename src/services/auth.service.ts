@@ -24,6 +24,11 @@ import {
 // Password hashing configuration
 const BCRYPT_SALT_ROUNDS = 12;
 const BCRYPT_MAX_PASSWORD_BYTES = 72;
+const DUMMY_PASSWORD_HASH = bcrypt.hashSync(
+  "stockflow-dummy-password-not-a-real-account",
+  BCRYPT_SALT_ROUNDS
+);
+
 
 // Authentication service error definitions
 export type AuthServiceErrorCode =
@@ -153,8 +158,12 @@ export async function registerUser(
   return createAuthResult(user);
 }
 
+
 /**
  * Authenticate existing user.
+ *
+ * Always execute one bcrypt comparison to reduce timing
+ * differences between existing and nonexistent accounts.
  */
 export async function loginUser(
   input: LoginInput
@@ -173,24 +182,23 @@ export async function loginUser(
     );
   }
 
-  // Find user by email
+  // Find user by email.
   const user = await findUserByEmail(email);
 
-  // Use the same response for missing and inactive accounts
-  if (!user || !user.is_active) {
-    throw new AuthServiceError(
-      "INVALID_CREDENTIALS",
-      "Invalid email or password."
-    );
-  }
+  // Use the real password hash if the user exists.
+  // Otherwise use the dummy hash.
+  const passwordHash = user
+    ? user.password_hash
+    : DUMMY_PASSWORD_HASH;
 
-  // Compare submitted password with stored hash
+  // Always execute one bcrypt comparison.
   const isPasswordValid = await bcrypt.compare(
     input.password,
-    user.password_hash
+    passwordHash
   );
 
-  if (!isPasswordValid) {
+  // Reject missing, inactive, or invalid accounts.
+  if (!user || !user.is_active || !isPasswordValid) {
     throw new AuthServiceError(
       "INVALID_CREDENTIALS",
       "Invalid email or password."
