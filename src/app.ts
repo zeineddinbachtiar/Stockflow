@@ -5,6 +5,7 @@ import authRouter from "./routes/auth.routes";
 import categoryRouter from "./routes/category.routes";
 import productRouter from "./routes/product.routes";
 import warehouseRouter from "./routes/warehouse.routes";
+import customerRouter from "./routes/customer.routes";
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/categories", categoryRouter);
 app.use("/api/v1/products", productRouter);
 app.use("/api/v1/warehouses", warehouseRouter);
+app.use("/api/v1/customers", customerRouter);
 
 // Health check endpoint
 app.get("/api/v1/health", (_req, res) => {
