@@ -8,6 +8,7 @@ import warehouseRouter from "./routes/warehouse.routes";
 import customerRouter from "./routes/customer.routes";
 import inventoryRouter from "./routes/inventory.routes";
 import stockMovementRouter from "./routes/stock-movement.routes";
+import orderRouter from "./routes/order.routes";
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use("/api/v1/warehouses", warehouseRouter);
 app.use("/api/v1/customers", customerRouter);
 app.use("/api/v1/inventory", inventoryRouter);
 app.use("/api/v1/stock-movements", stockMovementRouter);
+app.use("/api/v1/orders", orderRouter);
 
 // Health check endpoint
 app.get("/api/v1/health", (_req, res) => {
