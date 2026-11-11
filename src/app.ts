@@ -11,14 +11,33 @@ import stockMovementRouter from "./routes/stock-movement.routes";
 import orderRouter from "./routes/order.routes";
 import { notFoundHandler } from "./middlewares/not-found";
 import { errorHandler } from "./middlewares/error-handler";
+import { env } from "./config/env";
 
 const app = express();
+
+// Trust only the explicitly configured number of reverse-proxy hops.
+app.set("trust proxy", env.TRUST_PROXY_HOPS);
 
 // Security middleware
 app.use(helmet());
 
-// Cross-origin resource sharing
-app.use(cors());
+// Cross-origin resource sharing with an explicit origin allowlist.
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests without an Origin header (e.g. Postman or server-to-server).
+      if (!origin || env.CORS_ALLOWED_ORIGINS.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      // Do not expose CORS headers to unapproved origins.
+      callback(null, false);
+    },
+    methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
 
 // Parse incoming JSON requests
 app.use(express.json());
