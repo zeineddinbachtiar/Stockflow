@@ -15,6 +15,7 @@ import type {
   PublicCategory,
   UpdateCategoryInput,
 } from "../types/category.types";
+import type { PaginationQuery } from "../types/common.types";
 
 /**
  * Convert database category record into public response format.
@@ -31,12 +32,22 @@ function toPublicCategory(category: CategoryRecord): PublicCategory {
 }
 
 /**
- * Retrieve all active categories.
+ * Retrieve active categories with pagination.
  */
-export async function getAllCategories(): Promise<PublicCategory[]> {
-  const categories = await findAllActiveCategories();
+export async function getAllCategories(query: PaginationQuery): Promise<{
+  categories: PublicCategory[];
+  total: number;
+  limit: number;
+  offset: number;
+}> {
+  const result = await findAllActiveCategories(query);
 
-  return categories.map(toPublicCategory);
+  return {
+    categories: result.items.map(toPublicCategory),
+    total: result.total,
+    limit: query.limit,
+    offset: query.offset,
+  };
 }
 
 /**

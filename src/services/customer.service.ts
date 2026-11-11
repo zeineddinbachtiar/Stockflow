@@ -6,6 +6,8 @@ import {
   updateCustomer,
 } from "../repositories/customer.repositories";
 
+import type { PaginationQuery } from "../types/common.types";
+
 import { AppError } from "../errors/app-error";
 import { hasPostgresErrorCode } from "../utils/postgres-errors";
 
@@ -35,10 +37,23 @@ function toPublicCustomer(customer: CustomerRecord): PublicCustomer {
 /**
  * Retrieve all customers.
  */
-export async function getAllCustomers(): Promise<PublicCustomer[]> {
-  const customers = await findAllCustomers();
+/**
+ * Retrieve all customers with pagination.
+ */
+export async function getAllCustomers(query: PaginationQuery): Promise<{
+  customers: PublicCustomer[];
+  total: number;
+  limit: number;
+  offset: number;
+}> {
+  const result = await findAllCustomers(query);
 
-  return customers.map(toPublicCustomer);
+  return {
+    customers: result.items.map(toPublicCustomer),
+    total: result.total,
+    limit: query.limit,
+    offset: query.offset,
+  };
 }
 
 /**

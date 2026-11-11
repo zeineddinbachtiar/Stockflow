@@ -359,6 +359,104 @@ test("category rejects invalid input", async () => {
   expectError(response, 400, "VALIDATION_ERROR");
 });
 
+test("category list supports pagination and stable ordering", async () => {
+  const firstResponse = await request(app)
+    .get("/api/v1/categories")
+    .query({
+      limit: 2,
+      offset: 0,
+    })
+    .set("Authorization", `Bearer ${adminToken}`);
+
+  expectStatus(firstResponse, 200);
+
+  const firstPage = firstResponse.body.data;
+
+  assert.ok(Array.isArray(firstPage.categories));
+  assert.equal(firstPage.limit, 2);
+  assert.equal(firstPage.offset, 0);
+  assert.ok(firstPage.total >= 2);
+  assert.equal(firstPage.categories.length, 2);
+
+  const secondResponse = await request(app)
+    .get("/api/v1/categories")
+    .query({
+      limit: 2,
+      offset: 2,
+    })
+    .set("Authorization", `Bearer ${adminToken}`);
+
+  expectStatus(secondResponse, 200);
+
+  const secondPage = secondResponse.body.data;
+
+  assert.equal(secondPage.limit, 2);
+  assert.equal(secondPage.offset, 2);
+  assert.equal(secondPage.total, firstPage.total);
+
+  const firstPageIds = firstPage.categories.map(
+    (category: { id: string }) => category.id,
+  );
+
+  const secondPageIds = secondPage.categories.map(
+    (category: { id: string }) => category.id,
+  );
+
+  for (const id of secondPageIds) {
+    assert.equal(
+      firstPageIds.includes(id),
+      false,
+      `Category ${id} appeared in both pages.`,
+    );
+  }
+
+  // Repeating the same page must return the same order.
+  const repeatedResponse = await request(app)
+    .get("/api/v1/categories")
+    .query({
+      limit: 2,
+      offset: 0,
+    })
+    .set("Authorization", `Bearer ${adminToken}`);
+
+  expectStatus(repeatedResponse, 200);
+
+  const repeatedIds = repeatedResponse.body.data.categories.map(
+    (category: { id: string }) => category.id,
+  );
+
+  assert.deepEqual(repeatedIds, firstPageIds);
+});
+
+test("category list applies default pagination and rejects invalid parameters", async () => {
+  const defaultResponse = await request(app)
+    .get("/api/v1/categories")
+    .set("Authorization", `Bearer ${adminToken}`);
+
+  expectStatus(defaultResponse, 200);
+
+  assert.equal(defaultResponse.body.data.limit, 50);
+  assert.equal(defaultResponse.body.data.offset, 0);
+
+  const invalidQueries = [
+    { limit: 0 },
+    { limit: 101 },
+    { limit: 1.5 },
+    { offset: -1 },
+    { offset: 1.5 },
+    { offset: 1000001 },
+  ];
+
+  for (const query of invalidQueries) {
+    const response = await request(app)
+      .get("/api/v1/categories")
+      .query(query)
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expectError(response, 400, "VALIDATION_ERROR");
+  }
+});
+
 // --------------------------------------------------
 // 3. PRODUCT MANAGEMENT
 // --------------------------------------------------
@@ -484,6 +582,129 @@ test("product rejects invalid prices and inactive categories", async () => {
   expectError(inactiveCategoryProductResponse, 404, "CATEGORY_NOT_FOUND");
 });
 
+test("product list supports pagination and stable ordering", async () => {
+  const firstPageResponse = await request(app)
+    .get("/api/v1/products?limit=2&offset=0")
+    .set("Authorization", `Bearer ${adminToken}`);
+
+  expectStatus(firstPageResponse, 200);
+
+  const firstPageBody = firstPageResponse.body as {
+    data?: {
+      products?: ProductResource[];
+      total?: number;
+      limit?: number;
+      offset?: number;
+    };
+  };
+
+  assert.ok(firstPageBody.data);
+  assert.ok(firstPageBody.data.products);
+
+  const firstProducts = firstPageBody.data.products;
+
+  assert.equal(firstPageBody.data.limit, 2);
+  assert.equal(firstPageBody.data.offset, 0);
+  assert.ok((firstPageBody.data.total ?? 0) >= 2);
+  assert.equal(firstProducts.length, 2);
+
+  // Request the first page again to verify stable ordering.
+  const repeatedResponse = await request(app)
+    .get("/api/v1/products?limit=2&offset=0")
+    .set("Authorization", `Bearer ${adminToken}`);
+
+  expectStatus(repeatedResponse, 200);
+
+  const repeatedBody = repeatedResponse.body as {
+    data?: {
+      products?: ProductResource[];
+    };
+  };
+
+  assert.ok(repeatedBody.data);
+  assert.ok(repeatedBody.data.products);
+
+  assert.deepEqual(
+    repeatedBody.data.products.map((product) => product.id),
+    firstProducts.map((product) => product.id),
+  );
+
+  // Retrieve the second page.
+  const secondPageResponse = await request(app)
+    .get("/api/v1/products?limit=2&offset=2")
+    .set("Authorization", `Bearer ${adminToken}`);
+
+  expectStatus(secondPageResponse, 200);
+
+  const secondPageBody = secondPageResponse.body as {
+    data?: {
+      products?: ProductResource[];
+      total?: number;
+      limit?: number;
+      offset?: number;
+    };
+  };
+
+  assert.ok(secondPageBody.data);
+  assert.ok(secondPageBody.data.products);
+
+  const secondProducts = secondPageBody.data.products;
+
+  assert.equal(secondPageBody.data.limit, 2);
+  assert.equal(secondPageBody.data.offset, 2);
+  assert.equal(secondPageBody.data.total, firstPageBody.data.total);
+  assert.equal(secondProducts.length, 2);
+
+  const firstPageIds = new Set(firstProducts.map((product) => product.id));
+
+  assert.ok(
+    secondProducts.every((product) => !firstPageIds.has(product.id)),
+    "The two pages should not contain overlapping products.",
+  );
+});
+
+test("product list applies default pagination and rejects invalid parameters", async () => {
+  const defaultResponse = await request(app)
+    .get("/api/v1/products")
+    .set("Authorization", `Bearer ${adminToken}`);
+
+  expectStatus(defaultResponse, 200);
+
+  const defaultBody = defaultResponse.body as {
+    data?: {
+      products?: ProductResource[];
+      total?: number;
+      limit?: number;
+      offset?: number;
+    };
+  };
+
+  assert.ok(defaultBody.data);
+  assert.ok(defaultBody.data.products);
+
+  assert.equal(defaultBody.data.limit, 50);
+  assert.equal(defaultBody.data.offset, 0);
+  assert.ok((defaultBody.data.total ?? 0) >= defaultBody.data.products.length);
+  assert.ok(defaultBody.data.products.length <= 50);
+
+  const invalidQueries = [
+    "limit=0",
+    "limit=101",
+    "limit=1.5",
+    "offset=-1",
+    "offset=1.5",
+    "offset=1000001",
+  ];
+
+  for (const query of invalidQueries) {
+    const response = await request(app)
+      .get(`/api/v1/products?${query}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expectError(response, 400, "VALIDATION_ERROR");
+  }
+});
+
 // --------------------------------------------------
 // 4. WAREHOUSE MANAGEMENT
 // --------------------------------------------------
@@ -605,6 +826,133 @@ test("warehouse rejects invalid input", async () => {
   expectError(response, 400, "VALIDATION_ERROR");
 });
 
+test("warehouse list supports pagination and stable ordering", async () => {
+  const firstPageResponse = await request(app)
+    .get("/api/v1/warehouses?limit=1&offset=0")
+    .set("Authorization", `Bearer ${adminToken}`);
+
+  expectStatus(firstPageResponse, 200);
+
+  const firstPageBody = firstPageResponse.body as {
+    data?: {
+      warehouses?: WarehouseResource[];
+      total?: number;
+      limit?: number;
+      offset?: number;
+    };
+  };
+
+  assert.ok(firstPageBody.data);
+  assert.ok(firstPageBody.data.warehouses);
+
+  const firstWarehouses = firstPageBody.data.warehouses;
+
+  assert.equal(firstPageBody.data.limit, 1);
+  assert.equal(firstPageBody.data.offset, 0);
+  assert.ok((firstPageBody.data.total ?? 0) >= 2);
+  assert.equal(firstWarehouses.length, 1);
+
+  // Request the first page again to verify stable ordering.
+  const repeatedResponse = await request(app)
+    .get("/api/v1/warehouses?limit=1&offset=0")
+    .set("Authorization", `Bearer ${adminToken}`);
+
+  expectStatus(repeatedResponse, 200);
+
+  const repeatedBody = repeatedResponse.body as {
+    data?: {
+      warehouses?: WarehouseResource[];
+    };
+  };
+
+  assert.ok(repeatedBody.data);
+  assert.ok(repeatedBody.data.warehouses);
+
+  assert.deepEqual(
+    repeatedBody.data.warehouses.map((warehouse) => warehouse.id),
+    firstWarehouses.map((warehouse) => warehouse.id),
+  );
+
+  // Retrieve the second page.
+  const secondPageResponse = await request(app)
+    .get("/api/v1/warehouses?limit=1&offset=1")
+    .set("Authorization", `Bearer ${adminToken}`);
+
+  expectStatus(secondPageResponse, 200);
+
+  const secondPageBody = secondPageResponse.body as {
+    data?: {
+      warehouses?: WarehouseResource[];
+      total?: number;
+      limit?: number;
+      offset?: number;
+    };
+  };
+
+  assert.ok(secondPageBody.data);
+  assert.ok(secondPageBody.data.warehouses);
+
+  const secondWarehouses = secondPageBody.data.warehouses;
+
+  assert.equal(secondPageBody.data.limit, 1);
+  assert.equal(secondPageBody.data.offset, 1);
+  assert.equal(secondPageBody.data.total, firstPageBody.data.total);
+  assert.equal(secondWarehouses.length, 1);
+
+  const firstPageIds = new Set(
+    firstWarehouses.map((warehouse) => warehouse.id),
+  );
+
+  assert.ok(
+    secondWarehouses.every((warehouse) => !firstPageIds.has(warehouse.id)),
+    "The two pages should not contain overlapping warehouses.",
+  );
+});
+
+test("warehouse list applies default pagination and rejects invalid parameters", async () => {
+  const defaultResponse = await request(app)
+    .get("/api/v1/warehouses")
+    .set("Authorization", `Bearer ${adminToken}`);
+
+  expectStatus(defaultResponse, 200);
+
+  const defaultBody = defaultResponse.body as {
+    data?: {
+      warehouses?: WarehouseResource[];
+      total?: number;
+      limit?: number;
+      offset?: number;
+    };
+  };
+
+  assert.ok(defaultBody.data);
+  assert.ok(defaultBody.data.warehouses);
+
+  assert.equal(defaultBody.data.limit, 50);
+  assert.equal(defaultBody.data.offset, 0);
+  assert.ok(
+    (defaultBody.data.total ?? 0) >= defaultBody.data.warehouses.length,
+  );
+  assert.ok(defaultBody.data.warehouses.length <= 50);
+
+  const invalidQueries = [
+    "limit=0",
+    "limit=101",
+    "limit=1.5",
+    "offset=-1",
+    "offset=1.5",
+    "offset=1000001",
+  ];
+
+  for (const query of invalidQueries) {
+    const response = await request(app)
+      .get(`/api/v1/warehouses?${query}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expectError(response, 400, "VALIDATION_ERROR");
+  }
+});
+
 // --------------------------------------------------
 // 5. CUSTOMER MANAGEMENT
 // --------------------------------------------------
@@ -684,4 +1032,127 @@ test("customer rejects invalid email and does not expose a DELETE route", async 
     .set("Authorization", `Bearer ${adminToken}`);
 
   expectError(deleteResponse, 404, "ROUTE_NOT_FOUND");
+});
+
+test("customer list supports pagination and stable ordering", async () => {
+  const firstPageResponse = await request(app)
+    .get("/api/v1/customers?limit=2&offset=0")
+    .set("Authorization", `Bearer ${adminToken}`);
+
+  expectStatus(firstPageResponse, 200);
+
+  const firstPageBody = firstPageResponse.body as {
+    data?: {
+      customers?: CustomerResource[];
+      total?: number;
+      limit?: number;
+      offset?: number;
+    };
+  };
+
+  assert.ok(firstPageBody.data);
+  assert.ok(firstPageBody.data.customers);
+
+  const firstCustomers = firstPageBody.data.customers;
+
+  assert.equal(firstPageBody.data.limit, 2);
+  assert.equal(firstPageBody.data.offset, 0);
+  assert.ok((firstPageBody.data.total ?? 0) >= 2);
+  assert.equal(firstCustomers.length, 2);
+
+  // Request the first page again to verify stable ordering.
+  const repeatedResponse = await request(app)
+    .get("/api/v1/customers?limit=2&offset=0")
+    .set("Authorization", `Bearer ${adminToken}`);
+
+  expectStatus(repeatedResponse, 200);
+
+  const repeatedBody = repeatedResponse.body as {
+    data?: {
+      customers?: CustomerResource[];
+    };
+  };
+
+  assert.ok(repeatedBody.data);
+  assert.ok(repeatedBody.data.customers);
+
+  assert.deepEqual(
+    repeatedBody.data.customers.map((customer) => customer.id),
+    firstCustomers.map((customer) => customer.id),
+  );
+
+  // Retrieve the second page.
+  const secondPageResponse = await request(app)
+    .get("/api/v1/customers?limit=2&offset=2")
+    .set("Authorization", `Bearer ${adminToken}`);
+
+  expectStatus(secondPageResponse, 200);
+
+  const secondPageBody = secondPageResponse.body as {
+    data?: {
+      customers?: CustomerResource[];
+      total?: number;
+      limit?: number;
+      offset?: number;
+    };
+  };
+
+  assert.ok(secondPageBody.data);
+  assert.ok(secondPageBody.data.customers);
+
+  const secondCustomers = secondPageBody.data.customers;
+
+  assert.equal(secondPageBody.data.limit, 2);
+  assert.equal(secondPageBody.data.offset, 2);
+  assert.equal(secondPageBody.data.total, firstPageBody.data.total);
+  assert.equal(secondCustomers.length, 2);
+
+  const firstPageIds = new Set(firstCustomers.map((customer) => customer.id));
+
+  assert.ok(
+    secondCustomers.every((customer) => !firstPageIds.has(customer.id)),
+    "The two pages should not contain overlapping customers.",
+  );
+});
+
+test("customer list applies default pagination and rejects invalid parameters", async () => {
+  const defaultResponse = await request(app)
+    .get("/api/v1/customers")
+    .set("Authorization", `Bearer ${adminToken}`);
+
+  expectStatus(defaultResponse, 200);
+
+  const defaultBody = defaultResponse.body as {
+    data?: {
+      customers?: CustomerResource[];
+      total?: number;
+      limit?: number;
+      offset?: number;
+    };
+  };
+
+  assert.ok(defaultBody.data);
+  assert.ok(defaultBody.data.customers);
+
+  assert.equal(defaultBody.data.limit, 50);
+  assert.equal(defaultBody.data.offset, 0);
+  assert.ok((defaultBody.data.total ?? 0) >= defaultBody.data.customers.length);
+  assert.ok(defaultBody.data.customers.length <= 50);
+
+  const invalidQueries = [
+    "limit=0",
+    "limit=101",
+    "limit=1.5",
+    "offset=-1",
+    "offset=1.5",
+    "offset=1000001",
+  ];
+
+  for (const query of invalidQueries) {
+    const response = await request(app)
+      .get(`/api/v1/customers?${query}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+
+    expectError(response, 400, "VALIDATION_ERROR");
+  }
 });

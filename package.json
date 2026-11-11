@@ -14,7 +14,9 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
-    "format:check": "prettier . --check"
+    "format:check": "prettier . --check",
+    "test:db:setup": "node scripts/setup-test-db.mjs",
+    "pretest": "npm run test:db:setup"
   },
   "keywords": [],
   "author": "",

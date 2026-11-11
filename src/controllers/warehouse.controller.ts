@@ -2,6 +2,9 @@ import type { RequestHandler } from "express";
 
 import { parsePositiveBigIntId } from "../utils/route-params";
 
+import { AppError } from "../errors/app-error";
+import { paginationQuerySchema } from "../validators/common.validator";
+
 import {
   createNewWarehouse,
   deactivateExistingWarehouse,
@@ -26,14 +29,29 @@ function getWarehouseId(param: unknown): string {
 /**
  * GET /api/v1/warehouses
  */
-export const listWarehouses: RequestHandler = async (_req, res) => {
-  const warehouses = await getAllWarehouses();
+/**
+ * GET /api/v1/warehouses
+ */
+export const listWarehouses: RequestHandler = async (req, res) => {
+  const parsed = paginationQuerySchema.safeParse(req.query);
+
+  if (!parsed.success) {
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "Request validation failed.",
+      parsed.error.issues.map((issue) => ({
+        field: issue.path.map(String).join("."),
+        message: issue.message,
+      })),
+    );
+  }
+
+  const result = await getAllWarehouses(parsed.data);
 
   res.status(200).json({
     status: "success",
-    data: {
-      warehouses,
-    },
+    data: result,
   });
 };
 

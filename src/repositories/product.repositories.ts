@@ -5,11 +5,23 @@ import type {
   CreateProductInput,
   UpdateProductInput,
 } from "../types/product.types";
+import type { PaginationQuery, PaginatedRecords } from "../types/common.types";
 
 /**
  * Retrieve all active products.
  */
-export async function findAllActiveProducts(): Promise<ProductRecord[]> {
+/**
+ * Retrieve active products with pagination.
+ */
+export async function findAllActiveProducts(
+  query: PaginationQuery,
+): Promise<PaginatedRecords<ProductRecord>> {
+  const countResult = await pool.query<{ total: string }>(
+    `SELECT COUNT(*)::text AS total
+     FROM products
+     WHERE is_active = TRUE`,
+  );
+
   const result = await pool.query<ProductRecord>(
     `SELECT
        id,
@@ -23,10 +35,15 @@ export async function findAllActiveProducts(): Promise<ProductRecord[]> {
        updated_at
      FROM products
      WHERE is_active = TRUE
-     ORDER BY name ASC`,
+     ORDER BY name ASC, id ASC
+     LIMIT $1 OFFSET $2`,
+    [query.limit, query.offset],
   );
 
-  return result.rows;
+  return {
+    items: result.rows,
+    total: Number(countResult.rows[0]?.total ?? 0),
+  };
 }
 
 /**

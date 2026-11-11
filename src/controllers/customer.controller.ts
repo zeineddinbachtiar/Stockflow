@@ -2,6 +2,9 @@ import type { RequestHandler } from "express";
 
 import { parsePositiveBigIntId } from "../utils/route-params";
 
+import { AppError } from "../errors/app-error";
+import { paginationQuerySchema } from "../validators/common.validator";
+
 import {
   createNewCustomer,
   getAllCustomers,
@@ -24,14 +27,29 @@ function getCustomerId(param: unknown): string {
 /**
  * GET /api/v1/customers
  */
-export const listCustomers: RequestHandler = async (_req, res) => {
-  const customers = await getAllCustomers();
+/**
+ * GET /api/v1/customers
+ */
+export const listCustomers: RequestHandler = async (req, res) => {
+  const parsed = paginationQuerySchema.safeParse(req.query);
+
+  if (!parsed.success) {
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "Request validation failed.",
+      parsed.error.issues.map((issue) => ({
+        field: issue.path.map(String).join("."),
+        message: issue.message,
+      })),
+    );
+  }
+
+  const result = await getAllCustomers(parsed.data);
 
   res.status(200).json({
     status: "success",
-    data: {
-      customers,
-    },
+    data: result,
   });
 };
 

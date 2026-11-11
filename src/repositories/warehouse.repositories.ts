@@ -6,10 +6,23 @@ import type {
   UpdateWarehouseInput,
 } from "../types/warehouse.types";
 
+import type { PaginationQuery, PaginatedRecords } from "../types/common.types";
+
 /**
  * Retrieve all active warehouses.
  */
-export async function findAllActiveWarehouses(): Promise<WarehouseRecord[]> {
+/**
+ * Retrieve active warehouses with pagination.
+ */
+export async function findAllActiveWarehouses(
+  query: PaginationQuery,
+): Promise<PaginatedRecords<WarehouseRecord>> {
+  const countResult = await pool.query<{ total: string }>(
+    `SELECT COUNT(*)::text AS total
+     FROM warehouses
+     WHERE is_active = TRUE`,
+  );
+
   const result = await pool.query<WarehouseRecord>(
     `SELECT
        id,
@@ -21,10 +34,15 @@ export async function findAllActiveWarehouses(): Promise<WarehouseRecord[]> {
        updated_at
      FROM warehouses
      WHERE is_active = TRUE
-     ORDER BY name ASC`,
+     ORDER BY name ASC, id ASC
+     LIMIT $1 OFFSET $2`,
+    [query.limit, query.offset],
   );
 
-  return result.rows;
+  return {
+    items: result.rows,
+    total: Number(countResult.rows[0]?.total ?? 0),
+  };
 }
 
 /**

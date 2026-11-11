@@ -18,6 +18,8 @@ import type {
   UpdateWarehouseInput,
 } from "../types/warehouse.types";
 
+import type { PaginationQuery } from "../types/common.types";
+
 /**
  * Convert database warehouse record into public response format.
  */
@@ -36,10 +38,23 @@ function toPublicWarehouse(warehouse: WarehouseRecord): PublicWarehouse {
 /**
  * Retrieve all active warehouses.
  */
-export async function getAllWarehouses(): Promise<PublicWarehouse[]> {
-  const warehouses = await findAllActiveWarehouses();
+/**
+ * Retrieve active warehouses with pagination.
+ */
+export async function getAllWarehouses(query: PaginationQuery): Promise<{
+  warehouses: PublicWarehouse[];
+  total: number;
+  limit: number;
+  offset: number;
+}> {
+  const result = await findAllActiveWarehouses(query);
 
-  return warehouses.map(toPublicWarehouse);
+  return {
+    warehouses: result.items.map(toPublicWarehouse),
+    total: result.total,
+    limit: query.limit,
+    offset: query.offset,
+  };
 }
 
 /**

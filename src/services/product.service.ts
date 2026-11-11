@@ -19,6 +19,8 @@ import type {
   UpdateProductInput,
 } from "../types/product.types";
 
+import type { PaginationQuery } from "../types/common.types";
+
 /**
  * Convert database product record into public response format.
  */
@@ -50,10 +52,23 @@ async function ensureActiveCategory(categoryId: string): Promise<void> {
 /**
  * Retrieve all active products.
  */
-export async function getAllProducts(): Promise<PublicProduct[]> {
-  const products = await findAllActiveProducts();
+/**
+ * Retrieve active products with pagination.
+ */
+export async function getAllProducts(query: PaginationQuery): Promise<{
+  products: PublicProduct[];
+  total: number;
+  limit: number;
+  offset: number;
+}> {
+  const result = await findAllActiveProducts(query);
 
-  return products.map(toPublicProduct);
+  return {
+    products: result.items.map(toPublicProduct),
+    total: result.total,
+    limit: query.limit,
+    offset: query.offset,
+  };
 }
 
 /**

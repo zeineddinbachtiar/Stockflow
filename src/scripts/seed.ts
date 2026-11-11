@@ -248,10 +248,20 @@ async function seedUsers(client: PoolClient): Promise<number> {
       `INSERT INTO users (full_name, email, password_hash, role)
        VALUES ($1, $2, $3, $4)
        ON CONFLICT (email) DO UPDATE SET
-         full_name = EXCLUDED.full_name,
-         role = EXCLUDED.role,
-         is_active = TRUE`,
-      [user.fullName, user.email, passwordHash, user.role],
+  full_name = EXCLUDED.full_name,
+  role = EXCLUDED.role,
+  is_active = TRUE,
+  password_hash = CASE
+    WHEN $5::boolean THEN EXCLUDED.password_hash
+    ELSE users.password_hash
+  END`,
+      [
+        user.fullName,
+        user.email,
+        passwordHash,
+        user.role,
+        env.NODE_ENV === "test",
+      ],
     );
   }
 
@@ -394,7 +404,6 @@ async function seedInventoryAndOpeningMovements(
       [warehouseId, productId, item.quantity, item.reorderLevel],
     );
 
-    // Create the opening stock movement only when a new inventory row is inserted.
     if (result.rowCount === 1) {
       inventoryInserted += 1;
 
@@ -412,6 +421,60 @@ async function seedInventoryAndOpeningMovements(
       );
 
       movementsInserted += 1;
+      continue;
+    }
+
+    // Restore inventory fixtures only in automated test mode.
+    // Development stock quantities remain untouched.
+    if (env.NODE_ENV === "test") {
+      const existingResult = await client.query<{
+        id: string;
+        quantity_on_hand: number;
+        reorder_level: number;
+      }>(
+        `SELECT id, quantity_on_hand, reorder_level
+         FROM inventory
+         WHERE warehouse_id = $1
+           AND product_id = $2
+         FOR UPDATE`,
+        [warehouseId, productId],
+      );
+
+      const existing = existingResult.rows[0];
+
+      if (!existing) {
+        throw new Error(
+          `Could not resolve test inventory fixture: ${item.sku}/${item.warehouseCode}`,
+        );
+      }
+
+      const quantityDelta = item.quantity - existing.quantity_on_hand;
+
+      await client.query(
+        `UPDATE inventory
+         SET quantity_on_hand = $1,
+             reorder_level = $2
+         WHERE id = $3`,
+        [item.quantity, item.reorderLevel, existing.id],
+      );
+
+      // Preserve the append-only stock movement audit trail.
+      if (quantityDelta !== 0) {
+        await client.query(
+          `INSERT INTO stock_movements
+             (warehouse_id, product_id, performed_by, movement_type, quantity_delta, reason)
+           VALUES ($1, $2, $3, 'ADJUSTMENT', $4, $5)`,
+          [
+            warehouseId,
+            productId,
+            adminUserId,
+            quantityDelta,
+            "Restore automated test database inventory baseline",
+          ],
+        );
+
+        movementsInserted += 1;
+      }
     }
   }
 
@@ -462,9 +525,13 @@ async function seedDatabase(): Promise<void> {
     console.log(`Products ensured: ${products.length}`);
     console.log(`New inventory rows: ${stockResult.inventoryInserted}`);
     console.log(
-      `New opening stock movements: ${stockResult.movementsInserted}`,
+      `New seed-related stock movements: ${stockResult.movementsInserted}`,
     );
-    console.log("Existing inventory quantities were not overwritten.");
+    if (env.NODE_ENV === "test") {
+      console.log("Test inventory balances were restored to seed baselines.");
+    } else {
+      console.log("Existing inventory quantities were not overwritten.");
+    }
     console.log("----------------------------------------\n");
   } catch (error) {
     await client.query("ROLLBACK");

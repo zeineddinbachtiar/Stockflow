@@ -4,11 +4,20 @@ import type {
   CreateCategoryInput,
   UpdateCategoryInput,
 } from "../types/category.types";
+import type { PaginationQuery, PaginatedRecords } from "../types/common.types";
 
 /**
- * Retrieve all active categories.
+ * Retrieve active categories with pagination.
  */
-export async function findAllActiveCategories(): Promise<CategoryRecord[]> {
+export async function findAllActiveCategories(
+  query: PaginationQuery,
+): Promise<PaginatedRecords<CategoryRecord>> {
+  const countResult = await pool.query<{ total: string }>(
+    `SELECT COUNT(*)::text AS total
+     FROM categories
+     WHERE is_active = TRUE`,
+  );
+
   const result = await pool.query<CategoryRecord>(
     `SELECT
        id,
@@ -19,10 +28,16 @@ export async function findAllActiveCategories(): Promise<CategoryRecord[]> {
        updated_at
      FROM categories
      WHERE is_active = TRUE
-     ORDER BY name ASC`,
+     ORDER BY name ASC, id ASC
+     LIMIT $1
+     OFFSET $2`,
+    [query.limit, query.offset],
   );
 
-  return result.rows;
+  return {
+    items: result.rows,
+    total: Number(countResult.rows[0]?.total ?? 0),
+  };
 }
 
 /**

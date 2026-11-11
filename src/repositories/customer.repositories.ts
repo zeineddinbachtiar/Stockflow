@@ -1,5 +1,7 @@
 import { pool } from "../config/database";
 
+import type { PaginationQuery, PaginatedRecords } from "../types/common.types";
+
 import type {
   CustomerRecord,
   CreateCustomerInput,
@@ -9,7 +11,17 @@ import type {
 /**
  * Retrieve all customers.
  */
-export async function findAllCustomers(): Promise<CustomerRecord[]> {
+/**
+ * Retrieve all customers with pagination.
+ */
+export async function findAllCustomers(
+  query: PaginationQuery,
+): Promise<PaginatedRecords<CustomerRecord>> {
+  const countResult = await pool.query<{ total: string }>(
+    `SELECT COUNT(*)::text AS total
+     FROM customers`,
+  );
+
   const result = await pool.query<CustomerRecord>(
     `SELECT
        id,
@@ -21,10 +33,15 @@ export async function findAllCustomers(): Promise<CustomerRecord[]> {
        created_at,
        updated_at
      FROM customers
-     ORDER BY name ASC`,
+     ORDER BY name ASC, id ASC
+     LIMIT $1 OFFSET $2`,
+    [query.limit, query.offset],
   );
 
-  return result.rows;
+  return {
+    items: result.rows,
+    total: Number(countResult.rows[0]?.total ?? 0),
+  };
 }
 
 /**
