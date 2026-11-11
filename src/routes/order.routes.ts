@@ -1,4 +1,3 @@
-
 import { Router } from "express";
 
 import { authenticate } from "../middlewares/authenticate";
@@ -11,12 +10,12 @@ import {
   createOrderController,
   getOrder,
   listOrders,
-  updateOrderController
+  updateOrderController,
 } from "../controllers/order.controller";
 
 import {
   createOrderSchema,
-  updateOrderSchema
+  updateOrderSchema,
 } from "../validators/order.validator";
 
 const router = Router();
@@ -33,28 +32,28 @@ router.post(
   "/",
   authorize("ADMIN", "SALES_STAFF"),
   validateBody(createOrderSchema),
-  createOrderController
+  createOrderController,
 );
 
 router.patch(
   "/:id",
   authorize("ADMIN", "SALES_STAFF"),
   validateBody(updateOrderSchema),
-  updateOrderController
+  updateOrderController,
 );
 
 // Confirm draft orders.
 router.post(
   "/:id/confirm",
   authorize("ADMIN", "WAREHOUSE_STAFF"),
-  confirmOrderController
+  confirmOrderController,
 );
 
 // Cancellation rules are checked again inside the service.
 router.post(
   "/:id/cancel",
   authorize("ADMIN", "WAREHOUSE_STAFF", "SALES_STAFF"),
-  cancelOrderController
+  cancelOrderController,
 );
 
 export default router;

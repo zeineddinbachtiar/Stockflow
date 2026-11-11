@@ -1,4 +1,3 @@
-
 import type { UserRole } from "./user.types";
 
 declare global {

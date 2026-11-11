@@ -1,4 +1,3 @@
-
 export interface WarehouseRecord {
   id: string;
   code: string;

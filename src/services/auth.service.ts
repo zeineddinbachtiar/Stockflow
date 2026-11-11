@@ -1,50 +1,26 @@
-
 import bcrypt from "bcryptjs";
+import { AppError } from "../errors/app-error";
+import { hasPostgresErrorCode } from "../utils/postgres-errors";
 
-import {
-  findUserByEmail,
-  createUser
-} from "../repositories/user.repositories";
-
+import { findUserByEmail, createUser } from "../repositories/user.repositories";
 
 import type {
   AuthResult,
   LoginInput,
   PublicUser,
   RegisterInput,
-  UserRecord
+  UserRecord,
 } from "../types/user.types";
 
-
-import {
-  ACCESS_TOKEN_TTL_SECONDS,
-  generateAccessToken
-} from "../utils/jwt";
+import { ACCESS_TOKEN_TTL_SECONDS, generateAccessToken } from "../utils/jwt";
 
 // Password hashing configuration
 const BCRYPT_SALT_ROUNDS = 12;
 const BCRYPT_MAX_PASSWORD_BYTES = 72;
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync(
   "stockflow-dummy-password-not-a-real-account",
-  BCRYPT_SALT_ROUNDS
+  BCRYPT_SALT_ROUNDS,
 );
-
-
-// Authentication service error definitions
-export type AuthServiceErrorCode =
-  | "EMAIL_ALREADY_REGISTERED"
-  | "INVALID_CREDENTIALS"
-  | "INVALID_INPUT";
-
-export class AuthServiceError extends Error {
-  constructor(
-    public readonly code: AuthServiceErrorCode,
-    message: string
-  ) {
-    super(message);
-    this.name = "AuthServiceError";
-  }
-}
 
 // Convert database user into safe public user
 function toPublicUser(user: UserRecord): PublicUser {
@@ -54,7 +30,7 @@ function toPublicUser(user: UserRecord): PublicUser {
     email: user.email,
     role: user.role,
     isActive: user.is_active,
-    createdAt: user.created_at
+    createdAt: user.created_at,
   };
 }
 
@@ -63,58 +39,44 @@ function createAuthResult(user: UserRecord): AuthResult {
   return {
     accessToken: generateAccessToken({
       id: user.id,
-      role: user.role
+      role: user.role,
     }),
     tokenType: "Bearer",
     expiresIn: ACCESS_TOKEN_TTL_SECONDS,
-    user: toPublicUser(user)
+    user: toPublicUser(user),
   };
-}
-
-// Check PostgreSQL unique constraint violation
-function isUniqueViolation(error: unknown): boolean {
-  if (typeof error !== "object" || error === null) {
-    return false;
-  }
-
-  return (
-    "code" in error &&
-    error.code === "23505"
-  );
 }
 
 /**
  * Register new user.
  * Public registration always assigns SALES_STAFF role.
  */
-export async function registerUser(
-  input: RegisterInput
-): Promise<AuthResult> {
+export async function registerUser(input: RegisterInput): Promise<AuthResult> {
   const fullName = input.fullName.trim();
   const email = input.email.trim().toLowerCase();
 
   // Validate basic input
   if (!fullName || !email) {
-    throw new AuthServiceError(
+    throw new AppError(
+      400,
       "INVALID_INPUT",
-      "Full name and email are required."
+      "Full name and email are required.",
     );
   }
 
   if (input.password.length < 8) {
-    throw new AuthServiceError(
+    throw new AppError(
+      400,
       "INVALID_INPUT",
-      "Password must contain at least 8 characters."
+      "Password must contain at least 8 characters.",
     );
   }
 
-  if (
-    Buffer.byteLength(input.password, "utf8") >
-    BCRYPT_MAX_PASSWORD_BYTES
-  ) {
-    throw new AuthServiceError(
+  if (Buffer.byteLength(input.password, "utf8") > BCRYPT_MAX_PASSWORD_BYTES) {
+    throw new AppError(
+      400,
       "INVALID_INPUT",
-      "Password must not exceed 72 UTF-8 bytes."
+      "Password must not exceed 72 UTF-8 bytes.",
     );
   }
 
@@ -122,17 +84,15 @@ export async function registerUser(
   const existingUser = await findUserByEmail(email);
 
   if (existingUser) {
-    throw new AuthServiceError(
+    throw new AppError(
+      409,
       "EMAIL_ALREADY_REGISTERED",
-      "Email is already registered."
+      "Email is already registered.",
     );
   }
 
   // Hash password before saving
-  const passwordHash = await bcrypt.hash(
-    input.password,
-    BCRYPT_SALT_ROUNDS
-  );
+  const passwordHash = await bcrypt.hash(input.password, BCRYPT_SALT_ROUNDS);
 
   let user: UserRecord;
 
@@ -141,14 +101,14 @@ export async function registerUser(
       fullName,
       email,
       passwordHash,
-      role: "SALES_STAFF"
+      role: "SALES_STAFF",
     });
-  } catch (error) {
-    // Handle duplicate email race condition
-    if (isUniqueViolation(error)) {
-      throw new AuthServiceError(
+  } catch (error: unknown) {
+    if (hasPostgresErrorCode(error, "23505")) {
+      throw new AppError(
+        409,
         "EMAIL_ALREADY_REGISTERED",
-        "Email is already registered."
+        "Email is already registered.",
       );
     }
 
@@ -158,27 +118,24 @@ export async function registerUser(
   return createAuthResult(user);
 }
 
-
 /**
  * Authenticate existing user.
  *
  * Always execute one bcrypt comparison to reduce timing
  * differences between existing and nonexistent accounts.
  */
-export async function loginUser(
-  input: LoginInput
-): Promise<AuthResult> {
+export async function loginUser(input: LoginInput): Promise<AuthResult> {
   const email = input.email.trim().toLowerCase();
 
   if (
     !email ||
     !input.password ||
-    Buffer.byteLength(input.password, "utf8") >
-      BCRYPT_MAX_PASSWORD_BYTES
+    Buffer.byteLength(input.password, "utf8") > BCRYPT_MAX_PASSWORD_BYTES
   ) {
-    throw new AuthServiceError(
+    throw new AppError(
+      401,
       "INVALID_CREDENTIALS",
-      "Invalid email or password."
+      "Invalid email or password.",
     );
   }
 
@@ -187,21 +144,17 @@ export async function loginUser(
 
   // Use the real password hash if the user exists.
   // Otherwise use the dummy hash.
-  const passwordHash = user
-    ? user.password_hash
-    : DUMMY_PASSWORD_HASH;
+  const passwordHash = user ? user.password_hash : DUMMY_PASSWORD_HASH;
 
   // Always execute one bcrypt comparison.
-  const isPasswordValid = await bcrypt.compare(
-    input.password,
-    passwordHash
-  );
+  const isPasswordValid = await bcrypt.compare(input.password, passwordHash);
 
   // Reject missing, inactive, or invalid accounts.
   if (!user || !user.is_active || !isPasswordValid) {
-    throw new AuthServiceError(
+    throw new AppError(
+      401,
       "INVALID_CREDENTIALS",
-      "Invalid email or password."
+      "Invalid email or password.",
     );
   }
 

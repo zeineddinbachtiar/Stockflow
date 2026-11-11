@@ -1,5 +1,5 @@
-
 import { pool } from "../config/database";
+import { AppError } from "../errors/app-error";
 
 import {
   ensureInventoryRow,
@@ -13,7 +13,10 @@ import {
   updateInventoryReorderLevel,
 } from "../repositories/inventory.repositories";
 
-import { insertStockMovement, findStockMovementByIdWithClient } from "../repositories/stock-movement.repositories";
+import {
+  insertStockMovement,
+  findStockMovementByIdWithClient,
+} from "../repositories/stock-movement.repositories";
 
 import { toPublicStockMovement } from "./stock-movement.service";
 
@@ -26,35 +29,14 @@ import type {
   InventoryOperationResult,
 } from "../types/inventory.types";
 
-import type {
-  ManualMovementType,
-} from "../types/stock-movement.types";
+import type { ManualMovementType } from "../types/stock-movement.types";
 
 const MAX_POSTGRES_INTEGER = 2147483647;
-
-export type InventoryServiceErrorCode =
-  | "WAREHOUSE_NOT_FOUND"
-  | "PRODUCT_NOT_FOUND"
-  | "INVENTORY_NOT_FOUND"
-  | "INSUFFICIENT_STOCK"
-  | "STOCK_QUANTITY_LIMIT_EXCEEDED";
-
-export class InventoryServiceError extends Error {
-  constructor(
-    public readonly code: InventoryServiceErrorCode,
-    message: string
-  ) {
-    super(message);
-    this.name = "InventoryServiceError";
-  }
-}
 
 /**
  * Convert database inventory record into public response format.
  */
-function toPublicInventory(
-  inventory: InventoryRecord
-): PublicInventory {
+function toPublicInventory(inventory: InventoryRecord): PublicInventory {
   return {
     id: inventory.id,
     warehouseId: inventory.warehouse_id,
@@ -67,8 +49,7 @@ function toPublicInventory(
     productIsActive: inventory.product_is_active,
     quantityOnHand: inventory.quantity_on_hand,
     reorderLevel: inventory.reorder_level,
-    isLowStock:
-      inventory.quantity_on_hand <= inventory.reorder_level,
+    isLowStock: inventory.quantity_on_hand <= inventory.reorder_level,
     updatedAt: inventory.updated_at,
   };
 }
@@ -90,15 +71,14 @@ export async function getAllInventory(query: InventoryQuery) {
 /**
  * Retrieve inventory detail by ID.
  */
-export async function getInventoryById(
-  id: string
-): Promise<PublicInventory> {
+export async function getInventoryById(id: string): Promise<PublicInventory> {
   const inventory = await findInventoryById(id);
 
   if (!inventory) {
-    throw new InventoryServiceError(
-      "INVENTORY_NOT_FOUND",
-      "Inventory record not found."
+    throw new AppError(
+      404,
+      "WAREHOUSE_NOT_FOUND",
+      "Active warehouse not found.",
     );
   }
 
@@ -115,7 +95,7 @@ async function executeStockMovement(
   productId: string,
   performedBy: string,
   quantityDelta: number,
-  reason?: string | null
+  reason?: string | null,
 ): Promise<InventoryOperationResult> {
   const client = await pool.connect();
 
@@ -123,67 +103,57 @@ async function executeStockMovement(
     await client.query("BEGIN");
 
     // Step 1: Lock and validate the active warehouse.
-    const warehouseIsActive = await lockActiveWarehouse(
-      client,
-      warehouseId
-    );
+    const warehouseIsActive = await lockActiveWarehouse(client, warehouseId);
 
     if (!warehouseIsActive) {
-      throw new InventoryServiceError(
+      throw new AppError(
+        404,
         "WAREHOUSE_NOT_FOUND",
-        "Active warehouse not found."
+        "Active warehouse not found.",
       );
     }
 
     // Step 2: Lock and validate the active product.
-    const productIsActive = await lockActiveProduct(
-      client,
-      productId
-    );
+    const productIsActive = await lockActiveProduct(client, productId);
 
     if (!productIsActive) {
-      throw new InventoryServiceError(
-        "PRODUCT_NOT_FOUND",
-        "Active product not found."
-      );
+      throw new AppError(404, "PRODUCT_NOT_FOUND", "Active product not found.");
     }
 
     // Step 3: Ensure the inventory row exists.
-    await ensureInventoryRow(
-      client,
-      warehouseId,
-      productId
-    );
+    await ensureInventoryRow(client, warehouseId, productId);
 
     // Step 4: Lock the inventory balance.
     const currentInventory = await lockInventoryBalance(
       client,
       warehouseId,
-      productId
+      productId,
     );
 
     if (!currentInventory) {
-      throw new InventoryServiceError(
+      throw new AppError(
+        404,
         "INVENTORY_NOT_FOUND",
-        "Inventory record could not be created."
+        "Inventory record could not be created.",
       );
     }
 
     // Step 5: Calculate the new balance.
-    const newQuantity =
-      currentInventory.quantity_on_hand + quantityDelta;
+    const newQuantity = currentInventory.quantity_on_hand + quantityDelta;
 
     if (newQuantity < 0) {
-      throw new InventoryServiceError(
+      throw new AppError(
+        409,
         "INSUFFICIENT_STOCK",
-        `Insufficient stock. Available quantity: ${currentInventory.quantity_on_hand}.`
+        `Insufficient stock. Available quantity: ${currentInventory.quantity_on_hand}.`,
       );
     }
 
     if (newQuantity > MAX_POSTGRES_INTEGER) {
-      throw new InventoryServiceError(
+      throw new AppError(
+        422,
         "STOCK_QUANTITY_LIMIT_EXCEEDED",
-        "Stock quantity exceeds the maximum supported value."
+        "Stock quantity exceeds the maximum supported value.",
       );
     }
 
@@ -191,13 +161,14 @@ async function executeStockMovement(
     const updatedBalance = await updateInventoryQuantity(
       client,
       currentInventory.id,
-      newQuantity
+      newQuantity,
     );
 
     if (!updatedBalance) {
-      throw new InventoryServiceError(
+      throw new AppError(
+        404,
         "INVENTORY_NOT_FOUND",
-        "Inventory record not found."
+        "Inventory record not found.",
       );
     }
 
@@ -215,18 +186,16 @@ async function executeStockMovement(
     // Step 8: Retrieve updated inventory and movement details.
     const inventoryRecord = await findInventoryByIdWithClient(
       client,
-      updatedBalance.id
+      updatedBalance.id,
     );
 
     const movementRecord = await findStockMovementByIdWithClient(
       client,
-      movementId
+      movementId,
     );
 
     if (!inventoryRecord || !movementRecord) {
-      throw new Error(
-        "Failed to retrieve the updated inventory operation."
-      );
+      throw new Error("Failed to retrieve the updated inventory operation.");
     }
 
     // Step 9: Commit both changes together.
@@ -256,7 +225,7 @@ async function executeStockMovement(
  */
 export async function receiveStock(
   input: StockOperationInput,
-  performedBy: string
+  performedBy: string,
 ): Promise<InventoryOperationResult> {
   return executeStockMovement(
     "RECEIPT",
@@ -264,7 +233,7 @@ export async function receiveStock(
     input.productId,
     performedBy,
     input.quantity,
-    input.reason
+    input.reason,
   );
 }
 
@@ -275,7 +244,7 @@ export async function receiveStock(
  */
 export async function issueStock(
   input: StockOperationInput,
-  performedBy: string
+  performedBy: string,
 ): Promise<InventoryOperationResult> {
   return executeStockMovement(
     "ISSUE",
@@ -283,7 +252,7 @@ export async function issueStock(
     input.productId,
     performedBy,
     -input.quantity,
-    input.reason
+    input.reason,
   );
 }
 
@@ -292,7 +261,7 @@ export async function issueStock(
  */
 export async function adjustStock(
   input: StockAdjustmentInput,
-  performedBy: string
+  performedBy: string,
 ): Promise<InventoryOperationResult> {
   return executeStockMovement(
     "ADJUSTMENT",
@@ -300,7 +269,7 @@ export async function adjustStock(
     input.productId,
     performedBy,
     input.quantityDelta,
-    input.reason
+    input.reason,
   );
 }
 
@@ -309,26 +278,25 @@ export async function adjustStock(
  */
 export async function updateReorderLevel(
   id: string,
-  reorderLevel: number
+  reorderLevel: number,
 ): Promise<PublicInventory> {
-  const updated = await updateInventoryReorderLevel(
-    id,
-    reorderLevel
-  );
+  const updated = await updateInventoryReorderLevel(id, reorderLevel);
 
   if (!updated) {
-    throw new InventoryServiceError(
+    throw new AppError(
+      404,
       "INVENTORY_NOT_FOUND",
-      "Inventory record not found."
+      "Inventory record not found.",
     );
   }
 
   const inventory = await findInventoryById(updated.id);
 
   if (!inventory) {
-    throw new InventoryServiceError(
+    throw new AppError(
+      404,
       "INVENTORY_NOT_FOUND",
-      "Inventory record not found."
+      "Inventory record not found.",
     );
   }
 

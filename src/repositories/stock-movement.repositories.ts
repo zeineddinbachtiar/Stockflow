@@ -1,4 +1,3 @@
-
 import { pool } from "../config/database";
 import type { PoolClient } from "pg";
 
@@ -36,7 +35,7 @@ const STOCK_MOVEMENT_SELECT = `
  */
 export async function insertStockMovement(
   client: PoolClient,
-  input: StockMovementInsertInput
+  input: StockMovementInsertInput,
 ): Promise<string> {
   const result = await client.query<{ id: string }>(
     `INSERT INTO stock_movements (
@@ -58,7 +57,7 @@ export async function insertStockMovement(
       input.movementType,
       input.quantityDelta,
       input.reason ?? null,
-    ]
+    ],
   );
 
   return result.rows[0].id;
@@ -69,12 +68,12 @@ export async function insertStockMovement(
  */
 export async function findStockMovementByIdWithClient(
   client: PoolClient,
-  id: string
+  id: string,
 ): Promise<StockMovementRecord | null> {
   const result = await client.query<StockMovementRecord>(
     `${STOCK_MOVEMENT_SELECT}
      WHERE sm.id = $1`,
-    [id]
+    [id],
   );
 
   return result.rows[0] ?? null;
@@ -84,12 +83,12 @@ export async function findStockMovementByIdWithClient(
  * Retrieve a stock movement by ID.
  */
 export async function findStockMovementById(
-  id: string
+  id: string,
 ): Promise<StockMovementRecord | null> {
   const result = await pool.query<StockMovementRecord>(
     `${STOCK_MOVEMENT_SELECT}
      WHERE sm.id = $1`,
-    [id]
+    [id],
   );
 
   return result.rows[0] ?? null;
@@ -99,7 +98,7 @@ export async function findStockMovementById(
  * Retrieve stock movement history with filters and pagination.
  */
 export async function findAllStockMovements(
-  query: StockMovementQuery
+  query: StockMovementQuery,
 ): Promise<{ items: StockMovementRecord[]; total: number }> {
   const conditions: string[] = [];
   const values: Array<string | number> = [];
@@ -120,15 +119,13 @@ export async function findAllStockMovements(
   }
 
   const whereClause =
-    conditions.length > 0
-      ? `WHERE ${conditions.join(" AND ")}`
-      : "";
+    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
   const countResult = await pool.query<{ total: string }>(
     `SELECT COUNT(*)::text AS total
      FROM stock_movements sm
      ${whereClause}`,
-    values
+    values,
   );
 
   const pageValues = [...values];
@@ -145,7 +142,7 @@ export async function findAllStockMovements(
      ORDER BY sm.created_at DESC, sm.id DESC
      LIMIT $${limitPosition}
      OFFSET $${offsetPosition}`,
-    pageValues
+    pageValues,
   );
 
   return {

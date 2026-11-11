@@ -1,4 +1,3 @@
-
 import { Router } from "express";
 
 import {
@@ -22,17 +21,9 @@ import {
 const router = Router();
 
 // All authenticated users can view warehouses.
-router.get(
-  "/",
-  authenticate,
-  listWarehouses
-);
+router.get("/", authenticate, listWarehouses);
 
-router.get(
-  "/:id",
-  authenticate,
-  getWarehouse
-);
+router.get("/:id", authenticate, getWarehouse);
 
 // Only ADMIN can create warehouses.
 router.post(
@@ -40,7 +31,7 @@ router.post(
   authenticate,
   authorize("ADMIN"),
   validateBody(createWarehouseSchema),
-  createWarehouseController
+  createWarehouseController,
 );
 
 // Only ADMIN can update warehouses.
@@ -49,7 +40,7 @@ router.patch(
   authenticate,
   authorize("ADMIN"),
   validateBody(updateWarehouseSchema),
-  updateWarehouseController
+  updateWarehouseController,
 );
 
 // Only ADMIN can deactivate warehouses.
@@ -57,7 +48,7 @@ router.patch(
   "/:id/deactivate",
   authenticate,
   authorize("ADMIN"),
-  deactivateWarehouseController
+  deactivateWarehouseController,
 );
 
 // Only ADMIN can reactivate warehouses.
@@ -65,7 +56,7 @@ router.patch(
   "/:id/reactivate",
   authenticate,
   authorize("ADMIN"),
-  reactivateWarehouseController
+  reactivateWarehouseController,
 );
 
 export default router;

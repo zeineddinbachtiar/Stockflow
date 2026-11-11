@@ -21,7 +21,7 @@ export async function findAllCustomers(): Promise<CustomerRecord[]> {
        created_at,
        updated_at
      FROM customers
-     ORDER BY name ASC`
+     ORDER BY name ASC`,
   );
 
   return result.rows;
@@ -31,7 +31,7 @@ export async function findAllCustomers(): Promise<CustomerRecord[]> {
  * Retrieve a customer by ID.
  */
 export async function findCustomerById(
-  id: string
+  id: string,
 ): Promise<CustomerRecord | null> {
   const result = await pool.query<CustomerRecord>(
     `SELECT
@@ -45,7 +45,7 @@ export async function findCustomerById(
        updated_at
      FROM customers
      WHERE id = $1`,
-    [id]
+    [id],
   );
 
   return result.rows[0] ?? null;
@@ -55,7 +55,7 @@ export async function findCustomerById(
  * Retrieve a customer by customer code.
  */
 export async function findCustomerByCode(
-  customerCode: string
+  customerCode: string,
 ): Promise<CustomerRecord | null> {
   const result = await pool.query<CustomerRecord>(
     `SELECT
@@ -69,7 +69,7 @@ export async function findCustomerByCode(
        updated_at
      FROM customers
      WHERE customer_code = $1`,
-    [customerCode]
+    [customerCode],
   );
 
   return result.rows[0] ?? null;
@@ -79,7 +79,7 @@ export async function findCustomerByCode(
  * Create a new customer.
  */
 export async function createCustomer(
-  input: CreateCustomerInput
+  input: CreateCustomerInput,
 ): Promise<CustomerRecord> {
   const result = await pool.query<CustomerRecord>(
     `INSERT INTO customers (
@@ -105,7 +105,7 @@ export async function createCustomer(
       input.email ?? null,
       input.phone ?? null,
       input.address ?? null,
-    ]
+    ],
   );
 
   return result.rows[0];
@@ -117,7 +117,7 @@ export async function createCustomer(
  */
 export async function updateCustomer(
   id: string,
-  input: UpdateCustomerInput
+  input: UpdateCustomerInput,
 ): Promise<CustomerRecord | null> {
   const values: Array<string | null> = [];
   const assignments: string[] = [];
@@ -166,7 +166,7 @@ export async function updateCustomer(
        address,
        created_at,
        updated_at`,
-    values
+    values,
   );
 
   return result.rows[0] ?? null;

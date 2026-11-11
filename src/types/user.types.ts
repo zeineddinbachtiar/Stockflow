@@ -1,11 +1,7 @@
-
 /**
  * Available user roles in StockFlow.
  */
-export type UserRole =
-  | "ADMIN"
-  | "WAREHOUSE_STAFF"
-  | "SALES_STAFF";
+export type UserRole = "ADMIN" | "WAREHOUSE_STAFF" | "SALES_STAFF";
 
 /**
  * User record returned directly from PostgreSQL.

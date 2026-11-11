@@ -1,4 +1,3 @@
-
 import { pool } from "../config/database";
 
 import type {
@@ -24,7 +23,7 @@ export async function findAllActiveProducts(): Promise<ProductRecord[]> {
        updated_at
      FROM products
      WHERE is_active = TRUE
-     ORDER BY name ASC`
+     ORDER BY name ASC`,
   );
 
   return result.rows;
@@ -35,7 +34,7 @@ export async function findAllActiveProducts(): Promise<ProductRecord[]> {
  * Returns null if the product does not exist.
  */
 export async function findProductById(
-  id: string
+  id: string,
 ): Promise<ProductRecord | null> {
   const result = await pool.query<ProductRecord>(
     `SELECT
@@ -50,7 +49,7 @@ export async function findProductById(
        updated_at
      FROM products
      WHERE id = $1`,
-    [id]
+    [id],
   );
 
   return result.rows[0] ?? null;
@@ -62,7 +61,7 @@ export async function findProductById(
  * across the entire products table.
  */
 export async function findProductBySku(
-  sku: string
+  sku: string,
 ): Promise<ProductRecord | null> {
   const result = await pool.query<ProductRecord>(
     `SELECT
@@ -77,7 +76,7 @@ export async function findProductBySku(
        updated_at
      FROM products
      WHERE sku = $1`,
-    [sku]
+    [sku],
   );
 
   return result.rows[0] ?? null;
@@ -87,7 +86,7 @@ export async function findProductBySku(
  * Create a new product.
  */
 export async function createProduct(
-  input: CreateProductInput
+  input: CreateProductInput,
 ): Promise<ProductRecord> {
   const result = await pool.query<ProductRecord>(
     `INSERT INTO products (
@@ -114,7 +113,7 @@ export async function createProduct(
       input.name,
       input.description ?? null,
       input.unitPrice,
-    ]
+    ],
   );
 
   return result.rows[0];
@@ -126,7 +125,7 @@ export async function createProduct(
  */
 export async function updateProduct(
   id: string,
-  input: UpdateProductInput
+  input: UpdateProductInput,
 ): Promise<ProductRecord | null> {
   const values: Array<string | null> = [];
   const assignments: string[] = [];
@@ -176,7 +175,7 @@ export async function updateProduct(
        is_active,
        created_at,
        updated_at`,
-    values
+    values,
   );
 
   return result.rows[0] ?? null;
@@ -186,7 +185,7 @@ export async function updateProduct(
  * Deactivate a product without physically deleting it.
  */
 export async function deactivateProduct(
-  id: string
+  id: string,
 ): Promise<ProductRecord | null> {
   const result = await pool.query<ProductRecord>(
     `UPDATE products
@@ -202,7 +201,7 @@ export async function deactivateProduct(
        is_active,
        created_at,
        updated_at`,
-    [id]
+    [id],
   );
 
   return result.rows[0] ?? null;

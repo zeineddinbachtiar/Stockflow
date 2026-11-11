@@ -14,13 +14,10 @@ export const pool = new Pool({
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
 
-  application_name: "stockflow-api"
+  application_name: "stockflow-api",
 });
 
 // 2. Handle unexpected pool errors
 pool.on("error", (error) => {
-  console.error(
-    "Unexpected PostgreSQL pool error:",
-    error.message
-  );
+  console.error("Unexpected PostgreSQL pool error:", error.message);
 });

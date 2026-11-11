@@ -1,4 +1,3 @@
-
 import { pool } from "../config/database";
 import type { PoolClient } from "pg";
 
@@ -31,7 +30,7 @@ const INVENTORY_SELECT = `
  * Retrieve inventory records with optional filters and pagination.
  */
 export async function findAllInventory(
-  query: InventoryQuery
+  query: InventoryQuery,
 ): Promise<{ items: InventoryRecord[]; total: number }> {
   const conditions: string[] = [];
   const values: Array<string | number> = [];
@@ -50,20 +49,18 @@ export async function findAllInventory(
     conditions.push(
       query.lowStock
         ? "i.quantity_on_hand <= i.reorder_level"
-        : "i.quantity_on_hand > i.reorder_level"
+        : "i.quantity_on_hand > i.reorder_level",
     );
   }
 
   const whereClause =
-    conditions.length > 0
-      ? `WHERE ${conditions.join(" AND ")}`
-      : "";
+    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
   const countResult = await pool.query<{ total: string }>(
     `SELECT COUNT(*)::text AS total
      FROM inventory i
      ${whereClause}`,
-    values
+    values,
   );
 
   const pageValues = [...values];
@@ -80,7 +77,7 @@ export async function findAllInventory(
      ORDER BY w.code ASC, p.name ASC, i.id ASC
      LIMIT $${limitPosition}
      OFFSET $${offsetPosition}`,
-    pageValues
+    pageValues,
   );
 
   return {
@@ -93,12 +90,12 @@ export async function findAllInventory(
  * Retrieve inventory detail by ID.
  */
 export async function findInventoryById(
-  id: string
+  id: string,
 ): Promise<InventoryRecord | null> {
   const result = await pool.query<InventoryRecord>(
     `${INVENTORY_SELECT}
      WHERE i.id = $1`,
-    [id]
+    [id],
   );
 
   return result.rows[0] ?? null;
@@ -109,12 +106,12 @@ export async function findInventoryById(
  */
 export async function findInventoryByIdWithClient(
   client: PoolClient,
-  id: string
+  id: string,
 ): Promise<InventoryRecord | null> {
   const result = await client.query<InventoryRecord>(
     `${INVENTORY_SELECT}
      WHERE i.id = $1`,
-    [id]
+    [id],
   );
 
   return result.rows[0] ?? null;
@@ -128,7 +125,7 @@ export async function findInventoryByIdWithClient(
  */
 export async function lockActiveWarehouse(
   client: PoolClient,
-  warehouseId: string
+  warehouseId: string,
 ): Promise<boolean> {
   const result = await client.query<{ id: string }>(
     `SELECT id
@@ -136,7 +133,7 @@ export async function lockActiveWarehouse(
      WHERE id = $1
        AND is_active = TRUE
      FOR SHARE`,
-    [warehouseId]
+    [warehouseId],
   );
 
   return result.rows.length > 0;
@@ -150,7 +147,7 @@ export async function lockActiveWarehouse(
  */
 export async function lockActiveProduct(
   client: PoolClient,
-  productId: string
+  productId: string,
 ): Promise<boolean> {
   const result = await client.query<{ id: string }>(
     `SELECT id
@@ -158,7 +155,7 @@ export async function lockActiveProduct(
      WHERE id = $1
        AND is_active = TRUE
      FOR SHARE`,
-    [productId]
+    [productId],
   );
 
   return result.rows.length > 0;
@@ -171,7 +168,7 @@ export async function lockActiveProduct(
 export async function ensureInventoryRow(
   client: PoolClient,
   warehouseId: string,
-  productId: string
+  productId: string,
 ): Promise<void> {
   await client.query(
     `INSERT INTO inventory (
@@ -183,7 +180,7 @@ export async function ensureInventoryRow(
      VALUES ($1, $2, 0, 0)
      ON CONFLICT (warehouse_id, product_id)
      DO NOTHING`,
-    [warehouseId, productId]
+    [warehouseId, productId],
   );
 }
 
@@ -193,7 +190,7 @@ export async function ensureInventoryRow(
 export async function lockInventoryBalance(
   client: PoolClient,
   warehouseId: string,
-  productId: string
+  productId: string,
 ): Promise<InventoryBalanceRecord | null> {
   const result = await client.query<InventoryBalanceRecord>(
     `SELECT
@@ -207,7 +204,7 @@ export async function lockInventoryBalance(
      WHERE warehouse_id = $1
        AND product_id = $2
      FOR UPDATE`,
-    [warehouseId, productId]
+    [warehouseId, productId],
   );
 
   return result.rows[0] ?? null;
@@ -219,7 +216,7 @@ export async function lockInventoryBalance(
 export async function updateInventoryQuantity(
   client: PoolClient,
   id: string,
-  quantity: number
+  quantity: number,
 ): Promise<InventoryBalanceRecord | null> {
   const result = await client.query<InventoryBalanceRecord>(
     `UPDATE inventory
@@ -232,7 +229,7 @@ export async function updateInventoryQuantity(
        quantity_on_hand,
        reorder_level,
        updated_at`,
-    [quantity, id]
+    [quantity, id],
   );
 
   return result.rows[0] ?? null;
@@ -243,7 +240,7 @@ export async function updateInventoryQuantity(
  */
 export async function updateInventoryReorderLevel(
   id: string,
-  reorderLevel: number
+  reorderLevel: number,
 ): Promise<InventoryBalanceRecord | null> {
   const result = await pool.query<InventoryBalanceRecord>(
     `UPDATE inventory
@@ -256,7 +253,7 @@ export async function updateInventoryReorderLevel(
        quantity_on_hand,
        reorder_level,
        updated_at`,
-    [reorderLevel, id]
+    [reorderLevel, id],
   );
 
   return result.rows[0] ?? null;

@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 
 /**
@@ -57,5 +56,5 @@ export const updateWarehouseSchema = z
       data.address !== undefined,
     {
       message: "At least one field must be provided for update.",
-    }
+    },
   );

@@ -19,18 +19,13 @@ import {
 const router = Router();
 
 // ADMIN and SALES_STAFF can view customers.
-router.get(
-  "/",
-  authenticate,
-  authorize("ADMIN", "SALES_STAFF"),
-  listCustomers
-);
+router.get("/", authenticate, authorize("ADMIN", "SALES_STAFF"), listCustomers);
 
 router.get(
   "/:id",
   authenticate,
   authorize("ADMIN", "SALES_STAFF"),
-  getCustomer
+  getCustomer,
 );
 
 // ADMIN and SALES_STAFF can create customers.
@@ -39,7 +34,7 @@ router.post(
   authenticate,
   authorize("ADMIN", "SALES_STAFF"),
   validateBody(createCustomerSchema),
-  createCustomerController
+  createCustomerController,
 );
 
 // ADMIN and SALES_STAFF can update customers.
@@ -48,7 +43,7 @@ router.patch(
   authenticate,
   authorize("ADMIN", "SALES_STAFF"),
   validateBody(updateCustomerSchema),
-  updateCustomerController
+  updateCustomerController,
 );
 
 export default router;

@@ -38,7 +38,7 @@ app.get("/api/v1/health", (_req, res) => {
   return res.status(200).json({
     status: "success",
     message: "StockFlow API is running",
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 

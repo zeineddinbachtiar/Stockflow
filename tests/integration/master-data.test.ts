@@ -1,4 +1,3 @@
-
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
@@ -56,19 +55,15 @@ const createdCustomerIds: string[] = [];
 
 function expectStatus(
   response: { status: number; body: unknown },
-  expectedStatus: number
+  expectedStatus: number,
 ): void {
-  assert.equal(
-    response.status,
-    expectedStatus,
-    JSON.stringify(response.body)
-  );
+  assert.equal(response.status, expectedStatus, JSON.stringify(response.body));
 }
 
 function expectError(
   response: { status: number; body: unknown },
   expectedStatus: number,
-  expectedCode: string
+  expectedCode: string,
 ): void {
   expectStatus(response, expectedStatus);
 
@@ -76,17 +71,10 @@ function expectError(
     code?: string;
   };
 
-  assert.equal(
-    body.code,
-    expectedCode,
-    JSON.stringify(body)
-  );
+  assert.equal(body.code, expectedCode, JSON.stringify(body));
 }
 
-function getResource<T>(
-  response: { body: unknown },
-  key: string
-): T {
+function getResource<T>(response: { body: unknown }, key: string): T {
   const body = response.body as {
     data?: Record<string, unknown>;
   };
@@ -97,7 +85,7 @@ function getResource<T>(
 
   assert.ok(
     resource && typeof resource === "object",
-    `Response resource "${key}" is missing.`
+    `Response resource "${key}" is missing.`,
   );
 
   return resource as T;
@@ -106,12 +94,9 @@ function getResource<T>(
 async function login(
   email: string,
   password: string | undefined,
-  expectedRole: string
+  expectedRole: string,
 ): Promise<string> {
-  assert.ok(
-    password,
-    `Password for ${expectedRole} is not configured.`
-  );
+  assert.ok(password, `Password for ${expectedRole} is not configured.`);
 
   const response = await request(app)
     .post("/api/v1/auth/login")
@@ -137,28 +122,23 @@ async function login(
   return accessToken;
 }
 
-
 async function createCategoryFixture(): Promise<CategoryResource> {
   const response = await request(app)
     .post("/api/v1/categories")
     .set("Authorization", `Bearer ${adminToken}`)
     .send({
       name: `M3 Product Category ${randomUUID()}`,
-      description: "Category fixture for automated tests."
+      description: "Category fixture for automated tests.",
     });
 
   expectStatus(response, 201);
 
-  const category = getResource<CategoryResource>(
-    response,
-    "category"
-  );
+  const category = getResource<CategoryResource>(response, "category");
 
   createdCategoryIds.push(category.id);
 
   return category;
 }
-
 
 // --------------------------------------------------
 // SETUP AND CLEANUP
@@ -168,19 +148,19 @@ before(async () => {
   adminToken = await login(
     "admin@stockflow.local",
     env.SEED_ADMIN_PASSWORD,
-    "ADMIN"
+    "ADMIN",
   );
 
   salesToken = await login(
     "sales@stockflow.local",
     env.SEED_SALES_PASSWORD,
-    "SALES_STAFF"
+    "SALES_STAFF",
   );
 
   warehouseToken = await login(
     "warehouse@stockflow.local",
     env.SEED_WAREHOUSE_PASSWORD,
-    "WAREHOUSE_STAFF"
+    "WAREHOUSE_STAFF",
   );
 });
 
@@ -190,28 +170,28 @@ after(async () => {
     if (createdProductIds.length > 0) {
       await pool.query(
         "DELETE FROM products WHERE id::text = ANY($1::text[])",
-        [createdProductIds]
+        [createdProductIds],
       );
     }
 
     if (createdCategoryIds.length > 0) {
       await pool.query(
         "DELETE FROM categories WHERE id::text = ANY($1::text[])",
-        [createdCategoryIds]
+        [createdCategoryIds],
       );
     }
 
     if (createdWarehouseIds.length > 0) {
       await pool.query(
         "DELETE FROM warehouses WHERE id::text = ANY($1::text[])",
-        [createdWarehouseIds]
+        [createdWarehouseIds],
       );
     }
 
     if (createdCustomerIds.length > 0) {
       await pool.query(
         "DELETE FROM customers WHERE id::text = ANY($1::text[])",
-        [createdCustomerIds]
+        [createdCustomerIds],
       );
     }
   } finally {
@@ -227,7 +207,7 @@ test("authenticated roles have the correct read permissions", async () => {
   const readableResources = [
     "/api/v1/categories",
     "/api/v1/products",
-    "/api/v1/warehouses"
+    "/api/v1/warehouses",
   ];
 
   for (const path of readableResources) {
@@ -254,18 +234,14 @@ test("authenticated roles have the correct read permissions", async () => {
     .get("/api/v1/customers")
     .set("Authorization", `Bearer ${warehouseToken}`);
 
-  expectError(
-    warehouseCustomers,
-    403,
-    "FORBIDDEN"
-  );
+  expectError(warehouseCustomers, 403, "FORBIDDEN");
 });
 
 test("only ADMIN can mutate categories, products, and warehouses", async () => {
   const protectedResources = [
     "/api/v1/categories",
     "/api/v1/products",
-    "/api/v1/warehouses"
+    "/api/v1/warehouses",
   ];
 
   for (const path of protectedResources) {
@@ -289,11 +265,7 @@ test("only ADMIN can mutate categories, products, and warehouses", async () => {
     .set("Authorization", `Bearer ${warehouseToken}`)
     .send({});
 
-  expectError(
-    warehouseCustomerCreate,
-    403,
-    "FORBIDDEN"
-  );
+  expectError(warehouseCustomerCreate, 403, "FORBIDDEN");
 });
 
 // --------------------------------------------------
@@ -309,15 +281,12 @@ test("category can be created, read, updated, and deactivated", async () => {
     .set("Authorization", `Bearer ${adminToken}`)
     .send({
       name: originalName,
-      description: "Initial category description."
+      description: "Initial category description.",
     });
 
   expectStatus(createResponse, 201);
 
-  const created = getResource<CategoryResource>(
-    createResponse,
-    "category"
-  );
+  const created = getResource<CategoryResource>(createResponse, "category");
 
   createdCategoryIds.push(created.id);
 
@@ -330,10 +299,7 @@ test("category can be created, read, updated, and deactivated", async () => {
 
   expectStatus(detailResponse, 200);
 
-  const detail = getResource<CategoryResource>(
-    detailResponse,
-    "category"
-  );
+  const detail = getResource<CategoryResource>(detailResponse, "category");
 
   assert.equal(detail.id, created.id);
 
@@ -342,35 +308,25 @@ test("category can be created, read, updated, and deactivated", async () => {
     .set("Authorization", `Bearer ${adminToken}`)
     .send({
       name: updatedName,
-      description: "Updated category description."
+      description: "Updated category description.",
     });
 
   expectStatus(updateResponse, 200);
 
-  const updated = getResource<CategoryResource>(
-    updateResponse,
-    "category"
-  );
+  const updated = getResource<CategoryResource>(updateResponse, "category");
 
   assert.equal(updated.name, updatedName);
-  assert.equal(
-    updated.description,
-    "Updated category description."
-  );
+  assert.equal(updated.description, "Updated category description.");
 
   const duplicateResponse = await request(app)
     .post("/api/v1/categories")
     .set("Authorization", `Bearer ${adminToken}`)
     .send({
       name: updatedName,
-      description: "Duplicate category."
+      description: "Duplicate category.",
     });
 
-  expectError(
-    duplicateResponse,
-    409,
-    "CATEGORY_ALREADY_EXISTS"
-  );
+  expectError(duplicateResponse, 409, "CATEGORY_ALREADY_EXISTS");
 
   const deactivateResponse = await request(app)
     .patch(`/api/v1/categories/${created.id}/deactivate`)
@@ -380,7 +336,7 @@ test("category can be created, read, updated, and deactivated", async () => {
 
   const deactivated = getResource<CategoryResource>(
     deactivateResponse,
-    "category"
+    "category",
   );
 
   assert.equal(deactivated.isActive, false);
@@ -389,11 +345,7 @@ test("category can be created, read, updated, and deactivated", async () => {
     .get(`/api/v1/categories/${created.id}`)
     .set("Authorization", `Bearer ${adminToken}`);
 
-  expectError(
-    hiddenResponse,
-    404,
-    "CATEGORY_NOT_FOUND"
-  );
+  expectError(hiddenResponse, 404, "CATEGORY_NOT_FOUND");
 });
 
 test("category rejects invalid input", async () => {
@@ -401,14 +353,10 @@ test("category rejects invalid input", async () => {
     .post("/api/v1/categories")
     .set("Authorization", `Bearer ${adminToken}`)
     .send({
-      name: ""
+      name: "",
     });
 
-  expectError(
-    response,
-    400,
-    "VALIDATION_ERROR"
-  );
+  expectError(response, 400, "VALIDATION_ERROR");
 });
 
 // --------------------------------------------------
@@ -429,15 +377,12 @@ test("product can be created, read, updated, and deactivated", async () => {
       sku: sku.toLowerCase(),
       name: "Module 3 Test Product",
       description: "Initial product description.",
-      unitPrice: "1234"
+      unitPrice: "1234",
     });
 
   expectStatus(createResponse, 201);
 
-  const created = getResource<ProductResource>(
-    createResponse,
-    "product"
-  );
+  const created = getResource<ProductResource>(createResponse, "product");
 
   createdProductIds.push(created.id);
 
@@ -452,10 +397,7 @@ test("product can be created, read, updated, and deactivated", async () => {
 
   expectStatus(detailResponse, 200);
 
-  const detail = getResource<ProductResource>(
-    detailResponse,
-    "product"
-  );
+  const detail = getResource<ProductResource>(detailResponse, "product");
 
   assert.equal(detail.id, created.id);
 
@@ -466,14 +408,10 @@ test("product can be created, read, updated, and deactivated", async () => {
       categoryId: category.id,
       sku: sku.toLowerCase(),
       name: "Duplicate SKU Product",
-      unitPrice: "100"
+      unitPrice: "100",
     });
 
-  expectError(
-    duplicateResponse,
-    409,
-    "PRODUCT_SKU_ALREADY_EXISTS"
-  );
+  expectError(duplicateResponse, 409, "PRODUCT_SKU_ALREADY_EXISTS");
 
   const updateResponse = await request(app)
     .patch(`/api/v1/products/${created.id}`)
@@ -481,15 +419,12 @@ test("product can be created, read, updated, and deactivated", async () => {
     .send({
       sku: updatedSku.toLowerCase(),
       name: "Module 3 Updated Product",
-      unitPrice: "999.5"
+      unitPrice: "999.5",
     });
 
   expectStatus(updateResponse, 200);
 
-  const updated = getResource<ProductResource>(
-    updateResponse,
-    "product"
-  );
+  const updated = getResource<ProductResource>(updateResponse, "product");
 
   assert.equal(updated.sku, updatedSku.toUpperCase());
   assert.equal(updated.name, "Module 3 Updated Product");
@@ -503,7 +438,7 @@ test("product can be created, read, updated, and deactivated", async () => {
 
   const deactivated = getResource<ProductResource>(
     deactivateResponse,
-    "product"
+    "product",
   );
 
   assert.equal(deactivated.isActive, false);
@@ -512,11 +447,7 @@ test("product can be created, read, updated, and deactivated", async () => {
     .get(`/api/v1/products/${created.id}`)
     .set("Authorization", `Bearer ${adminToken}`);
 
-  expectError(
-    hiddenResponse,
-    404,
-    "PRODUCT_NOT_FOUND"
-  );
+  expectError(hiddenResponse, 404, "PRODUCT_NOT_FOUND");
 });
 
 test("product rejects invalid prices and inactive categories", async () => {
@@ -529,14 +460,10 @@ test("product rejects invalid prices and inactive categories", async () => {
       categoryId: category.id,
       sku: `M3-INVALID-${runId.slice(0, 8)}`,
       name: "Invalid Price Product",
-      unitPrice: "-100"
+      unitPrice: "-100",
     });
 
-  expectError(
-    invalidPriceResponse,
-    400,
-    "VALIDATION_ERROR"
-  );
+  expectError(invalidPriceResponse, 400, "VALIDATION_ERROR");
 
   const deactivateCategoryResponse = await request(app)
     .patch(`/api/v1/categories/${category.id}/deactivate`)
@@ -551,14 +478,10 @@ test("product rejects invalid prices and inactive categories", async () => {
       categoryId: category.id,
       sku: `M3-INACTIVE-${runId.slice(0, 8)}`,
       name: "Inactive Category Product",
-      unitPrice: "100"
+      unitPrice: "100",
     });
 
-  expectError(
-    inactiveCategoryProductResponse,
-    404,
-    "CATEGORY_NOT_FOUND"
-  );
+  expectError(inactiveCategoryProductResponse, 404, "CATEGORY_NOT_FOUND");
 });
 
 // --------------------------------------------------
@@ -575,15 +498,12 @@ test("warehouse supports create, update, deactivate, and reactivate", async () =
     .send({
       code,
       name: "Module 3 Test Warehouse",
-      address: "Test address."
+      address: "Test address.",
     });
 
   expectStatus(createResponse, 201);
 
-  const created = getResource<WarehouseResource>(
-    createResponse,
-    "warehouse"
-  );
+  const created = getResource<WarehouseResource>(createResponse, "warehouse");
 
   createdWarehouseIds.push(created.id);
 
@@ -595,14 +515,10 @@ test("warehouse supports create, update, deactivate, and reactivate", async () =
     .set("Authorization", `Bearer ${adminToken}`)
     .send({
       code: code.toUpperCase(),
-      name: "Duplicate Warehouse"
+      name: "Duplicate Warehouse",
     });
 
-  expectError(
-    duplicateResponse,
-    409,
-    "WAREHOUSE_CODE_ALREADY_EXISTS"
-  );
+  expectError(duplicateResponse, 409, "WAREHOUSE_CODE_ALREADY_EXISTS");
 
   const updateResponse = await request(app)
     .patch(`/api/v1/warehouses/${created.id}`)
@@ -610,15 +526,12 @@ test("warehouse supports create, update, deactivate, and reactivate", async () =
     .send({
       code: updatedCode,
       name: "Module 3 Updated Warehouse",
-      address: "Updated test address."
+      address: "Updated test address.",
     });
 
   expectStatus(updateResponse, 200);
 
-  const updated = getResource<WarehouseResource>(
-    updateResponse,
-    "warehouse"
-  );
+  const updated = getResource<WarehouseResource>(updateResponse, "warehouse");
 
   assert.equal(updated.code, updatedCode.toUpperCase());
   assert.equal(updated.name, "Module 3 Updated Warehouse");
@@ -628,14 +541,10 @@ test("warehouse supports create, update, deactivate, and reactivate", async () =
     .set("Authorization", `Bearer ${adminToken}`)
     .send({
       code: "wh-jkt",
-      name: "Duplicate Existing Warehouse"
+      name: "Duplicate Existing Warehouse",
     });
 
-  expectError(
-    duplicateExistingResponse,
-    409,
-    "WAREHOUSE_CODE_ALREADY_EXISTS"
-  );
+  expectError(duplicateExistingResponse, 409, "WAREHOUSE_CODE_ALREADY_EXISTS");
 
   const deactivateResponse = await request(app)
     .patch(`/api/v1/warehouses/${created.id}/deactivate`)
@@ -645,7 +554,7 @@ test("warehouse supports create, update, deactivate, and reactivate", async () =
 
   const deactivated = getResource<WarehouseResource>(
     deactivateResponse,
-    "warehouse"
+    "warehouse",
   );
 
   assert.equal(deactivated.isActive, false);
@@ -654,11 +563,7 @@ test("warehouse supports create, update, deactivate, and reactivate", async () =
     .get(`/api/v1/warehouses/${created.id}`)
     .set("Authorization", `Bearer ${adminToken}`);
 
-  expectError(
-    hiddenResponse,
-    404,
-    "WAREHOUSE_NOT_FOUND"
-  );
+  expectError(hiddenResponse, 404, "WAREHOUSE_NOT_FOUND");
 
   const reactivateResponse = await request(app)
     .patch(`/api/v1/warehouses/${created.id}/reactivate`)
@@ -668,7 +573,7 @@ test("warehouse supports create, update, deactivate, and reactivate", async () =
 
   const reactivated = getResource<WarehouseResource>(
     reactivateResponse,
-    "warehouse"
+    "warehouse",
   );
 
   assert.equal(reactivated.isActive, true);
@@ -682,7 +587,7 @@ test("warehouse supports create, update, deactivate, and reactivate", async () =
 
   const secondReactivated = getResource<WarehouseResource>(
     secondReactivateResponse,
-    "warehouse"
+    "warehouse",
   );
 
   assert.equal(secondReactivated.isActive, true);
@@ -694,14 +599,10 @@ test("warehouse rejects invalid input", async () => {
     .set("Authorization", `Bearer ${adminToken}`)
     .send({
       code: "",
-      name: ""
+      name: "",
     });
 
-  expectError(
-    response,
-    400,
-    "VALIDATION_ERROR"
-  );
+  expectError(response, 400, "VALIDATION_ERROR");
 });
 
 // --------------------------------------------------
@@ -719,22 +620,16 @@ test("SALES_STAFF can create, read, and update customers", async () => {
       name: "Module 3 Test Customer",
       email: `module3-${runId}@example.test`,
       phone: "+62-31-555-9999",
-      address: "Sidoarjo, East Java."
+      address: "Sidoarjo, East Java.",
     });
 
   expectStatus(createResponse, 201);
 
-  const created = getResource<CustomerResource>(
-    createResponse,
-    "customer"
-  );
+  const created = getResource<CustomerResource>(createResponse, "customer");
 
   createdCustomerIds.push(created.id);
 
-  assert.equal(
-    created.customerCode,
-    customerCode.toUpperCase()
-  );
+  assert.equal(created.customerCode, customerCode.toUpperCase());
 
   const detailResponse = await request(app)
     .get(`/api/v1/customers/${created.id}`)
@@ -742,10 +637,7 @@ test("SALES_STAFF can create, read, and update customers", async () => {
 
   expectStatus(detailResponse, 200);
 
-  const detail = getResource<CustomerResource>(
-    detailResponse,
-    "customer"
-  );
+  const detail = getResource<CustomerResource>(detailResponse, "customer");
 
   assert.equal(detail.id, created.id);
 
@@ -754,35 +646,25 @@ test("SALES_STAFF can create, read, and update customers", async () => {
     .set("Authorization", `Bearer ${salesToken}`)
     .send({
       name: "Module 3 Updated Customer",
-      address: "Updated Sidoarjo address."
+      address: "Updated Sidoarjo address.",
     });
 
   expectStatus(updateResponse, 200);
 
-  const updated = getResource<CustomerResource>(
-    updateResponse,
-    "customer"
-  );
+  const updated = getResource<CustomerResource>(updateResponse, "customer");
 
   assert.equal(updated.name, "Module 3 Updated Customer");
-  assert.equal(
-    updated.address,
-    "Updated Sidoarjo address."
-  );
+  assert.equal(updated.address, "Updated Sidoarjo address.");
 
   const duplicateResponse = await request(app)
     .post("/api/v1/customers")
     .set("Authorization", `Bearer ${adminToken}`)
     .send({
       customerCode: customerCode.toUpperCase(),
-      name: "Duplicate Customer"
+      name: "Duplicate Customer",
     });
 
-  expectError(
-    duplicateResponse,
-    409,
-    "CUSTOMER_CODE_ALREADY_EXISTS"
-  );
+  expectError(duplicateResponse, 409, "CUSTOMER_CODE_ALREADY_EXISTS");
 });
 
 test("customer rejects invalid email and does not expose a DELETE route", async () => {
@@ -792,22 +674,14 @@ test("customer rejects invalid email and does not expose a DELETE route", async 
     .send({
       customerCode: `M3-INVALID-${runId.slice(0, 8)}`,
       name: "Invalid Email Customer",
-      email: "not-an-email"
+      email: "not-an-email",
     });
 
-  expectError(
-    invalidEmailResponse,
-    400,
-    "VALIDATION_ERROR"
-  );
+  expectError(invalidEmailResponse, 400, "VALIDATION_ERROR");
 
   const deleteResponse = await request(app)
     .delete("/api/v1/customers/1")
     .set("Authorization", `Bearer ${adminToken}`);
 
-  expectError(
-    deleteResponse,
-    404,
-    "ROUTE_NOT_FOUND"
-  );
+  expectError(deleteResponse, 404, "ROUTE_NOT_FOUND");
 });

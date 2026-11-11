@@ -1,4 +1,3 @@
-
 import { pool } from "../config/database";
 
 import type {
@@ -22,7 +21,7 @@ export async function findAllActiveWarehouses(): Promise<WarehouseRecord[]> {
        updated_at
      FROM warehouses
      WHERE is_active = TRUE
-     ORDER BY name ASC`
+     ORDER BY name ASC`,
   );
 
   return result.rows;
@@ -33,7 +32,7 @@ export async function findAllActiveWarehouses(): Promise<WarehouseRecord[]> {
  * Includes inactive warehouses.
  */
 export async function findWarehouseById(
-  id: string
+  id: string,
 ): Promise<WarehouseRecord | null> {
   const result = await pool.query<WarehouseRecord>(
     `SELECT
@@ -46,7 +45,7 @@ export async function findWarehouseById(
        updated_at
      FROM warehouses
      WHERE id = $1`,
-    [id]
+    [id],
   );
 
   return result.rows[0] ?? null;
@@ -57,7 +56,7 @@ export async function findWarehouseById(
  * Includes inactive warehouses because code is unique globally.
  */
 export async function findWarehouseByCode(
-  code: string
+  code: string,
 ): Promise<WarehouseRecord | null> {
   const result = await pool.query<WarehouseRecord>(
     `SELECT
@@ -70,7 +69,7 @@ export async function findWarehouseByCode(
        updated_at
      FROM warehouses
      WHERE code = $1`,
-    [code]
+    [code],
   );
 
   return result.rows[0] ?? null;
@@ -80,7 +79,7 @@ export async function findWarehouseByCode(
  * Create a new warehouse.
  */
 export async function createWarehouse(
-  input: CreateWarehouseInput
+  input: CreateWarehouseInput,
 ): Promise<WarehouseRecord> {
   const result = await pool.query<WarehouseRecord>(
     `INSERT INTO warehouses (
@@ -97,11 +96,7 @@ export async function createWarehouse(
        is_active,
        created_at,
        updated_at`,
-    [
-      input.code,
-      input.name,
-      input.address ?? null,
-    ]
+    [input.code, input.name, input.address ?? null],
   );
 
   return result.rows[0];
@@ -113,7 +108,7 @@ export async function createWarehouse(
  */
 export async function updateWarehouse(
   id: string,
-  input: UpdateWarehouseInput
+  input: UpdateWarehouseInput,
 ): Promise<WarehouseRecord | null> {
   const values: Array<string | null> = [];
   const assignments: string[] = [];
@@ -151,7 +146,7 @@ export async function updateWarehouse(
        is_active,
        created_at,
        updated_at`,
-    values
+    values,
   );
 
   return result.rows[0] ?? null;
@@ -161,7 +156,7 @@ export async function updateWarehouse(
  * Deactivate a warehouse without physically deleting it.
  */
 export async function deactivateWarehouse(
-  id: string
+  id: string,
 ): Promise<WarehouseRecord | null> {
   const result = await pool.query<WarehouseRecord>(
     `UPDATE warehouses
@@ -175,7 +170,7 @@ export async function deactivateWarehouse(
        is_active,
        created_at,
        updated_at`,
-    [id]
+    [id],
   );
 
   return result.rows[0] ?? null;
@@ -185,7 +180,7 @@ export async function deactivateWarehouse(
  * Reactivate a previously deactivated warehouse.
  */
 export async function reactivateWarehouse(
-  id: string
+  id: string,
 ): Promise<WarehouseRecord | null> {
   const result = await pool.query<WarehouseRecord>(
     `UPDATE warehouses
@@ -199,7 +194,7 @@ export async function reactivateWarehouse(
        is_active,
        created_at,
        updated_at`,
-    [id]
+    [id],
   );
 
   return result.rows[0] ?? null;

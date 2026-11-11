@@ -1,4 +1,3 @@
-
 import jwt from "jsonwebtoken";
 import { env } from "../config/env";
 import type { UserRole } from "../types/user.types";
@@ -15,7 +14,7 @@ export function generateAccessToken(user: {
 }): string {
   return jwt.sign(
     {
-      role: user.role
+      role: user.role,
     },
     env.JWT_SECRET,
     {
@@ -23,22 +22,21 @@ export function generateAccessToken(user: {
       subject: user.id,
       expiresIn: ACCESS_TOKEN_TTL_SECONDS,
       issuer: "stockflow-api",
-      audience: "stockflow-client"
-    }
+      audience: "stockflow-client",
+    },
   );
 }
 
 function isUserRole(value: unknown): value is UserRole {
   return (
-    value === "ADMIN" ||
-    value === "WAREHOUSE_STAFF" ||
-    value === "SALES_STAFF"
+    value === "ADMIN" || value === "WAREHOUSE_STAFF" || value === "SALES_STAFF"
   );
 }
 
-export function verifyAccessToken(
-  token: string
-): { id: string; role: UserRole } {
+export function verifyAccessToken(token: string): {
+  id: string;
+  role: UserRole;
+} {
   const decoded = jwt.verify(token, env.JWT_SECRET, {
     algorithms: ["HS256"],
     issuer: "stockflow-api",

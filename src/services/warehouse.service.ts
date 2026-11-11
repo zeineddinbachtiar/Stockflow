@@ -1,4 +1,3 @@
-
 import {
   createWarehouse,
   deactivateWarehouse,
@@ -9,6 +8,9 @@ import {
   updateWarehouse,
 } from "../repositories/warehouse.repositories";
 
+import { AppError } from "../errors/app-error";
+import { hasPostgresErrorCode } from "../utils/postgres-errors";
+
 import type {
   WarehouseRecord,
   PublicWarehouse,
@@ -16,26 +18,10 @@ import type {
   UpdateWarehouseInput,
 } from "../types/warehouse.types";
 
-export type WarehouseServiceErrorCode =
-  | "WAREHOUSE_NOT_FOUND"
-  | "WAREHOUSE_CODE_ALREADY_EXISTS";
-
-export class WarehouseServiceError extends Error {
-  constructor(
-    public readonly code: WarehouseServiceErrorCode,
-    message: string
-  ) {
-    super(message);
-    this.name = "WarehouseServiceError";
-  }
-}
-
 /**
  * Convert database warehouse record into public response format.
  */
-function toPublicWarehouse(
-  warehouse: WarehouseRecord
-): PublicWarehouse {
+function toPublicWarehouse(warehouse: WarehouseRecord): PublicWarehouse {
   return {
     id: warehouse.id,
     code: warehouse.code,
@@ -45,21 +31,6 @@ function toPublicWarehouse(
     createdAt: warehouse.created_at,
     updatedAt: warehouse.updated_at,
   };
-}
-
-/**
- * Check PostgreSQL error code.
- */
-function hasPostgresErrorCode(
-  error: unknown,
-  code: string
-): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === code
-  );
 }
 
 /**
@@ -74,16 +45,11 @@ export async function getAllWarehouses(): Promise<PublicWarehouse[]> {
 /**
  * Retrieve an active warehouse by ID.
  */
-export async function getWarehouseById(
-  id: string
-): Promise<PublicWarehouse> {
+export async function getWarehouseById(id: string): Promise<PublicWarehouse> {
   const warehouse = await findWarehouseById(id);
 
   if (!warehouse || !warehouse.is_active) {
-    throw new WarehouseServiceError(
-      "WAREHOUSE_NOT_FOUND",
-      "Warehouse not found."
-    );
+    throw new AppError(404, "WAREHOUSE_NOT_FOUND", "Warehouse not found.");
   }
 
   return toPublicWarehouse(warehouse);
@@ -93,7 +59,7 @@ export async function getWarehouseById(
  * Create a new warehouse.
  */
 export async function createNewWarehouse(
-  input: CreateWarehouseInput
+  input: CreateWarehouseInput,
 ): Promise<PublicWarehouse> {
   const normalizedCode = input.code.trim().toUpperCase();
   const normalizedName = input.name.trim();
@@ -103,9 +69,10 @@ export async function createNewWarehouse(
   const existingWarehouse = await findWarehouseByCode(normalizedCode);
 
   if (existingWarehouse) {
-    throw new WarehouseServiceError(
+    throw new AppError(
+      409,
       "WAREHOUSE_CODE_ALREADY_EXISTS",
-      "Warehouse code is already registered."
+      "Warehouse code is already registered.",
     );
   }
 
@@ -120,9 +87,10 @@ export async function createNewWarehouse(
   } catch (error: unknown) {
     // Handle duplicate-code race conditions.
     if (hasPostgresErrorCode(error, "23505")) {
-      throw new WarehouseServiceError(
+      throw new AppError(
+        409,
         "WAREHOUSE_CODE_ALREADY_EXISTS",
-        "Warehouse code is already registered."
+        "Warehouse code is already registered.",
       );
     }
 
@@ -135,15 +103,12 @@ export async function createNewWarehouse(
  */
 export async function updateExistingWarehouse(
   id: string,
-  input: UpdateWarehouseInput
+  input: UpdateWarehouseInput,
 ): Promise<PublicWarehouse> {
   const currentWarehouse = await findWarehouseById(id);
 
   if (!currentWarehouse || !currentWarehouse.is_active) {
-    throw new WarehouseServiceError(
-      "WAREHOUSE_NOT_FOUND",
-      "Warehouse not found."
-    );
+    throw new AppError(404, "WAREHOUSE_NOT_FOUND", "Warehouse not found.");
   }
 
   const normalizedInput: UpdateWarehouseInput = {};
@@ -152,14 +117,13 @@ export async function updateExistingWarehouse(
   if (input.code !== undefined) {
     const normalizedCode = input.code.trim().toUpperCase();
 
-    const existingWarehouse = await findWarehouseByCode(
-      normalizedCode
-    );
+    const existingWarehouse = await findWarehouseByCode(normalizedCode);
 
     if (existingWarehouse && existingWarehouse.id !== id) {
-      throw new WarehouseServiceError(
+      throw new AppError(
+        409,
         "WAREHOUSE_CODE_ALREADY_EXISTS",
-        "Warehouse code is already registered."
+        "Warehouse code is already registered.",
       );
     }
 
@@ -173,30 +137,24 @@ export async function updateExistingWarehouse(
 
   // Normalize address.
   if (input.address !== undefined) {
-    normalizedInput.address =
-      input.address?.trim() || null;
+    normalizedInput.address = input.address?.trim() || null;
   }
 
   try {
-    const updatedWarehouse = await updateWarehouse(
-      id,
-      normalizedInput
-    );
+    const updatedWarehouse = await updateWarehouse(id, normalizedInput);
 
     if (!updatedWarehouse) {
-      throw new WarehouseServiceError(
-        "WAREHOUSE_NOT_FOUND",
-        "Warehouse not found."
-      );
+      throw new AppError(404, "WAREHOUSE_NOT_FOUND", "Warehouse not found.");
     }
 
     return toPublicWarehouse(updatedWarehouse);
   } catch (error: unknown) {
     // Handle duplicate-code race conditions.
     if (hasPostgresErrorCode(error, "23505")) {
-      throw new WarehouseServiceError(
+      throw new AppError(
+        409,
         "WAREHOUSE_CODE_ALREADY_EXISTS",
-        "Warehouse code is already registered."
+        "Warehouse code is already registered.",
       );
     }
 
@@ -208,24 +166,18 @@ export async function updateExistingWarehouse(
  * Deactivate an active warehouse.
  */
 export async function deactivateExistingWarehouse(
-  id: string
+  id: string,
 ): Promise<PublicWarehouse> {
   const currentWarehouse = await findWarehouseById(id);
 
   if (!currentWarehouse || !currentWarehouse.is_active) {
-    throw new WarehouseServiceError(
-      "WAREHOUSE_NOT_FOUND",
-      "Warehouse not found."
-    );
+    throw new AppError(404, "WAREHOUSE_NOT_FOUND", "Warehouse not found.");
   }
 
   const deactivatedWarehouse = await deactivateWarehouse(id);
 
   if (!deactivatedWarehouse) {
-    throw new WarehouseServiceError(
-      "WAREHOUSE_NOT_FOUND",
-      "Warehouse not found."
-    );
+    throw new AppError(404, "WAREHOUSE_NOT_FOUND", "Warehouse not found.");
   }
 
   return toPublicWarehouse(deactivatedWarehouse);
@@ -235,15 +187,12 @@ export async function deactivateExistingWarehouse(
  * Reactivate a previously deactivated warehouse.
  */
 export async function reactivateExistingWarehouse(
-  id: string
+  id: string,
 ): Promise<PublicWarehouse> {
   const currentWarehouse = await findWarehouseById(id);
 
   if (!currentWarehouse) {
-    throw new WarehouseServiceError(
-      "WAREHOUSE_NOT_FOUND",
-      "Warehouse not found."
-    );
+    throw new AppError(404, "WAREHOUSE_NOT_FOUND", "Warehouse not found.");
   }
 
   // Make reactivation idempotent.
@@ -254,10 +203,7 @@ export async function reactivateExistingWarehouse(
   const reactivatedWarehouse = await reactivateWarehouse(id);
 
   if (!reactivatedWarehouse) {
-    throw new WarehouseServiceError(
-      "WAREHOUSE_NOT_FOUND",
-      "Warehouse not found."
-    );
+    throw new AppError(404, "WAREHOUSE_NOT_FOUND", "Warehouse not found.");
   }
 
   return toPublicWarehouse(reactivatedWarehouse);

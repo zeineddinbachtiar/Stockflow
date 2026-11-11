@@ -1,9 +1,8 @@
+import type { RequestHandler } from "express";
 
-import type { RequestHandler, Response } from "express";
 import { parsePositiveBigIntId } from "../utils/route-params";
 
 import {
-  WarehouseServiceError,
   createNewWarehouse,
   deactivateExistingWarehouse,
   getAllWarehouses,
@@ -21,112 +20,72 @@ import type {
  * Validate warehouse ID from route parameters.
  */
 function getWarehouseId(param: unknown): string {
-  return parsePositiveBigIntId(
-    param,
-    "INVALID_WAREHOUSE_ID",
-    "Warehouse"
-  );
-}
-
-/**
- * Handle errors returned by warehouse service.
- */
-function handleWarehouseError(
-  error: unknown,
-  _res: Response
-): never {
-  throw error;
+  return parsePositiveBigIntId(param, "INVALID_WAREHOUSE_ID", "Warehouse");
 }
 
 /**
  * GET /api/v1/warehouses
  */
 export const listWarehouses: RequestHandler = async (_req, res) => {
-  try {
-    const warehouses = await getAllWarehouses();
+  const warehouses = await getAllWarehouses();
 
-    res.status(200).json({
-      status: "success",
-      data: {
-        warehouses,
-      },
-    });
-  } catch (error: unknown) {
-    handleWarehouseError(error, res);
-  }
+  res.status(200).json({
+    status: "success",
+    data: {
+      warehouses,
+    },
+  });
 };
 
 /**
  * GET /api/v1/warehouses/:id
  */
 export const getWarehouse: RequestHandler = async (req, res) => {
-  try {
-    const warehouseId = getWarehouseId(req.params.id);
+  const warehouseId = getWarehouseId(req.params.id);
 
-    const warehouse = await getWarehouseById(warehouseId);
+  const warehouse = await getWarehouseById(warehouseId);
 
-    res.status(200).json({
-      status: "success",
-      data: {
-        warehouse,
-      },
-    });
-  } catch (error: unknown) {
-    handleWarehouseError(error, res);
-  }
+  res.status(200).json({
+    status: "success",
+    data: {
+      warehouse,
+    },
+  });
 };
 
 /**
  * POST /api/v1/warehouses
  */
-export const createWarehouseController: RequestHandler = async (
-  req,
-  res
-) => {
-  try {
-    const input = req.body as CreateWarehouseInput;
+export const createWarehouseController: RequestHandler = async (req, res) => {
+  const input = req.body as CreateWarehouseInput;
 
-    const warehouse = await createNewWarehouse(input);
+  const warehouse = await createNewWarehouse(input);
 
-    res.status(201).json({
-      status: "success",
-      message: "Warehouse created successfully.",
-      data: {
-        warehouse,
-      },
-    });
-  } catch (error: unknown) {
-    handleWarehouseError(error, res);
-  }
+  res.status(201).json({
+    status: "success",
+    message: "Warehouse created successfully.",
+    data: {
+      warehouse,
+    },
+  });
 };
 
 /**
  * PATCH /api/v1/warehouses/:id
  */
-export const updateWarehouseController: RequestHandler = async (
-  req,
-  res
-) => {
-  try {
-    const warehouseId = getWarehouseId(req.params.id);
+export const updateWarehouseController: RequestHandler = async (req, res) => {
+  const warehouseId = getWarehouseId(req.params.id);
+  const input = req.body as UpdateWarehouseInput;
 
-    const input = req.body as UpdateWarehouseInput;
+  const warehouse = await updateExistingWarehouse(warehouseId, input);
 
-    const warehouse = await updateExistingWarehouse(
-      warehouseId,
-      input
-    );
-
-    res.status(200).json({
-      status: "success",
-      message: "Warehouse updated successfully.",
-      data: {
-        warehouse,
-      },
-    });
-  } catch (error: unknown) {
-    handleWarehouseError(error, res);
-  }
+  res.status(200).json({
+    status: "success",
+    message: "Warehouse updated successfully.",
+    data: {
+      warehouse,
+    },
+  });
 };
 
 /**
@@ -134,23 +93,19 @@ export const updateWarehouseController: RequestHandler = async (
  */
 export const deactivateWarehouseController: RequestHandler = async (
   req,
-  res
+  res,
 ) => {
-  try {
-    const warehouseId = getWarehouseId(req.params.id);
+  const warehouseId = getWarehouseId(req.params.id);
 
-    const warehouse = await deactivateExistingWarehouse(warehouseId);
+  const warehouse = await deactivateExistingWarehouse(warehouseId);
 
-    res.status(200).json({
-      status: "success",
-      message: "Warehouse deactivated successfully.",
-      data: {
-        warehouse,
-      },
-    });
-  } catch (error: unknown) {
-    handleWarehouseError(error, res);
-  }
+  res.status(200).json({
+    status: "success",
+    message: "Warehouse deactivated successfully.",
+    data: {
+      warehouse,
+    },
+  });
 };
 
 /**
@@ -158,21 +113,17 @@ export const deactivateWarehouseController: RequestHandler = async (
  */
 export const reactivateWarehouseController: RequestHandler = async (
   req,
-  res
+  res,
 ) => {
-  try {
-    const warehouseId = getWarehouseId(req.params.id);
+  const warehouseId = getWarehouseId(req.params.id);
 
-    const warehouse = await reactivateExistingWarehouse(warehouseId);
+  const warehouse = await reactivateExistingWarehouse(warehouseId);
 
-    res.status(200).json({
-      status: "success",
-      message: "Warehouse reactivated successfully.",
-      data: {
-        warehouse,
-      },
-    });
-  } catch (error: unknown) {
-    handleWarehouseError(error, res);
-  }
+  res.status(200).json({
+    status: "success",
+    message: "Warehouse reactivated successfully.",
+    data: {
+      warehouse,
+    },
+  });
 };

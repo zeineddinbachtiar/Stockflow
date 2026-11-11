@@ -1,4 +1,3 @@
-
 const dotenv = require("dotenv");
 
 // Load local environment configuration.
@@ -6,9 +5,7 @@ dotenv.config();
 
 // Do not allow test execution under production mode.
 if (process.env.NODE_ENV === "production") {
-  throw new Error(
-    "Automated tests cannot run with NODE_ENV=production."
-  );
+  throw new Error("Automated tests cannot run with NODE_ENV=production.");
 }
 
 // Force test environment.
@@ -23,23 +20,15 @@ const requiredVariables = [
   "DB_PORT",
   "DB_USER",
   "DB_PASSWORD",
-  "JWT_SECRET"
+  "JWT_SECRET",
 ];
 
-const missingVariables = requiredVariables.filter(
-  (name) => !process.env[name]
-);
+const missingVariables = requiredVariables.filter((name) => !process.env[name]);
 
 if (missingVariables.length > 0) {
-  throw new Error(
-    `Missing test configuration: ${missingVariables.join(", ")}`
-  );
+  throw new Error(`Missing test configuration: ${missingVariables.join(", ")}`);
 }
 
-console.log(
-  `[TEST ENV] NODE_ENV=${process.env.NODE_ENV}`
-);
+console.log(`[TEST ENV] NODE_ENV=${process.env.NODE_ENV}`);
 
-console.log(
-  `[TEST ENV] DB_NAME=${process.env.DB_NAME}`
-);
+console.log(`[TEST ENV] DB_NAME=${process.env.DB_NAME}`);

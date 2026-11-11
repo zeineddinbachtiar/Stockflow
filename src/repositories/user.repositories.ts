@@ -1,9 +1,5 @@
-
 import { pool } from "../config/database";
-import type {
-  CreateUserInput,
-  UserRecord
-} from "../types/user.types";
+import type { CreateUserInput, UserRecord } from "../types/user.types";
 
 // Define selected database columns.
 const USER_COLUMNS = `
@@ -21,7 +17,7 @@ const USER_COLUMNS = `
  * Find user by email.
  */
 export async function findUserByEmail(
-  email: string
+  email: string,
 ): Promise<UserRecord | null> {
   const result = await pool.query<UserRecord>(
     `
@@ -30,7 +26,7 @@ export async function findUserByEmail(
       WHERE email = $1
       LIMIT 1
     `,
-    [email]
+    [email],
   );
 
   return result.rows[0] ?? null;
@@ -39,9 +35,7 @@ export async function findUserByEmail(
 /**
  * Find user by ID.
  */
-export async function findUserById(
-  id: string
-): Promise<UserRecord | null> {
+export async function findUserById(id: string): Promise<UserRecord | null> {
   const result = await pool.query<UserRecord>(
     `
       SELECT ${USER_COLUMNS}
@@ -49,7 +43,7 @@ export async function findUserById(
       WHERE id = $1
       LIMIT 1
     `,
-    [id]
+    [id],
   );
 
   return result.rows[0] ?? null;
@@ -58,9 +52,7 @@ export async function findUserById(
 /**
  * Create a new user.
  */
-export async function createUser(
-  input: CreateUserInput
-): Promise<UserRecord> {
+export async function createUser(input: CreateUserInput): Promise<UserRecord> {
   const result = await pool.query<UserRecord>(
     `
       INSERT INTO users (
@@ -72,12 +64,7 @@ export async function createUser(
       VALUES ($1, $2, $3, $4)
       RETURNING ${USER_COLUMNS}
     `,
-    [
-      input.fullName,
-      input.email,
-      input.passwordHash,
-      input.role
-    ]
+    [input.fullName, input.email, input.passwordHash, input.role],
   );
 
   const user = result.rows[0];

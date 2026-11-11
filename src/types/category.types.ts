@@ -1,4 +1,3 @@
-
 export interface CategoryRecord {
   id: string;
   name: string;

@@ -1,4 +1,3 @@
-
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 
@@ -22,30 +21,18 @@ test("environment uses the isolated test database", () => {
 test("PostgreSQL connects to stockflow_test_db", async () => {
   const result = await pool.query<{
     database_name: string;
-  }>(
-    "SELECT current_database() AS database_name"
-  );
+  }>("SELECT current_database() AS database_name");
 
-  assert.equal(
-    result.rows[0]?.database_name,
-    "stockflow_test_db"
-  );
+  assert.equal(result.rows[0]?.database_name, "stockflow_test_db");
 });
 
 test("health endpoint returns HTTP 200", async () => {
-  const response = await request(app)
-    .get("/api/v1/health");
+  const response = await request(app).get("/api/v1/health");
 
   assert.equal(response.status, 200);
   assert.equal(response.body.status, "success");
 
-  assert.equal(
-    response.body.message,
-    "StockFlow API is running"
-  );
+  assert.equal(response.body.message, "StockFlow API is running");
 
-  assert.equal(
-    typeof response.body.timestamp,
-    "string"
-  );
+  assert.equal(typeof response.body.timestamp, "string");
 });

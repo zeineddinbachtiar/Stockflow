@@ -1,4 +1,3 @@
-
 export type OrderStatus = "DRAFT" | "CONFIRMED" | "CANCELLED";
 
 export interface OrderRecord {

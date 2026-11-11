@@ -1,4 +1,3 @@
-
 import { pool } from "../config/database";
 import type {
   CategoryRecord,
@@ -20,7 +19,7 @@ export async function findAllActiveCategories(): Promise<CategoryRecord[]> {
        updated_at
      FROM categories
      WHERE is_active = TRUE
-     ORDER BY name ASC`
+     ORDER BY name ASC`,
   );
 
   return result.rows;
@@ -31,7 +30,7 @@ export async function findAllActiveCategories(): Promise<CategoryRecord[]> {
  * Returns null if the category does not exist.
  */
 export async function findCategoryById(
-  id: string
+  id: string,
 ): Promise<CategoryRecord | null> {
   const result = await pool.query<CategoryRecord>(
     `SELECT
@@ -43,7 +42,7 @@ export async function findCategoryById(
        updated_at
      FROM categories
      WHERE id = $1`,
-    [id]
+    [id],
   );
 
   return result.rows[0] ?? null;
@@ -55,7 +54,7 @@ export async function findCategoryById(
  * across the entire table.
  */
 export async function findCategoryByName(
-  name: string
+  name: string,
 ): Promise<CategoryRecord | null> {
   const result = await pool.query<CategoryRecord>(
     `SELECT
@@ -67,7 +66,7 @@ export async function findCategoryByName(
        updated_at
      FROM categories
      WHERE name = $1`,
-    [name]
+    [name],
   );
 
   return result.rows[0] ?? null;
@@ -77,7 +76,7 @@ export async function findCategoryByName(
  * Create a new category.
  */
 export async function createCategory(
-  input: CreateCategoryInput
+  input: CreateCategoryInput,
 ): Promise<CategoryRecord> {
   const result = await pool.query<CategoryRecord>(
     `INSERT INTO categories (name, description)
@@ -89,7 +88,7 @@ export async function createCategory(
        is_active,
        created_at,
        updated_at`,
-    [input.name, input.description ?? null]
+    [input.name, input.description ?? null],
   );
 
   return result.rows[0];
@@ -101,7 +100,7 @@ export async function createCategory(
  */
 export async function updateCategory(
   id: string,
-  input: UpdateCategoryInput
+  input: UpdateCategoryInput,
 ): Promise<CategoryRecord | null> {
   const values: Array<string | null> = [];
   const assignments: string[] = [];
@@ -133,7 +132,7 @@ export async function updateCategory(
        is_active,
        created_at,
        updated_at`,
-    values
+    values,
   );
 
   return result.rows[0] ?? null;
@@ -143,7 +142,7 @@ export async function updateCategory(
  * Deactivate a category without physically deleting it.
  */
 export async function deactivateCategory(
-  id: string
+  id: string,
 ): Promise<CategoryRecord | null> {
   const result = await pool.query<CategoryRecord>(
     `UPDATE categories
@@ -156,9 +155,8 @@ export async function deactivateCategory(
        is_active,
        created_at,
        updated_at`,
-    [id]
+    [id],
   );
 
   return result.rows[0] ?? null;
 }
-

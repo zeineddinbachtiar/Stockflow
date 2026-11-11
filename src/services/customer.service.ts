@@ -6,6 +6,9 @@ import {
   updateCustomer,
 } from "../repositories/customer.repositories";
 
+import { AppError } from "../errors/app-error";
+import { hasPostgresErrorCode } from "../utils/postgres-errors";
+
 import type {
   CustomerRecord,
   PublicCustomer,
@@ -13,26 +16,10 @@ import type {
   UpdateCustomerInput,
 } from "../types/customer.types";
 
-export type CustomerServiceErrorCode =
-  | "CUSTOMER_NOT_FOUND"
-  | "CUSTOMER_CODE_ALREADY_EXISTS";
-
-export class CustomerServiceError extends Error {
-  constructor(
-    public readonly code: CustomerServiceErrorCode,
-    message: string
-  ) {
-    super(message);
-    this.name = "CustomerServiceError";
-  }
-}
-
 /**
  * Convert database customer record into public response format.
  */
-function toPublicCustomer(
-  customer: CustomerRecord
-): PublicCustomer {
+function toPublicCustomer(customer: CustomerRecord): PublicCustomer {
   return {
     id: customer.id,
     customerCode: customer.customer_code,
@@ -43,21 +30,6 @@ function toPublicCustomer(
     createdAt: customer.created_at,
     updatedAt: customer.updated_at,
   };
-}
-
-/**
- * Check PostgreSQL error code.
- */
-function hasPostgresErrorCode(
-  error: unknown,
-  code: string
-): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === code
-  );
 }
 
 /**
@@ -72,16 +44,11 @@ export async function getAllCustomers(): Promise<PublicCustomer[]> {
 /**
  * Retrieve a customer by ID.
  */
-export async function getCustomerById(
-  id: string
-): Promise<PublicCustomer> {
+export async function getCustomerById(id: string): Promise<PublicCustomer> {
   const customer = await findCustomerById(id);
 
   if (!customer) {
-    throw new CustomerServiceError(
-      "CUSTOMER_NOT_FOUND",
-      "Customer not found."
-    );
+    throw new AppError(404, "CUSTOMER_NOT_FOUND", "Customer not found.");
   }
 
   return toPublicCustomer(customer);
@@ -91,7 +58,7 @@ export async function getCustomerById(
  * Create a new customer.
  */
 export async function createNewCustomer(
-  input: CreateCustomerInput
+  input: CreateCustomerInput,
 ): Promise<PublicCustomer> {
   const normalizedInput: CreateCustomerInput = {
     customerCode: input.customerCode.trim().toUpperCase(),
@@ -103,13 +70,14 @@ export async function createNewCustomer(
 
   // Check whether the customer code has already been used.
   const existingCustomer = await findCustomerByCode(
-    normalizedInput.customerCode
+    normalizedInput.customerCode,
   );
 
   if (existingCustomer) {
-    throw new CustomerServiceError(
+    throw new AppError(
+      409,
       "CUSTOMER_CODE_ALREADY_EXISTS",
-      "Customer code is already registered."
+      "Customer code is already registered.",
     );
   }
 
@@ -120,9 +88,10 @@ export async function createNewCustomer(
   } catch (error: unknown) {
     // Handle duplicate-code race conditions.
     if (hasPostgresErrorCode(error, "23505")) {
-      throw new CustomerServiceError(
+      throw new AppError(
+        409,
         "CUSTOMER_CODE_ALREADY_EXISTS",
-        "Customer code is already registered."
+        "Customer code is already registered.",
       );
     }
 
@@ -135,33 +104,27 @@ export async function createNewCustomer(
  */
 export async function updateExistingCustomer(
   id: string,
-  input: UpdateCustomerInput
+  input: UpdateCustomerInput,
 ): Promise<PublicCustomer> {
   const currentCustomer = await findCustomerById(id);
 
   if (!currentCustomer) {
-    throw new CustomerServiceError(
-      "CUSTOMER_NOT_FOUND",
-      "Customer not found."
-    );
+    throw new AppError(404, "CUSTOMER_NOT_FOUND", "Customer not found.");
   }
 
   const normalizedInput: UpdateCustomerInput = {};
 
   // Normalize and check customer code uniqueness.
   if (input.customerCode !== undefined) {
-    const normalizedCode = input.customerCode
-      .trim()
-      .toUpperCase();
+    const normalizedCode = input.customerCode.trim().toUpperCase();
 
-    const existingCustomer = await findCustomerByCode(
-      normalizedCode
-    );
+    const existingCustomer = await findCustomerByCode(normalizedCode);
 
     if (existingCustomer && existingCustomer.id !== id) {
-      throw new CustomerServiceError(
+      throw new AppError(
+        409,
         "CUSTOMER_CODE_ALREADY_EXISTS",
-        "Customer code is already registered."
+        "Customer code is already registered.",
       );
     }
 
@@ -173,8 +136,7 @@ export async function updateExistingCustomer(
   }
 
   if (input.email !== undefined) {
-    normalizedInput.email =
-      input.email?.trim().toLowerCase() || null;
+    normalizedInput.email = input.email?.trim().toLowerCase() || null;
   }
 
   if (input.phone !== undefined) {
@@ -186,25 +148,20 @@ export async function updateExistingCustomer(
   }
 
   try {
-    const updatedCustomer = await updateCustomer(
-      id,
-      normalizedInput
-    );
+    const updatedCustomer = await updateCustomer(id, normalizedInput);
 
     if (!updatedCustomer) {
-      throw new CustomerServiceError(
-        "CUSTOMER_NOT_FOUND",
-        "Customer not found."
-      );
+      throw new AppError(404, "CUSTOMER_NOT_FOUND", "Customer not found.");
     }
 
     return toPublicCustomer(updatedCustomer);
   } catch (error: unknown) {
     // Handle duplicate-code race conditions.
     if (hasPostgresErrorCode(error, "23505")) {
-      throw new CustomerServiceError(
+      throw new AppError(
+        409,
         "CUSTOMER_CODE_ALREADY_EXISTS",
-        "Customer code is already registered."
+        "Customer code is already registered.",
       );
     }
 

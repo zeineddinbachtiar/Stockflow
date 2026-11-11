@@ -1,4 +1,3 @@
-
 export interface ProductRecord {
   id: string;
   category_id: string;

@@ -1,4 +1,3 @@
-
 import type { PublicStockMovement } from "./stock-movement.types";
 
 export interface InventoryBalanceRecord {

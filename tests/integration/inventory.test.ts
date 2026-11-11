@@ -1,4 +1,3 @@
-
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import request from "supertest";
@@ -50,19 +49,15 @@ const adjustmentMovementIds: string[] = [];
 
 function expectStatus(
   response: { status: number; body: unknown },
-  expectedStatus: number
+  expectedStatus: number,
 ): void {
-  assert.equal(
-    response.status,
-    expectedStatus,
-    JSON.stringify(response.body)
-  );
+  assert.equal(response.status, expectedStatus, JSON.stringify(response.body));
 }
 
 function expectError(
   response: { status: number; body: unknown },
   expectedStatus: number,
-  expectedCode: string
+  expectedCode: string,
 ): void {
   expectStatus(response, expectedStatus);
 
@@ -70,16 +65,10 @@ function expectError(
     code?: string;
   };
 
-  assert.equal(
-    body.code,
-    expectedCode,
-    JSON.stringify(body)
-  );
+  assert.equal(body.code, expectedCode, JSON.stringify(body));
 }
 
-function recordMovement(
-  movement: MovementRecord
-): void {
+function recordMovement(movement: MovementRecord): void {
   movementIds.push(movement.id);
 
   if (movement.movementType === "RECEIPT") {
@@ -94,7 +83,7 @@ function recordMovement(
 async function login(
   email: string,
   password: string | undefined,
-  role: string
+  role: string,
 ): Promise<string> {
   assert.ok(password, `Password for ${role} is missing.`);
 
@@ -122,9 +111,7 @@ async function getCurrentInventory(): Promise<InventoryRecord> {
 
   expectStatus(response, 200);
 
-  const current = response.body.data?.inventory as
-    | InventoryRecord
-    | undefined;
+  const current = response.body.data?.inventory as InventoryRecord | undefined;
 
   assert.ok(current, "Inventory detail is missing.");
 
@@ -140,7 +127,7 @@ async function getMovementTotal(): Promise<number> {
       warehouseId: inventory.warehouseId,
       productId: inventory.productId,
       limit: 1,
-      offset: 0
+      offset: 0,
     })
     .set("Authorization", `Bearer ${adminToken}`);
 
@@ -157,19 +144,19 @@ before(async () => {
   adminToken = await login(
     "admin@stockflow.local",
     env.SEED_ADMIN_PASSWORD,
-    "ADMIN"
+    "ADMIN",
   );
 
   warehouseToken = await login(
     "warehouse@stockflow.local",
     env.SEED_WAREHOUSE_PASSWORD,
-    "WAREHOUSE_STAFF"
+    "WAREHOUSE_STAFF",
   );
 
   salesToken = await login(
     "sales@stockflow.local",
     env.SEED_SALES_PASSWORD,
-    "SALES_STAFF"
+    "SALES_STAFF",
   );
 
   // Find the dedicated seeded inventory fixture.
@@ -177,15 +164,13 @@ before(async () => {
     .get("/api/v1/inventory")
     .query({
       limit: 100,
-      offset: 0
+      offset: 0,
     })
     .set("Authorization", `Bearer ${adminToken}`);
 
   expectStatus(response, 200);
 
-  const items = response.body.data?.inventory as
-    | InventoryRecord[]
-    | undefined;
+  const items = response.body.data?.inventory as InventoryRecord[] | undefined;
 
   assert.ok(items, "Inventory list is missing.");
 
@@ -194,12 +179,12 @@ before(async () => {
       item.warehouseCode === "WH-JKT" &&
       item.productSku === "LAP-001" &&
       item.warehouseIsActive &&
-      item.productIsActive
+      item.productIsActive,
   );
 
   assert.ok(
     selected,
-    "Seeded inventory WH-JKT / LAP-001 was not found or is inactive."
+    "Seeded inventory WH-JKT / LAP-001 was not found or is inactive.",
   );
 
   inventory = selected;
@@ -210,7 +195,7 @@ before(async () => {
 
   assert.ok(
     baselineQuantity >= 2,
-    "Seeded inventory must contain at least 2 units for concurrency tests."
+    "Seeded inventory must contain at least 2 units for concurrency tests.",
   );
 });
 
@@ -228,20 +213,18 @@ after(async () => {
         `SELECT quantity_on_hand
          FROM inventory
          WHERE id = $1`,
-        [inventory.id]
+        [inventory.id],
       );
 
-      const currentQuantity =
-        result.rows[0]?.quantity_on_hand;
+      const currentQuantity = result.rows[0]?.quantity_on_hand;
 
       if (currentQuantity === undefined) {
         throw new Error(
-          "Could not read inventory balance during test cleanup."
+          "Could not read inventory balance during test cleanup.",
         );
       }
 
-      const quantityDelta =
-        baselineQuantity - currentQuantity;
+      const quantityDelta = baselineQuantity - currentQuantity;
 
       if (quantityDelta !== 0) {
         const restoreResponse = await request(app)
@@ -251,13 +234,13 @@ after(async () => {
             warehouseId: inventory.warehouseId,
             productId: inventory.productId,
             quantityDelta,
-            reason: `${testReason} - restore original stock`
+            reason: `${testReason} - restore original stock`,
           });
 
         assert.equal(
           restoreResponse.status,
           201,
-          `Could not restore original stock: ${JSON.stringify(restoreResponse.body)}`
+          `Could not restore original stock: ${JSON.stringify(restoreResponse.body)}`,
         );
       }
 
@@ -266,13 +249,13 @@ after(async () => {
         .patch(`/api/v1/inventory/${inventory.id}/reorder-level`)
         .set("Authorization", `Bearer ${adminToken}`)
         .send({
-          reorderLevel: baselineReorderLevel
+          reorderLevel: baselineReorderLevel,
         });
 
       assert.equal(
         reorderResponse.status,
         200,
-        `Could not restore reorder level: ${JSON.stringify(reorderResponse.body)}`
+        `Could not restore reorder level: ${JSON.stringify(reorderResponse.body)}`,
       );
     }
   } finally {
@@ -285,11 +268,7 @@ after(async () => {
 // --------------------------------------------------
 
 test("ADMIN, WAREHOUSE_STAFF, and SALES_STAFF can read inventory", async () => {
-  for (const token of [
-    adminToken,
-    warehouseToken,
-    salesToken
-  ]) {
+  for (const token of [adminToken, warehouseToken, salesToken]) {
     const response = await request(app)
       .get("/api/v1/inventory")
       .set("Authorization", `Bearer ${token}`);
@@ -307,15 +286,13 @@ test("inventory filtering returns the requested warehouse/product pair", async (
       warehouseId: inventory.warehouseId,
       productId: inventory.productId,
       limit: 10,
-      offset: 0
+      offset: 0,
     })
     .set("Authorization", `Bearer ${adminToken}`);
 
   expectStatus(response, 200);
 
-  const items = response.body.data?.inventory as
-    | InventoryRecord[]
-    | undefined;
+  const items = response.body.data?.inventory as InventoryRecord[] | undefined;
 
   assert.ok(items);
   assert.equal(items.length, 1);
@@ -327,15 +304,13 @@ test("inventory pagination returns the requested page size", async () => {
     .get("/api/v1/inventory")
     .query({
       limit: 1,
-      offset: 0
+      offset: 0,
     })
     .set("Authorization", `Bearer ${adminToken}`);
 
   expectStatus(response, 200);
 
-  const items = response.body.data?.inventory as
-    | InventoryRecord[]
-    | undefined;
+  const items = response.body.data?.inventory as InventoryRecord[] | undefined;
 
   assert.ok(items);
   assert.equal(items.length, 1);
@@ -346,14 +321,9 @@ test("inventory pagination returns the requested page size", async () => {
 // --------------------------------------------------
 
 test("inventory requires authentication", async () => {
-  const response = await request(app)
-    .get("/api/v1/inventory");
+  const response = await request(app).get("/api/v1/inventory");
 
-  expectError(
-    response,
-    401,
-    "AUTHENTICATION_REQUIRED"
-  );
+  expectError(response, 401, "AUTHENTICATION_REQUIRED");
 });
 
 test("only ADMIN and WAREHOUSE_STAFF can access stock movements", async () => {
@@ -373,11 +343,7 @@ test("only ADMIN and WAREHOUSE_STAFF can access stock movements", async () => {
     .get("/api/v1/stock-movements")
     .set("Authorization", `Bearer ${salesToken}`);
 
-  expectError(
-    salesResponse,
-    403,
-    "FORBIDDEN"
-  );
+  expectError(salesResponse, 403, "FORBIDDEN");
 });
 
 test("SALES_STAFF cannot perform stock operations", async () => {
@@ -390,14 +356,10 @@ test("SALES_STAFF cannot perform stock operations", async () => {
       warehouseId: inventory.warehouseId,
       productId: inventory.productId,
       quantity: 1,
-      reason: testReason
+      reason: testReason,
     });
 
-  expectError(
-    response,
-    403,
-    "FORBIDDEN"
-  );
+  expectError(response, 403, "FORBIDDEN");
 });
 
 // --------------------------------------------------
@@ -414,18 +376,14 @@ test("ADMIN can receive stock and create a RECEIPT movement", async () => {
       warehouseId: inventory.warehouseId,
       productId: inventory.productId,
       quantity: 5,
-      reason: `${testReason} - admin receipt`
+      reason: `${testReason} - admin receipt`,
     });
 
   expectStatus(response, 201);
 
-  const updated = response.body.data?.inventory as
-    | InventoryRecord
-    | undefined;
+  const updated = response.body.data?.inventory as InventoryRecord | undefined;
 
-  const movement = response.body.data?.movement as
-    | MovementRecord
-    | undefined;
+  const movement = response.body.data?.movement as MovementRecord | undefined;
 
   assert.ok(updated);
   assert.ok(movement);
@@ -454,18 +412,14 @@ test("ADMIN can issue stock and record a negative ISSUE delta", async () => {
       warehouseId: inventory.warehouseId,
       productId: inventory.productId,
       quantity: 2,
-      reason: `${testReason} - admin issue`
+      reason: `${testReason} - admin issue`,
     });
 
   expectStatus(response, 201);
 
-  const updated = response.body.data?.inventory as
-    | InventoryRecord
-    | undefined;
+  const updated = response.body.data?.inventory as InventoryRecord | undefined;
 
-  const movement = response.body.data?.movement as
-    | MovementRecord
-    | undefined;
+  const movement = response.body.data?.movement as MovementRecord | undefined;
 
   assert.ok(updated);
   assert.ok(movement);
@@ -494,35 +448,25 @@ test("ADMIN can perform positive and negative stock adjustments", async () => {
       warehouseId: inventory.warehouseId,
       productId: inventory.productId,
       quantityDelta: 3,
-      reason: `${testReason} - positive adjustment`
+      reason: `${testReason} - positive adjustment`,
     });
 
   expectStatus(positiveResponse, 201);
 
-  const positiveInventory =
-    positiveResponse.body.data?.inventory as
-      | InventoryRecord
-      | undefined;
+  const positiveInventory = positiveResponse.body.data?.inventory as
+    InventoryRecord | undefined;
 
-  const positiveMovement =
-    positiveResponse.body.data?.movement as
-      | MovementRecord
-      | undefined;
+  const positiveMovement = positiveResponse.body.data?.movement as
+    MovementRecord | undefined;
 
   assert.ok(positiveInventory);
   assert.ok(positiveMovement);
 
   expectedQuantity += 3;
 
-  assert.equal(
-    positiveInventory.quantityOnHand,
-    expectedQuantity
-  );
+  assert.equal(positiveInventory.quantityOnHand, expectedQuantity);
 
-  assert.equal(
-    positiveMovement.movementType,
-    "ADJUSTMENT"
-  );
+  assert.equal(positiveMovement.movementType, "ADJUSTMENT");
 
   assert.equal(positiveMovement.quantityDelta, 3);
 
@@ -535,35 +479,25 @@ test("ADMIN can perform positive and negative stock adjustments", async () => {
       warehouseId: inventory.warehouseId,
       productId: inventory.productId,
       quantityDelta: -1,
-      reason: `${testReason} - negative adjustment`
+      reason: `${testReason} - negative adjustment`,
     });
 
   expectStatus(negativeResponse, 201);
 
-  const negativeInventory =
-    negativeResponse.body.data?.inventory as
-      | InventoryRecord
-      | undefined;
+  const negativeInventory = negativeResponse.body.data?.inventory as
+    InventoryRecord | undefined;
 
-  const negativeMovement =
-    negativeResponse.body.data?.movement as
-      | MovementRecord
-      | undefined;
+  const negativeMovement = negativeResponse.body.data?.movement as
+    MovementRecord | undefined;
 
   assert.ok(negativeInventory);
   assert.ok(negativeMovement);
 
   expectedQuantity -= 1;
 
-  assert.equal(
-    negativeInventory.quantityOnHand,
-    expectedQuantity
-  );
+  assert.equal(negativeInventory.quantityOnHand, expectedQuantity);
 
-  assert.equal(
-    negativeMovement.movementType,
-    "ADJUSTMENT"
-  );
+  assert.equal(negativeMovement.movementType, "ADJUSTMENT");
 
   assert.equal(negativeMovement.quantityDelta, -1);
 
@@ -584,18 +518,14 @@ test("WAREHOUSE_STAFF can receive stock", async () => {
       warehouseId: inventory.warehouseId,
       productId: inventory.productId,
       quantity: 2,
-      reason: `${testReason} - warehouse receipt`
+      reason: `${testReason} - warehouse receipt`,
     });
 
   expectStatus(response, 201);
 
-  const updated = response.body.data?.inventory as
-    | InventoryRecord
-    | undefined;
+  const updated = response.body.data?.inventory as InventoryRecord | undefined;
 
-  const movement = response.body.data?.movement as
-    | MovementRecord
-    | undefined;
+  const movement = response.body.data?.movement as MovementRecord | undefined;
 
   assert.ok(updated);
   assert.ok(movement);
@@ -625,14 +555,10 @@ test("invalid stock operations are rejected without changing stock or movement h
     .send({
       warehouseId: inventory.warehouseId,
       productId: inventory.productId,
-      quantity: 0
+      quantity: 0,
     });
 
-  expectError(
-    invalidReceipt,
-    400,
-    "VALIDATION_ERROR"
-  );
+  expectError(invalidReceipt, 400, "VALIDATION_ERROR");
 
   const invalidAdjustment = await request(app)
     .post("/api/v1/inventory/adjustments")
@@ -641,14 +567,10 @@ test("invalid stock operations are rejected without changing stock or movement h
       warehouseId: inventory.warehouseId,
       productId: inventory.productId,
       quantityDelta: 0,
-      reason: `${testReason} - invalid zero adjustment`
+      reason: `${testReason} - invalid zero adjustment`,
     });
 
-  expectError(
-    invalidAdjustment,
-    400,
-    "VALIDATION_ERROR"
-  );
+  expectError(invalidAdjustment, 400, "VALIDATION_ERROR");
 
   const extraFieldReceipt = await request(app)
     .post("/api/v1/inventory/receipts")
@@ -657,14 +579,10 @@ test("invalid stock operations are rejected without changing stock or movement h
       warehouseId: inventory.warehouseId,
       productId: inventory.productId,
       quantity: 1,
-      quantityOnHand: 999999
+      quantityOnHand: 999999,
     });
 
-  expectError(
-    extraFieldReceipt,
-    400,
-    "VALIDATION_ERROR"
-  );
+  expectError(extraFieldReceipt, 400, "VALIDATION_ERROR");
 
   const quantityAfter = (await getCurrentInventory()).quantityOnHand;
   const movementsAfter = await getMovementTotal();
@@ -686,14 +604,10 @@ test("issue that would make stock negative is rejected atomically", async () => 
       warehouseId: inventory.warehouseId,
       productId: inventory.productId,
       quantity: 2147483647,
-      reason: `${testReason} - insufficient stock`
+      reason: `${testReason} - insufficient stock`,
     });
 
-  expectError(
-    response,
-    409,
-    "INSUFFICIENT_STOCK"
-  );
+  expectError(response, 409, "INSUFFICIENT_STOCK");
 
   const quantityAfter = (await getCurrentInventory()).quantityOnHand;
   const movementsAfter = await getMovementTotal();
@@ -713,7 +627,7 @@ test("concurrent issues cannot oversell the available stock", async () => {
 
   assert.ok(
     quantityBefore >= 2,
-    "At least 2 units are required for the concurrency test."
+    "At least 2 units are required for the concurrency test.",
   );
 
   // Both requests together attempt to issue one unit more than available.
@@ -728,7 +642,7 @@ test("concurrent issues cannot oversell the available stock", async () => {
         warehouseId: inventory.warehouseId,
         productId: inventory.productId,
         quantity: quantityA,
-        reason: `${testReason} - concurrent issue A`
+        reason: `${testReason} - concurrent issue A`,
       }),
 
     request(app)
@@ -738,46 +652,36 @@ test("concurrent issues cannot oversell the available stock", async () => {
         warehouseId: inventory.warehouseId,
         productId: inventory.productId,
         quantity: quantityB,
-        reason: `${testReason} - concurrent issue B`
-      })
+        reason: `${testReason} - concurrent issue B`,
+      }),
   ]);
 
-  const statuses = [
-    responseA.status,
-    responseB.status
-  ].sort((a, b) => a - b);
+  const statuses = [responseA.status, responseB.status].sort((a, b) => a - b);
 
   assert.deepEqual(
     statuses,
     [201, 409],
-    `Expected exactly one successful issue and one rejected issue. A=${JSON.stringify(responseA.body)} B=${JSON.stringify(responseB.body)}`
+    `Expected exactly one successful issue and one rejected issue. A=${JSON.stringify(responseA.body)} B=${JSON.stringify(responseB.body)}`,
   );
 
-  const successfulResponse =
-    responseA.status === 201 ? responseA : responseB;
+  const successfulResponse = responseA.status === 201 ? responseA : responseB;
 
-  const failedResponse =
-    responseA.status === 409 ? responseA : responseB;
+  const failedResponse = responseA.status === 409 ? responseA : responseB;
 
-  assert.equal(
-    failedResponse.body.code,
-    "INSUFFICIENT_STOCK"
-  );
+  assert.equal(failedResponse.body.code, "INSUFFICIENT_STOCK");
 
   const updated = successfulResponse.body.data?.inventory as
-    | InventoryRecord
-    | undefined;
+    InventoryRecord | undefined;
 
   const movement = successfulResponse.body.data?.movement as
-    | MovementRecord
-    | undefined;
+    MovementRecord | undefined;
 
   assert.ok(updated);
   assert.ok(movement);
 
   assert.equal(
     updated.quantityOnHand,
-    quantityBefore - movement.quantityDelta * -1
+    quantityBefore - movement.quantityDelta * -1,
   );
 
   assert.ok(updated.quantityOnHand >= 0);
@@ -804,15 +708,13 @@ test("reorder level updates and low-stock filters work correctly", async () => {
     .patch(`/api/v1/inventory/${inventory.id}/reorder-level`)
     .set("Authorization", `Bearer ${adminToken}`)
     .send({
-      reorderLevel: current.quantityOnHand
+      reorderLevel: current.quantityOnHand,
     });
 
   expectStatus(equalThresholdResponse, 200);
 
-  const equalThresholdInventory =
-    equalThresholdResponse.body.data?.inventory as
-      | InventoryRecord
-      | undefined;
+  const equalThresholdInventory = equalThresholdResponse.body.data
+    ?.inventory as InventoryRecord | undefined;
 
   assert.ok(equalThresholdInventory);
   assert.equal(equalThresholdInventory.isLowStock, true);
@@ -824,39 +726,31 @@ test("reorder level updates and low-stock filters work correctly", async () => {
       productId: inventory.productId,
       lowStock: "true",
       limit: 10,
-      offset: 0
+      offset: 0,
     })
     .set("Authorization", `Bearer ${adminToken}`);
 
   expectStatus(lowStockResponse, 200);
 
   const lowStockItems = lowStockResponse.body.data?.inventory as
-    | InventoryRecord[]
-    | undefined;
+    InventoryRecord[] | undefined;
 
   assert.ok(lowStockItems);
-  assert.ok(
-    lowStockItems.some((item) => item.id === inventory?.id)
-  );
+  assert.ok(lowStockItems.some((item) => item.id === inventory?.id));
 
-  const lowerThreshold = Math.max(
-    0,
-    current.quantityOnHand - 1
-  );
+  const lowerThreshold = Math.max(0, current.quantityOnHand - 1);
 
   const lowerThresholdResponse = await request(app)
     .patch(`/api/v1/inventory/${inventory.id}/reorder-level`)
     .set("Authorization", `Bearer ${adminToken}`)
     .send({
-      reorderLevel: lowerThreshold
+      reorderLevel: lowerThreshold,
     });
 
   expectStatus(lowerThresholdResponse, 200);
 
-  const lowerThresholdInventory =
-    lowerThresholdResponse.body.data?.inventory as
-      | InventoryRecord
-      | undefined;
+  const lowerThresholdInventory = lowerThresholdResponse.body.data
+    ?.inventory as InventoryRecord | undefined;
 
   assert.ok(lowerThresholdInventory);
   assert.equal(lowerThresholdInventory.isLowStock, false);
@@ -868,20 +762,19 @@ test("reorder level updates and low-stock filters work correctly", async () => {
       productId: inventory.productId,
       lowStock: "true",
       limit: 10,
-      offset: 0
+      offset: 0,
     })
     .set("Authorization", `Bearer ${adminToken}`);
 
   expectStatus(stillLowResponse, 200);
 
   const stillLowItems = stillLowResponse.body.data?.inventory as
-    | InventoryRecord[]
-    | undefined;
+    InventoryRecord[] | undefined;
 
   assert.ok(stillLowItems);
   assert.equal(
     stillLowItems.some((item) => item.id === inventory?.id),
-    false
+    false,
   );
 
   const notLowResponse = await request(app)
@@ -891,20 +784,17 @@ test("reorder level updates and low-stock filters work correctly", async () => {
       productId: inventory.productId,
       lowStock: "false",
       limit: 10,
-      offset: 0
+      offset: 0,
     })
     .set("Authorization", `Bearer ${adminToken}`);
 
   expectStatus(notLowResponse, 200);
 
   const notLowItems = notLowResponse.body.data?.inventory as
-    | InventoryRecord[]
-    | undefined;
+    InventoryRecord[] | undefined;
 
   assert.ok(notLowItems);
-  assert.ok(
-    notLowItems.some((item) => item.id === inventory?.id)
-  );
+  assert.ok(notLowItems.some((item) => item.id === inventory?.id));
 });
 
 test("WAREHOUSE_STAFF can update reorder level but SALES_STAFF cannot", async () => {
@@ -916,7 +806,7 @@ test("WAREHOUSE_STAFF can update reorder level but SALES_STAFF cannot", async ()
     .patch(`/api/v1/inventory/${inventory.id}/reorder-level`)
     .set("Authorization", `Bearer ${warehouseToken}`)
     .send({
-      reorderLevel: current.reorderLevel
+      reorderLevel: current.reorderLevel,
     });
 
   expectStatus(warehouseResponse, 200);
@@ -925,14 +815,10 @@ test("WAREHOUSE_STAFF can update reorder level but SALES_STAFF cannot", async ()
     .patch(`/api/v1/inventory/${inventory.id}/reorder-level`)
     .set("Authorization", `Bearer ${salesToken}`)
     .send({
-      reorderLevel: current.reorderLevel
+      reorderLevel: current.reorderLevel,
     });
 
-  expectError(
-    salesResponse,
-    403,
-    "FORBIDDEN"
-  );
+  expectError(salesResponse, 403, "FORBIDDEN");
 });
 
 test("negative reorder level is rejected", async () => {
@@ -942,14 +828,10 @@ test("negative reorder level is rejected", async () => {
     .patch(`/api/v1/inventory/${inventory.id}/reorder-level`)
     .set("Authorization", `Bearer ${adminToken}`)
     .send({
-      reorderLevel: -1
+      reorderLevel: -1,
     });
 
-  expectError(
-    response,
-    400,
-    "VALIDATION_ERROR"
-  );
+  expectError(response, 400, "VALIDATION_ERROR");
 });
 
 // --------------------------------------------------
@@ -966,22 +848,21 @@ test("stock movement history contains successful operations", async () => {
       warehouseId: inventory.warehouseId,
       productId: inventory.productId,
       limit: 100,
-      offset: 0
+      offset: 0,
     })
     .set("Authorization", `Bearer ${adminToken}`);
 
   expectStatus(response, 200);
 
   const movements = response.body.data?.movements as
-    | MovementRecord[]
-    | undefined;
+    MovementRecord[] | undefined;
 
   assert.ok(movements);
 
   for (const id of movementIds) {
     assert.ok(
       movements.some((movement) => movement.id === id),
-      `Movement ${id} was not found in movement history.`
+      `Movement ${id} was not found in movement history.`,
     );
   }
 });
@@ -998,28 +879,25 @@ test("stock movement filters return only the requested movement type", async () 
       productId: inventory.productId,
       movementType: "RECEIPT",
       limit: 100,
-      offset: 0
+      offset: 0,
     })
     .set("Authorization", `Bearer ${adminToken}`);
 
   expectStatus(receiptResponse, 200);
 
   const receiptItems = receiptResponse.body.data?.movements as
-    | MovementRecord[]
-    | undefined;
+    MovementRecord[] | undefined;
 
   assert.ok(receiptItems);
 
   assert.ok(
-    receiptItems.every(
-      (movement) => movement.movementType === "RECEIPT"
-    )
+    receiptItems.every((movement) => movement.movementType === "RECEIPT"),
   );
 
   for (const id of receiptMovementIds) {
     assert.ok(
       receiptItems.some((movement) => movement.id === id),
-      `Receipt movement ${id} is missing from filtered history.`
+      `Receipt movement ${id} is missing from filtered history.`,
     );
   }
 
@@ -1030,29 +908,25 @@ test("stock movement filters return only the requested movement type", async () 
       productId: inventory.productId,
       movementType: "ADJUSTMENT",
       limit: 100,
-      offset: 0
+      offset: 0,
     })
     .set("Authorization", `Bearer ${adminToken}`);
 
   expectStatus(adjustmentResponse, 200);
 
-  const adjustmentItems =
-    adjustmentResponse.body.data?.movements as
-      | MovementRecord[]
-      | undefined;
+  const adjustmentItems = adjustmentResponse.body.data?.movements as
+    MovementRecord[] | undefined;
 
   assert.ok(adjustmentItems);
 
   assert.ok(
-    adjustmentItems.every(
-      (movement) => movement.movementType === "ADJUSTMENT"
-    )
+    adjustmentItems.every((movement) => movement.movementType === "ADJUSTMENT"),
   );
 
   for (const id of adjustmentMovementIds) {
     assert.ok(
       adjustmentItems.some((movement) => movement.id === id),
-      `Adjustment movement ${id} is missing from filtered history.`
+      `Adjustment movement ${id} is missing from filtered history.`,
     );
   }
 });
@@ -1068,9 +942,7 @@ test("stock movement detail returns the recorded audit information", async () =>
 
   expectStatus(response, 200);
 
-  const movement = response.body.data?.movement as
-    | MovementRecord
-    | undefined;
+  const movement = response.body.data?.movement as MovementRecord | undefined;
 
   assert.ok(movement);
   assert.equal(movement.id, movementId);
@@ -1089,7 +961,7 @@ test("inventory rejects invalid lowStock query values", async () => {
   const response = await request(app)
     .get("/api/v1/inventory")
     .query({
-      lowStock: "maybe"
+      lowStock: "maybe",
     })
     .set("Authorization", `Bearer ${adminToken}`);
 
@@ -1100,7 +972,7 @@ test("stock movements reject invalid movementType filters", async () => {
   const response = await request(app)
     .get("/api/v1/stock-movements")
     .query({
-      movementType: "UNKNOWN"
+      movementType: "UNKNOWN",
     })
     .set("Authorization", `Bearer ${adminToken}`);
 
@@ -1118,9 +990,5 @@ test("nonexistent inventory and movement records return HTTP 404", async () => {
     .get("/api/v1/stock-movements/9223372036854775807")
     .set("Authorization", `Bearer ${adminToken}`);
 
-  expectError(
-    movementResponse,
-    404,
-    "STOCK_MOVEMENT_NOT_FOUND"
-  );
+  expectError(movementResponse, 404, "STOCK_MOVEMENT_NOT_FOUND");
 });

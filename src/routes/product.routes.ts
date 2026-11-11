@@ -1,4 +1,3 @@
-
 import { Router } from "express";
 
 import {
@@ -21,17 +20,9 @@ import {
 const router = Router();
 
 // All authenticated users can view products.
-router.get(
-  "/",
-  authenticate,
-  listProducts
-);
+router.get("/", authenticate, listProducts);
 
-router.get(
-  "/:id",
-  authenticate,
-  getProduct
-);
+router.get("/:id", authenticate, getProduct);
 
 // Only ADMIN can create products.
 router.post(
@@ -39,7 +30,7 @@ router.post(
   authenticate,
   authorize("ADMIN"),
   validateBody(createProductSchema),
-  createProductController
+  createProductController,
 );
 
 // Only ADMIN can update products.
@@ -48,7 +39,7 @@ router.patch(
   authenticate,
   authorize("ADMIN"),
   validateBody(updateProductSchema),
-  updateProductController
+  updateProductController,
 );
 
 // Only ADMIN can deactivate products.
@@ -56,7 +47,7 @@ router.patch(
   "/:id/deactivate",
   authenticate,
   authorize("ADMIN"),
-  deactivateProductController
+  deactivateProductController,
 );
 
 export default router;

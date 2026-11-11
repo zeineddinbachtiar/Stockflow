@@ -1,4 +1,3 @@
-
 import { AppError } from "../errors/app-error";
 import { positiveBigIntIdSchema } from "../validators/common.validator";
 
@@ -8,7 +7,7 @@ import { positiveBigIntIdSchema } from "../validators/common.validator";
 export function parsePositiveBigIntId(
   value: unknown,
   errorCode: string,
-  resourceName: string
+  resourceName: string,
 ): string {
   const parsed = positiveBigIntIdSchema.safeParse(value);
 
@@ -16,7 +15,7 @@ export function parsePositiveBigIntId(
     throw new AppError(
       400,
       errorCode,
-      `${resourceName} ID must be a valid positive BIGINT.`
+      `${resourceName} ID must be a valid positive BIGINT.`,
     );
   }
 

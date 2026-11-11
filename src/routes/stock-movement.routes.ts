@@ -1,4 +1,3 @@
-
 import { Router } from "express";
 
 import {
@@ -16,14 +15,14 @@ router.get(
   "/",
   authenticate,
   authorize("ADMIN", "WAREHOUSE_STAFF"),
-  listStockMovements
+  listStockMovements,
 );
 
 router.get(
   "/:id",
   authenticate,
   authorize("ADMIN", "WAREHOUSE_STAFF"),
-  getStockMovement
+  getStockMovement,
 );
 
 export default router;

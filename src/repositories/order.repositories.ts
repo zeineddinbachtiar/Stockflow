@@ -1,4 +1,3 @@
-
 import type { PoolClient } from "pg";
 
 import { pool } from "../config/database";
@@ -8,7 +7,7 @@ import type {
   OrderItemForUpdate,
   OrderItemRecord,
   OrderRecord,
-  RepositoryOrderQuery
+  RepositoryOrderQuery,
 } from "../types/order.types";
 
 const ORDER_SELECT = `
@@ -46,7 +45,7 @@ const ORDER_SELECT = `
 `;
 
 export async function findAllOrders(
-  query: RepositoryOrderQuery
+  query: RepositoryOrderQuery,
 ): Promise<{ orders: OrderRecord[]; total: number }> {
   const conditions: string[] = [];
   const values: Array<string | number> = [];
@@ -73,9 +72,7 @@ export async function findAllOrders(
   }
 
   const whereClause =
-    conditions.length > 0
-      ? `WHERE ${conditions.join(" AND ")}`
-      : "";
+    conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
   const countResult = await pool.query<{ total: string }>(
     `
@@ -83,7 +80,7 @@ export async function findAllOrders(
       FROM orders o
       ${whereClause}
     `,
-    values
+    values,
   );
 
   const dataValues = [...values];
@@ -100,18 +97,16 @@ export async function findAllOrders(
       LIMIT $${limitPosition}
       OFFSET $${offsetPosition}
     `,
-    dataValues
+    dataValues,
   );
 
   return {
     orders: result.rows,
-    total: Number(countResult.rows[0]?.total ?? 0)
+    total: Number(countResult.rows[0]?.total ?? 0),
   };
 }
 
-export async function findOrderById(
-  orderId: string
-): Promise<{
+export async function findOrderById(orderId: string): Promise<{
   order: OrderRecord;
   items: OrderItemRecord[];
 } | null> {
@@ -120,7 +115,7 @@ export async function findOrderById(
       ${ORDER_SELECT}
       WHERE o.id = $1
     `,
-    [orderId]
+    [orderId],
   );
 
   const order = orderResult.rows[0];
@@ -144,18 +139,18 @@ export async function findOrderById(
       WHERE oi.order_id = $1
       ORDER BY oi.id ASC
     `,
-    [orderId]
+    [orderId],
   );
 
   return {
     order,
-    items: itemResult.rows
+    items: itemResult.rows,
   };
 }
 
 export async function findOrderForUpdate(
   client: PoolClient,
-  orderId: string
+  orderId: string,
 ): Promise<OrderForUpdate | null> {
   const result = await client.query<OrderForUpdate>(
     `
@@ -170,7 +165,7 @@ export async function findOrderForUpdate(
       WHERE id = $1
       FOR UPDATE
     `,
-    [orderId]
+    [orderId],
   );
 
   return result.rows[0] ?? null;
@@ -178,7 +173,7 @@ export async function findOrderForUpdate(
 
 export async function findOrderItemsForUpdate(
   client: PoolClient,
-  orderId: string
+  orderId: string,
 ): Promise<OrderItemForUpdate[]> {
   const result = await client.query<OrderItemForUpdate>(
     `
@@ -192,7 +187,7 @@ export async function findOrderItemsForUpdate(
       ORDER BY product_id ASC
       FOR UPDATE
     `,
-    [orderId]
+    [orderId],
   );
 
   return result.rows;
@@ -200,7 +195,7 @@ export async function findOrderItemsForUpdate(
 
 export async function lockCustomer(
   client: PoolClient,
-  customerId: string
+  customerId: string,
 ): Promise<boolean> {
   const result = await client.query(
     `
@@ -209,7 +204,7 @@ export async function lockCustomer(
       WHERE id = $1
       FOR SHARE
     `,
-    [customerId]
+    [customerId],
   );
 
   return result.rowCount === 1;
@@ -217,7 +212,7 @@ export async function lockCustomer(
 
 export async function lockActiveWarehouse(
   client: PoolClient,
-  warehouseId: string
+  warehouseId: string,
 ): Promise<boolean> {
   const result = await client.query(
     `
@@ -227,7 +222,7 @@ export async function lockActiveWarehouse(
         AND is_active = TRUE
       FOR SHARE
     `,
-    [warehouseId]
+    [warehouseId],
   );
 
   return result.rowCount === 1;
@@ -240,7 +235,7 @@ export interface ActiveProductPrice {
 
 export async function lockActiveProducts(
   client: PoolClient,
-  productIds: string[]
+  productIds: string[],
 ): Promise<ActiveProductPrice[]> {
   const result = await client.query<ActiveProductPrice>(
     `
@@ -253,7 +248,7 @@ export async function lockActiveProducts(
       ORDER BY id ASC
       FOR SHARE
     `,
-    [productIds]
+    [productIds],
   );
 
   return result.rows;
@@ -261,7 +256,7 @@ export async function lockActiveProducts(
 
 export async function lockWarehouseRegardlessOfStatus(
   client: PoolClient,
-  warehouseId: string
+  warehouseId: string,
 ): Promise<boolean> {
   const result = await client.query(
     `
@@ -270,7 +265,7 @@ export async function lockWarehouseRegardlessOfStatus(
       WHERE id = $1
       FOR SHARE
     `,
-    [warehouseId]
+    [warehouseId],
   );
 
   return result.rowCount === 1;
@@ -278,7 +273,7 @@ export async function lockWarehouseRegardlessOfStatus(
 
 export async function lockProductsRegardlessOfStatus(
   client: PoolClient,
-  productIds: string[]
+  productIds: string[],
 ): Promise<boolean> {
   const result = await client.query(
     `
@@ -288,7 +283,7 @@ export async function lockProductsRegardlessOfStatus(
       ORDER BY id ASC
       FOR SHARE
     `,
-    [productIds]
+    [productIds],
   );
 
   return result.rowCount === productIds.length;
@@ -301,7 +296,7 @@ export async function insertOrder(
     customerId: string;
     warehouseId: string;
     createdBy: string;
-  }
+  },
 ): Promise<string> {
   const result = await client.query<{ id: string }>(
     `
@@ -315,12 +310,7 @@ export async function insertOrder(
       VALUES ($1, $2, $3, $4, 'DRAFT')
       RETURNING id
     `,
-    [
-      input.orderNumber,
-      input.customerId,
-      input.warehouseId,
-      input.createdBy
-    ]
+    [input.orderNumber, input.customerId, input.warehouseId, input.createdBy],
   );
 
   const id = result.rows[0]?.id;
@@ -339,7 +329,7 @@ export async function insertOrderItem(
     productId: string;
     quantity: number;
     unitPrice: string;
-  }
+  },
 ): Promise<void> {
   await client.query(
     `
@@ -351,23 +341,15 @@ export async function insertOrderItem(
       )
       VALUES ($1, $2, $3, $4)
     `,
-    [
-      input.orderId,
-      input.productId,
-      input.quantity,
-      input.unitPrice
-    ]
+    [input.orderId, input.productId, input.quantity, input.unitPrice],
   );
 }
 
 export async function deleteOrderItems(
   client: PoolClient,
-  orderId: string
+  orderId: string,
 ): Promise<void> {
-  await client.query(
-    `DELETE FROM order_items WHERE order_id = $1`,
-    [orderId]
-  );
+  await client.query(`DELETE FROM order_items WHERE order_id = $1`, [orderId]);
 }
 
 export async function updateDraftOrder(
@@ -376,7 +358,7 @@ export async function updateDraftOrder(
     orderId: string;
     customerId: string;
     warehouseId: string;
-  }
+  },
 ): Promise<void> {
   await client.query(
     `
@@ -387,17 +369,13 @@ export async function updateDraftOrder(
       WHERE id = $1
         AND status = 'DRAFT'
     `,
-    [
-      input.orderId,
-      input.customerId,
-      input.warehouseId
-    ]
+    [input.orderId, input.customerId, input.warehouseId],
   );
 }
 
 export async function markOrderConfirmed(
   client: PoolClient,
-  orderId: string
+  orderId: string,
 ): Promise<void> {
   await client.query(
     `
@@ -408,13 +386,13 @@ export async function markOrderConfirmed(
       WHERE id = $1
         AND status = 'DRAFT'
     `,
-    [orderId]
+    [orderId],
   );
 }
 
 export async function markOrderCancelled(
   client: PoolClient,
-  orderId: string
+  orderId: string,
 ): Promise<void> {
   await client.query(
     `
@@ -425,14 +403,14 @@ export async function markOrderCancelled(
       WHERE id = $1
         AND status IN ('DRAFT', 'CONFIRMED')
     `,
-    [orderId]
+    [orderId],
   );
 }
 
 export async function ensureOrderInventoryRow(
   client: PoolClient,
   warehouseId: string,
-  productId: string
+  productId: string,
 ): Promise<void> {
   await client.query(
     `
@@ -445,7 +423,7 @@ export async function ensureOrderInventoryRow(
       VALUES ($1, $2, 0, 0)
       ON CONFLICT (warehouse_id, product_id) DO NOTHING
     `,
-    [warehouseId, productId]
+    [warehouseId, productId],
   );
 }
 
@@ -457,7 +435,7 @@ export interface LockedInventoryBalance {
 export async function lockOrderInventoryBalance(
   client: PoolClient,
   warehouseId: string,
-  productId: string
+  productId: string,
 ): Promise<LockedInventoryBalance | null> {
   const result = await client.query<LockedInventoryBalance>(
     `
@@ -467,7 +445,7 @@ export async function lockOrderInventoryBalance(
         AND product_id = $2
       FOR UPDATE
     `,
-    [warehouseId, productId]
+    [warehouseId, productId],
   );
 
   return result.rows[0] ?? null;
@@ -476,7 +454,7 @@ export async function lockOrderInventoryBalance(
 export async function updateOrderInventoryQuantity(
   client: PoolClient,
   inventoryId: string,
-  quantity: number
+  quantity: number,
 ): Promise<void> {
   await client.query(
     `
@@ -484,7 +462,7 @@ export async function updateOrderInventoryQuantity(
       SET quantity_on_hand = $2
       WHERE id = $1
     `,
-    [inventoryId, quantity]
+    [inventoryId, quantity],
   );
 }
 
@@ -498,7 +476,7 @@ export async function insertOrderStockMovement(
     movementType: "ORDER_CONFIRM" | "ORDER_CANCEL";
     quantityDelta: number;
     reason: string;
-  }
+  },
 ): Promise<void> {
   await client.query(
     `
@@ -520,7 +498,7 @@ export async function insertOrderStockMovement(
       input.orderId,
       input.movementType,
       input.quantityDelta,
-      input.reason
-    ]
+      input.reason,
+    ],
   );
 }

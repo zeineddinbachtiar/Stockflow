@@ -1,4 +1,3 @@
-
 import { randomUUID } from "node:crypto";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
@@ -43,18 +42,12 @@ const runId = randomUUID();
 const createdTestEmails: string[] = [];
 const createdCategoryNames: string[] = [];
 
-
-
 function expectAuthSuccess(
   response: ApiResponse,
   expectedStatus: number,
-  expectedRole: string
+  expectedRole: string,
 ): AuthSession {
-  assert.equal(
-    response.status,
-    expectedStatus,
-    JSON.stringify(response.body)
-  );
+  assert.equal(response.status, expectedStatus, JSON.stringify(response.body));
 
   assert.equal(response.body.status, "success");
 
@@ -80,15 +73,11 @@ function expectAuthSuccess(
     accessToken: accessToken as string,
     userId,
     email,
-    role: expectedRole
+    role: expectedRole,
   };
 }
 
-
-
-async function registerTestUser(
-  label: string
-): Promise<AuthSession> {
+async function registerTestUser(label: string): Promise<AuthSession> {
   const email = `module3-${runId}-${label}@example.test`;
 
   createdTestEmails.push(email);
@@ -98,14 +87,10 @@ async function registerTestUser(
     .send({
       fullName: `Module 3 ${label}`,
       email,
-      password: "Module3-Test-Password-2026"
+      password: "Module3-Test-Password-2026",
     });
 
-  const session = expectAuthSuccess(
-    response,
-    201,
-    "SALES_STAFF"
-  );
+  const session = expectAuthSuccess(response, 201, "SALES_STAFF");
 
   assert.equal(session.email, email);
 
@@ -116,17 +101,15 @@ async function registerTestUser(
 after(async () => {
   try {
     if (createdCategoryNames.length > 0) {
-      await pool.query(
-        "DELETE FROM categories WHERE name = ANY($1::text[])",
-        [createdCategoryNames]
-      );
+      await pool.query("DELETE FROM categories WHERE name = ANY($1::text[])", [
+        createdCategoryNames,
+      ]);
     }
 
     if (createdTestEmails.length > 0) {
-      await pool.query(
-        "DELETE FROM users WHERE email = ANY($1::text[])",
-        [createdTestEmails]
-      );
+      await pool.query("DELETE FROM users WHERE email = ANY($1::text[])", [
+        createdTestEmails,
+      ]);
     }
   } finally {
     await pool.end();
@@ -142,52 +125,43 @@ test("seeded ADMIN, WAREHOUSE_STAFF, and SALES_STAFF can login", async () => {
     {
       email: "admin@stockflow.local",
       password: env.SEED_ADMIN_PASSWORD,
-      role: "ADMIN"
+      role: "ADMIN",
     },
     {
       email: "warehouse@stockflow.local",
       password: env.SEED_WAREHOUSE_PASSWORD,
-      role: "WAREHOUSE_STAFF"
+      role: "WAREHOUSE_STAFF",
     },
     {
       email: "sales@stockflow.local",
       password: env.SEED_SALES_PASSWORD,
-      role: "SALES_STAFF"
-    }
+      role: "SALES_STAFF",
+    },
   ];
 
   for (const account of accounts) {
     assert.ok(
       account.password,
-      `Seed password for ${account.role} is not configured.`
+      `Seed password for ${account.role} is not configured.`,
     );
 
-    const response = await request(app)
-      .post("/api/v1/auth/login")
-      .send({
-        email: account.email,
-        password: account.password
-      });
+    const response = await request(app).post("/api/v1/auth/login").send({
+      email: account.email,
+      password: account.password,
+    });
 
-    const session = expectAuthSuccess(
-      response,
-      200,
-      account.role
-    );
+    const session = expectAuthSuccess(response, 200, account.role);
 
     assert.equal(session.email, account.email);
 
     const protectedResponse = await request(app)
       .get("/api/v1/categories")
-      .set(
-        "Authorization",
-        `Bearer ${session.accessToken}`
-      );
+      .set("Authorization", `Bearer ${session.accessToken}`);
 
     assert.equal(
       protectedResponse.status,
       200,
-      `${account.role} should access categories.`
+      `${account.role} should access categories.`,
     );
   }
 });
@@ -206,14 +180,10 @@ test("public registration always creates SALES_STAFF", async () => {
     .send({
       fullName: "Module 3 Registration Test",
       email: ` ${email.toUpperCase()} `,
-      password: "Module3-Test-Password-2026"
+      password: "Module3-Test-Password-2026",
     });
 
-  const session = expectAuthSuccess(
-    response,
-    201,
-    "SALES_STAFF"
-  );
+  const session = expectAuthSuccess(response, 201, "SALES_STAFF");
 
   assert.equal(session.email, email);
 });
@@ -229,27 +199,17 @@ test("registered user can login with the new credentials", async () => {
     .send({
       fullName: "Module 3 Login Test",
       email,
-      password
+      password,
     });
 
-  expectAuthSuccess(
-    registerResponse,
-    201,
-    "SALES_STAFF"
-  );
+  expectAuthSuccess(registerResponse, 201, "SALES_STAFF");
 
-  const loginResponse = await request(app)
-    .post("/api/v1/auth/login")
-    .send({
-      email,
-      password
-    });
+  const loginResponse = await request(app).post("/api/v1/auth/login").send({
+    email,
+    password,
+  });
 
-  const session = expectAuthSuccess(
-    loginResponse,
-    200,
-    "SALES_STAFF"
-  );
+  const session = expectAuthSuccess(loginResponse, 200, "SALES_STAFF");
 
   assert.equal(session.email, email);
 });
@@ -257,19 +217,14 @@ test("registered user can login with the new credentials", async () => {
 test("duplicate registration returns HTTP 409", async () => {
   const session = await registerTestUser("duplicate");
 
-  const response = await request(app)
-    .post("/api/v1/auth/register")
-    .send({
-      fullName: "Duplicate Registration",
-      email: session.email,
-      password: "Module3-Test-Password-2026"
-    });
+  const response = await request(app).post("/api/v1/auth/register").send({
+    fullName: "Duplicate Registration",
+    email: session.email,
+    password: "Module3-Test-Password-2026",
+  });
 
   assert.equal(response.status, 409);
-  assert.equal(
-    response.body.code,
-    "EMAIL_ALREADY_REGISTERED"
-  );
+  assert.equal(response.body.code, "EMAIL_ALREADY_REGISTERED");
 });
 
 // --------------------------------------------------
@@ -277,13 +232,11 @@ test("duplicate registration returns HTTP 409", async () => {
 // --------------------------------------------------
 
 test("registration rejects invalid email", async () => {
-  const response = await request(app)
-    .post("/api/v1/auth/register")
-    .send({
-      fullName: "Invalid Email Test",
-      email: "not-an-email",
-      password: "Module3-Test-Password-2026"
-    });
+  const response = await request(app).post("/api/v1/auth/register").send({
+    fullName: "Invalid Email Test",
+    email: "not-an-email",
+    password: "Module3-Test-Password-2026",
+  });
 
   assert.equal(response.status, 400);
   assert.equal(response.body.code, "VALIDATION_ERROR");
@@ -295,7 +248,7 @@ test("registration rejects short password", async () => {
     .send({
       fullName: "Short Password Test",
       email: `module3-${runId}-short@example.test`,
-      password: "123"
+      password: "123",
     });
 
   assert.equal(response.status, 400);
@@ -309,7 +262,7 @@ test("registration rejects client-supplied role", async () => {
       fullName: "Role Injection Test",
       email: `module3-${runId}-role@example.test`,
       password: "Module3-Test-Password-2026",
-      role: "ADMIN"
+      role: "ADMIN",
     });
 
   assert.equal(response.status, 400);
@@ -317,12 +270,10 @@ test("registration rejects client-supplied role", async () => {
 });
 
 test("login rejects invalid email format", async () => {
-  const response = await request(app)
-    .post("/api/v1/auth/login")
-    .send({
-      email: "invalid-email",
-      password: "some-password"
-    });
+  const response = await request(app).post("/api/v1/auth/login").send({
+    email: "invalid-email",
+    password: "some-password",
+  });
 
   assert.equal(response.status, 400);
   assert.equal(response.body.code, "VALIDATION_ERROR");
@@ -333,41 +284,32 @@ test("login rejects invalid email format", async () => {
 // --------------------------------------------------
 
 test("unknown email and wrong password return identical errors", async () => {
-  assert.ok(
-    env.SEED_SALES_PASSWORD,
-    "SEED_SALES_PASSWORD must be configured."
-  );
+  assert.ok(env.SEED_SALES_PASSWORD, "SEED_SALES_PASSWORD must be configured.");
 
   const wrongPasswordResponse = await request(app)
     .post("/api/v1/auth/login")
     .send({
       email: "sales@stockflow.local",
-      password: "Definitely-Wrong-Password-2026"
+      password: "Definitely-Wrong-Password-2026",
     });
 
   const unknownEmailResponse = await request(app)
     .post("/api/v1/auth/login")
     .send({
       email: `unknown-${runId}@example.test`,
-      password: "Definitely-Wrong-Password-2026"
+      password: "Definitely-Wrong-Password-2026",
     });
 
   assert.equal(wrongPasswordResponse.status, 401);
   assert.equal(unknownEmailResponse.status, 401);
 
-  assert.equal(
-    wrongPasswordResponse.body.code,
-    "INVALID_CREDENTIALS"
-  );
+  assert.equal(wrongPasswordResponse.body.code, "INVALID_CREDENTIALS");
 
-  assert.equal(
-    unknownEmailResponse.body.code,
-    "INVALID_CREDENTIALS"
-  );
+  assert.equal(unknownEmailResponse.body.code, "INVALID_CREDENTIALS");
 
   assert.equal(
     wrongPasswordResponse.body.message,
-    unknownEmailResponse.body.message
+    unknownEmailResponse.body.message,
   );
 });
 
@@ -376,14 +318,10 @@ test("unknown email and wrong password return identical errors", async () => {
 // --------------------------------------------------
 
 test("protected endpoint rejects missing token", async () => {
-  const response = await request(app)
-    .get("/api/v1/categories");
+  const response = await request(app).get("/api/v1/categories");
 
   assert.equal(response.status, 401);
-  assert.equal(
-    response.body.code,
-    "AUTHENTICATION_REQUIRED"
-  );
+  assert.equal(response.body.code, "AUTHENTICATION_REQUIRED");
 });
 
 test("protected endpoint rejects invalid authorization format", async () => {
@@ -392,47 +330,31 @@ test("protected endpoint rejects invalid authorization format", async () => {
     .set("Authorization", "Basic invalid-token");
 
   assert.equal(response.status, 401);
-  assert.equal(
-    response.body.code,
-    "INVALID_AUTHORIZATION_FORMAT"
-  );
+  assert.equal(response.body.code, "INVALID_AUTHORIZATION_FORMAT");
 });
 
 test("protected endpoint rejects invalid JWT", async () => {
   const response = await request(app)
     .get("/api/v1/categories")
-    .set(
-      "Authorization",
-      "Bearer invalid.token.value"
-    );
+    .set("Authorization", "Bearer invalid.token.value");
 
   assert.equal(response.status, 401);
-  assert.equal(
-    response.body.code,
-    "INVALID_ACCESS_TOKEN"
-  );
+  assert.equal(response.body.code, "INVALID_ACCESS_TOKEN");
 });
 
 test("disabled user cannot use an existing access token", async () => {
   const session = await registerTestUser("disabled");
 
-  await pool.query(
-    "UPDATE users SET is_active = FALSE WHERE id = $1",
-    [session.userId]
-  );
+  await pool.query("UPDATE users SET is_active = FALSE WHERE id = $1", [
+    session.userId,
+  ]);
 
   const response = await request(app)
     .get("/api/v1/categories")
-    .set(
-      "Authorization",
-      `Bearer ${session.accessToken}`
-    );
+    .set("Authorization", `Bearer ${session.accessToken}`);
 
   assert.equal(response.status, 401);
-  assert.equal(
-    response.body.code,
-    "INVALID_ACCESS_TOKEN"
-  );
+  assert.equal(response.body.code, "INVALID_ACCESS_TOKEN");
 });
 
 // --------------------------------------------------
@@ -448,58 +370,47 @@ test("authorization uses the latest role stored in database", async () => {
 
   const initialResponse = await request(app)
     .post("/api/v1/categories")
-    .set(
-      "Authorization",
-      `Bearer ${session.accessToken}`
-    )
+    .set("Authorization", `Bearer ${session.accessToken}`)
     .send({
       name: categoryName,
-      description: "Automated authorization test."
+      description: "Automated authorization test.",
     });
 
   assert.equal(initialResponse.status, 403);
   assert.equal(initialResponse.body.code, "FORBIDDEN");
 
   // Change the role directly in the test database.
-  await pool.query(
-    "UPDATE users SET role = 'ADMIN' WHERE id = $1",
-    [session.userId]
-  );
+  await pool.query("UPDATE users SET role = 'ADMIN' WHERE id = $1", [
+    session.userId,
+  ]);
 
   // The same token must now have ADMIN permissions.
   const promotedResponse = await request(app)
     .post("/api/v1/categories")
-    .set(
-      "Authorization",
-      `Bearer ${session.accessToken}`
-    )
+    .set("Authorization", `Bearer ${session.accessToken}`)
     .send({
       name: categoryName,
-      description: "Automated authorization test."
+      description: "Automated authorization test.",
     });
 
   assert.equal(
     promotedResponse.status,
     201,
-    JSON.stringify(promotedResponse.body)
+    JSON.stringify(promotedResponse.body),
   );
 
   // Restore the SALES_STAFF role.
-  await pool.query(
-    "UPDATE users SET role = 'SALES_STAFF' WHERE id = $1",
-    [session.userId]
-  );
+  await pool.query("UPDATE users SET role = 'SALES_STAFF' WHERE id = $1", [
+    session.userId,
+  ]);
 
   // The same token must lose ADMIN permissions again.
   const demotedResponse = await request(app)
     .post("/api/v1/categories")
-    .set(
-      "Authorization",
-      `Bearer ${session.accessToken}`
-    )
+    .set("Authorization", `Bearer ${session.accessToken}`)
     .send({
       name: `M3 Denied ${runId}`,
-      description: "Must not be created."
+      description: "Must not be created.",
     });
 
   assert.equal(demotedResponse.status, 403);

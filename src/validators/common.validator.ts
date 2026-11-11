@@ -10,13 +10,10 @@ export const positiveBigIntIdSchema = z
   .string()
   .trim()
   .regex(/^[1-9]\d*$/, "ID must be a positive integer.")
-  .refine(
-    (value) => {
-      try {
-        return BigInt(value) <= MAX_POSTGRES_BIGINT;
-      } catch {
-        return false;
-      }
-    },
-    "ID exceeds the maximum supported BIGINT value."
-  );
+  .refine((value) => {
+    try {
+      return BigInt(value) <= MAX_POSTGRES_BIGINT;
+    } catch {
+      return false;
+    }
+  }, "ID exceeds the maximum supported BIGINT value.");

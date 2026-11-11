@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 
 // PostgreSQL BIGINT maximum value.
@@ -60,7 +59,7 @@ const unitPriceSchema = z
   .trim()
   .regex(
     /^(?:0|[1-9]\d{0,11})(?:\.\d{1,2})?$/,
-    "Unit price must be a non-negative decimal with up to 12 integer digits and 2 decimal places."
+    "Unit price must be a non-negative decimal with up to 12 integer digits and 2 decimal places.",
   )
   .transform((value) => {
     const [integerPart, decimalPart = ""] = value.split(".");
@@ -102,5 +101,5 @@ export const updateProductSchema = z
       data.unitPrice !== undefined,
     {
       message: "At least one field must be provided for update.",
-    }
+    },
   );

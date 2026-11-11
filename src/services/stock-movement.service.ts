@@ -1,4 +1,3 @@
-
 import {
   findAllStockMovements,
   findStockMovementById,
@@ -14,7 +13,7 @@ import type {
  * Convert database movement record into public response format.
  */
 export function toPublicStockMovement(
-  movement: StockMovementRecord
+  movement: StockMovementRecord,
 ): PublicStockMovement {
   return {
     id: movement.id,
@@ -37,9 +36,7 @@ export function toPublicStockMovement(
 /**
  * Retrieve stock movement history.
  */
-export async function getAllStockMovements(
-  query: StockMovementQuery
-) {
+export async function getAllStockMovements(query: StockMovementQuery) {
   const result = await findAllStockMovements(query);
 
   return {
@@ -54,7 +51,7 @@ export async function getAllStockMovements(
  * Retrieve a stock movement by ID.
  */
 export async function getStockMovementById(
-  id: string
+  id: string,
 ): Promise<PublicStockMovement | null> {
   const movement = await findStockMovementById(id);
 

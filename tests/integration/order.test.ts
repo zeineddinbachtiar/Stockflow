@@ -1,4 +1,3 @@
-
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import request from "supertest";
@@ -69,19 +68,15 @@ function getFixture(): OrderFixture {
 
 function expectStatus(
   response: { status: number; body: unknown },
-  expectedStatus: number
+  expectedStatus: number,
 ): void {
-  assert.equal(
-    response.status,
-    expectedStatus,
-    JSON.stringify(response.body)
-  );
+  assert.equal(response.status, expectedStatus, JSON.stringify(response.body));
 }
 
 function expectError(
   response: { status: number; body: unknown },
   expectedStatus: number,
-  expectedCode: string
+  expectedCode: string,
 ): void {
   expectStatus(response, expectedStatus);
 
@@ -89,16 +84,10 @@ function expectError(
     code?: string;
   };
 
-  assert.equal(
-    body.code,
-    expectedCode,
-    JSON.stringify(body)
-  );
+  assert.equal(body.code, expectedCode, JSON.stringify(body));
 }
 
-function getOrder(
-  response: { body: unknown }
-): TestOrder {
+function getOrder(response: { body: unknown }): TestOrder {
   const body = response.body as {
     data?: {
       order?: TestOrder;
@@ -115,7 +104,7 @@ function getOrder(
 async function login(
   email: string,
   password: string | undefined,
-  expectedRole: string
+  expectedRole: string,
 ): Promise<string> {
   assert.ok(password, `Password for ${expectedRole} is missing.`);
 
@@ -139,7 +128,7 @@ async function createOrder(
   items: Array<{
     productId: string;
     quantity: number;
-  }>
+  }>,
 ): Promise<TestOrder> {
   const current = getFixture();
 
@@ -149,7 +138,7 @@ async function createOrder(
     .send({
       customerId: current.customerId,
       warehouseId: current.warehouseId,
-      items
+      items,
     });
 
   expectStatus(response, 201);
@@ -171,21 +160,19 @@ async function getStock(productId: string): Promise<number> {
      FROM inventory
      WHERE warehouse_id = $1
        AND product_id = $2`,
-    [current.warehouseId, productId]
+    [current.warehouseId, productId],
   );
 
   assert.equal(
     result.rowCount,
     1,
-    `Inventory row not found for product ${productId}.`
+    `Inventory row not found for product ${productId}.`,
   );
 
   return result.rows[0]!.quantity_on_hand;
 }
 
-async function getOrderMovements(
-  orderId: string
-): Promise<OrderMovement[]> {
+async function getOrderMovements(orderId: string): Promise<OrderMovement[]> {
   const result = await pool.query<OrderMovement>(
     `SELECT
        id,
@@ -198,7 +185,7 @@ async function getOrderMovements(
      FROM stock_movements
      WHERE order_id = $1
      ORDER BY id ASC`,
-    [orderId]
+    [orderId],
   );
 
   return result.rows;
@@ -212,19 +199,19 @@ before(async () => {
   adminToken = await login(
     "admin@stockflow.local",
     env.SEED_ADMIN_PASSWORD,
-    "ADMIN"
+    "ADMIN",
   );
 
   warehouseToken = await login(
     "warehouse@stockflow.local",
     env.SEED_WAREHOUSE_PASSWORD,
-    "WAREHOUSE_STAFF"
+    "WAREHOUSE_STAFF",
   );
 
   salesToken = await login(
     "sales@stockflow.local",
     env.SEED_SALES_PASSWORD,
-    "SALES_STAFF"
+    "SALES_STAFF",
   );
 
   const customerResult = await pool.query<{
@@ -232,7 +219,7 @@ before(async () => {
   }>(
     `SELECT id
      FROM customers
-     WHERE customer_code = 'CUST-001'`
+     WHERE customer_code = 'CUST-001'`,
   );
 
   const warehouseResult = await pool.query<{
@@ -241,7 +228,7 @@ before(async () => {
     `SELECT id
      FROM warehouses
      WHERE code = 'WH-JKT'
-       AND is_active = TRUE`
+       AND is_active = TRUE`,
   );
 
   const productResult = await pool.query<{
@@ -265,7 +252,7 @@ before(async () => {
        AND p.sku = ANY($1::text[])
        AND p.is_active = TRUE
      ORDER BY p.sku ASC`,
-    [["LAP-001", "LAP-002"]]
+    [["LAP-001", "LAP-002"]],
   );
 
   const customer = customerResult.rows[0];
@@ -275,11 +262,11 @@ before(async () => {
   assert.ok(warehouse, "Active warehouse WH-JKT is missing.");
 
   const laptopOne = productResult.rows.find(
-    (product) => product.sku === "LAP-001"
+    (product) => product.sku === "LAP-001",
   );
 
   const laptopTwo = productResult.rows.find(
-    (product) => product.sku === "LAP-002"
+    (product) => product.sku === "LAP-002",
   );
 
   assert.ok(laptopOne, "Seed product LAP-001 is missing.");
@@ -287,12 +274,12 @@ before(async () => {
 
   assert.ok(
     laptopOne.quantity_on_hand >= 3,
-    "LAP-001 must have at least 3 units."
+    "LAP-001 must have at least 3 units.",
   );
 
   assert.ok(
     laptopTwo.quantity_on_hand >= 2,
-    "LAP-002 must have at least 2 units."
+    "LAP-002 must have at least 2 units.",
   );
 
   fixture = {
@@ -302,14 +289,14 @@ before(async () => {
       id: laptopOne.id,
       sku: laptopOne.sku,
       unitPrice: laptopOne.unit_price,
-      baselineQuantity: laptopOne.quantity_on_hand
+      baselineQuantity: laptopOne.quantity_on_hand,
     },
     laptopTwo: {
       id: laptopTwo.id,
       sku: laptopTwo.sku,
       unitPrice: laptopTwo.unit_price,
-      baselineQuantity: laptopTwo.quantity_on_hand
-    }
+      baselineQuantity: laptopTwo.quantity_on_hand,
+    },
   };
 });
 
@@ -333,7 +320,7 @@ after(async () => {
       assert.equal(
         detailResponse.status,
         200,
-        `Could not read order ${orderId} during cleanup.`
+        `Could not read order ${orderId} during cleanup.`,
       );
 
       const order = getOrder(detailResponse);
@@ -346,30 +333,26 @@ after(async () => {
         assert.equal(
           cancelResponse.status,
           200,
-          `Could not cancel order ${orderId}: ${JSON.stringify(cancelResponse.body)}`
+          `Could not cancel order ${orderId}: ${JSON.stringify(cancelResponse.body)}`,
         );
       }
     }
 
     if (fixture) {
-      const laptopOneFinal = await getStock(
-        fixture.laptopOne.id
-      );
+      const laptopOneFinal = await getStock(fixture.laptopOne.id);
 
-      const laptopTwoFinal = await getStock(
-        fixture.laptopTwo.id
-      );
+      const laptopTwoFinal = await getStock(fixture.laptopTwo.id);
 
       assert.equal(
         laptopOneFinal,
         fixture.laptopOne.baselineQuantity,
-        "LAP-001 stock was not restored to its original balance."
+        "LAP-001 stock was not restored to its original balance.",
       );
 
       assert.equal(
         laptopTwoFinal,
         fixture.laptopTwo.baselineQuantity,
-        "LAP-002 stock was not restored to its original balance."
+        "LAP-002 stock was not restored to its original balance.",
       );
     }
   } finally {
@@ -382,11 +365,7 @@ after(async () => {
 // --------------------------------------------------
 
 test("ADMIN, WAREHOUSE_STAFF, and SALES_STAFF can list orders", async () => {
-  for (const token of [
-    adminToken,
-    warehouseToken,
-    salesToken
-  ]) {
+  for (const token of [adminToken, warehouseToken, salesToken]) {
     const response = await request(app)
       .get("/api/v1/orders")
       .set("Authorization", `Bearer ${token}`);
@@ -398,14 +377,9 @@ test("ADMIN, WAREHOUSE_STAFF, and SALES_STAFF can list orders", async () => {
 });
 
 test("orders require authentication", async () => {
-  const response = await request(app)
-    .get("/api/v1/orders");
+  const response = await request(app).get("/api/v1/orders");
 
-  expectError(
-    response,
-    401,
-    "AUTHENTICATION_REQUIRED"
-  );
+  expectError(response, 401, "AUTHENTICATION_REQUIRED");
 });
 
 test("WAREHOUSE_STAFF cannot create an order", async () => {
@@ -420,9 +394,9 @@ test("WAREHOUSE_STAFF cannot create an order", async () => {
       items: [
         {
           productId: current.laptopOne.id,
-          quantity: 1
-        }
-      ]
+          quantity: 1,
+        },
+      ],
     });
 
   expectError(response, 403, "FORBIDDEN");
@@ -441,14 +415,10 @@ test("order creation rejects empty items", async () => {
     .send({
       customerId: current.customerId,
       warehouseId: current.warehouseId,
-      items: []
+      items: [],
     });
 
-  expectError(
-    response,
-    400,
-    "VALIDATION_ERROR"
-  );
+  expectError(response, 400, "VALIDATION_ERROR");
 });
 
 test("order creation rejects duplicate products", async () => {
@@ -463,20 +433,16 @@ test("order creation rejects duplicate products", async () => {
       items: [
         {
           productId: current.laptopOne.id,
-          quantity: 1
+          quantity: 1,
         },
         {
           productId: current.laptopOne.id,
-          quantity: 2
-        }
-      ]
+          quantity: 2,
+        },
+      ],
     });
 
-  expectError(
-    response,
-    400,
-    "VALIDATION_ERROR"
-  );
+  expectError(response, 400, "VALIDATION_ERROR");
 });
 
 test("order creation rejects zero quantity", async () => {
@@ -491,16 +457,12 @@ test("order creation rejects zero quantity", async () => {
       items: [
         {
           productId: current.laptopOne.id,
-          quantity: 0
-        }
-      ]
+          quantity: 0,
+        },
+      ],
     });
 
-  expectError(
-    response,
-    400,
-    "VALIDATION_ERROR"
-  );
+  expectError(response, 400, "VALIDATION_ERROR");
 });
 
 test("client cannot submit its own unit price", async () => {
@@ -516,16 +478,12 @@ test("client cannot submit its own unit price", async () => {
         {
           productId: current.laptopOne.id,
           quantity: 1,
-          unitPrice: "1.00"
-        }
-      ]
+          unitPrice: "1.00",
+        },
+      ],
     });
 
-  expectError(
-    response,
-    400,
-    "VALIDATION_ERROR"
-  );
+  expectError(response, 400, "VALIDATION_ERROR");
 });
 
 // --------------------------------------------------
@@ -543,12 +501,12 @@ test("SALES_STAFF can create a DRAFT order without changing stock", async () => 
   const order = await createOrder(salesToken, [
     {
       productId: current.laptopOne.id,
-      quantity: 2
+      quantity: 2,
     },
     {
       productId: current.laptopTwo.id,
-      quantity: 1
-    }
+      quantity: 1,
+    },
   ]);
 
   primaryOrder = order;
@@ -562,11 +520,11 @@ test("SALES_STAFF can create a DRAFT order without changing stock", async () => 
   assert.equal(order.cancelledAt, null);
 
   const firstItem = order.items?.find(
-    (item) => item.productId === current.laptopOne.id
+    (item) => item.productId === current.laptopOne.id,
   );
 
   const secondItem = order.items?.find(
-    (item) => item.productId === current.laptopTwo.id
+    (item) => item.productId === current.laptopTwo.id,
   );
 
   assert.ok(firstItem);
@@ -581,22 +539,16 @@ test("SALES_STAFF can create a DRAFT order without changing stock", async () => 
 
   assert.equal(Number(order.totalAmount), expectedTotal);
 
-  assert.equal(
-    await getStock(current.laptopOne.id),
-    stockOneBefore
-  );
+  assert.equal(await getStock(current.laptopOne.id), stockOneBefore);
 
-  assert.equal(
-    await getStock(current.laptopTwo.id),
-    stockTwoBefore
-  );
+  assert.equal(await getStock(current.laptopTwo.id), stockTwoBefore);
 
   const movements = await getOrderMovements(order.id);
 
   assert.equal(
     movements.length,
     0,
-    "Draft order must not generate stock movements."
+    "Draft order must not generate stock movements.",
   );
 });
 
@@ -616,13 +568,13 @@ test("owner can update a DRAFT order and recalculate its items", async () => {
       items: [
         {
           productId: current.laptopOne.id,
-          quantity: 3
+          quantity: 3,
         },
         {
           productId: current.laptopTwo.id,
-          quantity: 2
-        }
-      ]
+          quantity: 2,
+        },
+      ],
     });
 
   expectStatus(response, 200);
@@ -634,11 +586,11 @@ test("owner can update a DRAFT order and recalculate its items", async () => {
   assert.equal(updated.itemCount, 2);
 
   const firstItem = updated.items?.find(
-    (item) => item.productId === current.laptopOne.id
+    (item) => item.productId === current.laptopOne.id,
   );
 
   const secondItem = updated.items?.find(
-    (item) => item.productId === current.laptopTwo.id
+    (item) => item.productId === current.laptopTwo.id,
   );
 
   assert.ok(firstItem);
@@ -650,13 +602,10 @@ test("owner can update a DRAFT order and recalculate its items", async () => {
   assert.equal(
     Number(updated.totalAmount),
     Number(current.laptopOne.unitPrice) * 3 +
-      Number(current.laptopTwo.unitPrice) * 2
+      Number(current.laptopTwo.unitPrice) * 2,
   );
 
-  assert.equal(
-    (await getOrderMovements(updated.id)).length,
-    0
-  );
+  assert.equal((await getOrderMovements(updated.id)).length, 0);
 
   primaryOrder = updated;
 });
@@ -669,11 +618,7 @@ test("empty order update is rejected", async () => {
     .set("Authorization", `Bearer ${salesToken}`)
     .send({});
 
-  expectError(
-    response,
-    400,
-    "VALIDATION_ERROR"
-  );
+  expectError(response, 400, "VALIDATION_ERROR");
 });
 
 // --------------------------------------------------
@@ -688,8 +633,8 @@ test("ADMIN can create an order and SALES_STAFF cannot access another user's ord
   adminOrder = await createOrder(adminToken, [
     {
       productId: current.laptopOne.id,
-      quantity: 1
-    }
+      quantity: 1,
+    },
   ]);
 
   assert.equal(adminOrder.status, "DRAFT");
@@ -698,11 +643,7 @@ test("ADMIN can create an order and SALES_STAFF cannot access another user's ord
     .get(`/api/v1/orders/${adminOrder.id}`)
     .set("Authorization", `Bearer ${salesToken}`);
 
-  expectError(
-    detailResponse,
-    404,
-    "ORDER_NOT_FOUND"
-  );
+  expectError(detailResponse, 404, "ORDER_NOT_FOUND");
 
   const updateResponse = await request(app)
     .patch(`/api/v1/orders/${adminOrder.id}`)
@@ -711,26 +652,18 @@ test("ADMIN can create an order and SALES_STAFF cannot access another user's ord
       items: [
         {
           productId: current.laptopOne.id,
-          quantity: 2
-        }
-      ]
+          quantity: 2,
+        },
+      ],
     });
 
-  expectError(
-    updateResponse,
-    404,
-    "ORDER_NOT_FOUND"
-  );
+  expectError(updateResponse, 404, "ORDER_NOT_FOUND");
 
   const cancelResponse = await request(app)
     .post(`/api/v1/orders/${adminOrder.id}/cancel`)
     .set("Authorization", `Bearer ${salesToken}`);
 
-  expectError(
-    cancelResponse,
-    404,
-    "ORDER_NOT_FOUND"
-  );
+  expectError(cancelResponse, 404, "ORDER_NOT_FOUND");
 });
 
 test("SALES_STAFF order list only includes its own orders", async () => {
@@ -741,46 +674,40 @@ test("SALES_STAFF order list only includes its own orders", async () => {
     .get("/api/v1/orders")
     .query({
       limit: 100,
-      offset: 0
+      offset: 0,
     })
     .set("Authorization", `Bearer ${salesToken}`);
 
   expectStatus(salesResponse, 200);
 
   const salesOrders = salesResponse.body.data?.orders as
-    | TestOrder[]
-    | undefined;
+    TestOrder[] | undefined;
 
   assert.ok(salesOrders);
 
-  assert.ok(
-    salesOrders.some((order) => order.id === primaryOrder?.id)
-  );
+  assert.ok(salesOrders.some((order) => order.id === primaryOrder?.id));
 
   assert.equal(
     salesOrders.some((order) => order.id === adminOrder?.id),
-    false
+    false,
   );
 
   const adminResponse = await request(app)
     .get("/api/v1/orders")
     .query({
       limit: 100,
-      offset: 0
+      offset: 0,
     })
     .set("Authorization", `Bearer ${adminToken}`);
 
   expectStatus(adminResponse, 200);
 
   const adminOrders = adminResponse.body.data?.orders as
-    | TestOrder[]
-    | undefined;
+    TestOrder[] | undefined;
 
   assert.ok(adminOrders);
 
-  assert.ok(
-    adminOrders.some((order) => order.id === adminOrder?.id)
-  );
+  assert.ok(adminOrders.some((order) => order.id === adminOrder?.id));
 });
 
 // --------------------------------------------------
@@ -799,16 +726,12 @@ test("nonexistent customer is rejected", async () => {
       items: [
         {
           productId: current.laptopOne.id,
-          quantity: 1
-        }
-      ]
+          quantity: 1,
+        },
+      ],
     });
 
-  expectError(
-    response,
-    404,
-    "CUSTOMER_NOT_FOUND"
-  );
+  expectError(response, 404, "CUSTOMER_NOT_FOUND");
 });
 
 test("nonexistent warehouse is rejected", async () => {
@@ -823,16 +746,12 @@ test("nonexistent warehouse is rejected", async () => {
       items: [
         {
           productId: current.laptopOne.id,
-          quantity: 1
-        }
-      ]
+          quantity: 1,
+        },
+      ],
     });
 
-  expectError(
-    response,
-    404,
-    "WAREHOUSE_NOT_FOUND"
-  );
+  expectError(response, 404, "WAREHOUSE_NOT_FOUND");
 });
 
 // --------------------------------------------------
@@ -850,25 +769,19 @@ test("insufficient stock confirmation leaves the order and inventory unchanged",
   insufficientStockOrder = await createOrder(salesToken, [
     {
       productId: current.laptopOne.id,
-      quantity: stockOneBefore + 1
+      quantity: stockOneBefore + 1,
     },
     {
       productId: current.laptopTwo.id,
-      quantity: 1
-    }
+      quantity: 1,
+    },
   ]);
 
   const confirmResponse = await request(app)
-    .post(
-      `/api/v1/orders/${insufficientStockOrder.id}/confirm`
-    )
+    .post(`/api/v1/orders/${insufficientStockOrder.id}/confirm`)
     .set("Authorization", `Bearer ${warehouseToken}`);
 
-  expectError(
-    confirmResponse,
-    409,
-    "INSUFFICIENT_STOCK"
-  );
+  expectError(confirmResponse, 409, "INSUFFICIENT_STOCK");
 
   const detailResponse = await request(app)
     .get(`/api/v1/orders/${insufficientStockOrder.id}`)
@@ -881,20 +794,11 @@ test("insufficient stock confirmation leaves the order and inventory unchanged",
   assert.equal(unchangedOrder.status, "DRAFT");
   assert.equal(unchangedOrder.confirmedAt, null);
 
-  assert.equal(
-    await getStock(current.laptopOne.id),
-    stockOneBefore
-  );
+  assert.equal(await getStock(current.laptopOne.id), stockOneBefore);
 
-  assert.equal(
-    await getStock(current.laptopTwo.id),
-    stockTwoBefore
-  );
+  assert.equal(await getStock(current.laptopTwo.id), stockTwoBefore);
 
-  assert.equal(
-    (await getOrderMovements(insufficientStockOrder.id)).length,
-    0
-  );
+  assert.equal((await getOrderMovements(insufficientStockOrder.id)).length, 0);
 });
 
 test("owner can cancel a DRAFT order without restoring or changing stock", async () => {
@@ -906,9 +810,7 @@ test("owner can cancel a DRAFT order without restoring or changing stock", async
   const stockTwoBefore = await getStock(current.laptopTwo.id);
 
   const response = await request(app)
-    .post(
-      `/api/v1/orders/${insufficientStockOrder.id}/cancel`
-    )
+    .post(`/api/v1/orders/${insufficientStockOrder.id}/cancel`)
     .set("Authorization", `Bearer ${salesToken}`);
 
   expectStatus(response, 200);
@@ -918,20 +820,11 @@ test("owner can cancel a DRAFT order without restoring or changing stock", async
   assert.equal(cancelled.status, "CANCELLED");
   assert.ok(cancelled.cancelledAt);
 
-  assert.equal(
-    await getStock(current.laptopOne.id),
-    stockOneBefore
-  );
+  assert.equal(await getStock(current.laptopOne.id), stockOneBefore);
 
-  assert.equal(
-    await getStock(current.laptopTwo.id),
-    stockTwoBefore
-  );
+  assert.equal(await getStock(current.laptopTwo.id), stockTwoBefore);
 
-  assert.equal(
-    (await getOrderMovements(insufficientStockOrder.id)).length,
-    0
-  );
+  assert.equal((await getOrderMovements(insufficientStockOrder.id)).length, 0);
 });
 
 // --------------------------------------------------
@@ -946,15 +839,9 @@ test("WAREHOUSE_STAFF can confirm an order and stock is deducted atomically", as
   const stockOneBefore = await getStock(current.laptopOne.id);
   const stockTwoBefore = await getStock(current.laptopTwo.id);
 
-  assert.equal(
-    stockOneBefore,
-    current.laptopOne.baselineQuantity
-  );
+  assert.equal(stockOneBefore, current.laptopOne.baselineQuantity);
 
-  assert.equal(
-    stockTwoBefore,
-    current.laptopTwo.baselineQuantity
-  );
+  assert.equal(stockTwoBefore, current.laptopTwo.baselineQuantity);
 
   const response = await request(app)
     .post(`/api/v1/orders/${primaryOrder.id}/confirm`)
@@ -968,26 +855,20 @@ test("WAREHOUSE_STAFF can confirm an order and stock is deducted atomically", as
   assert.ok(confirmed.confirmedAt);
   assert.equal(confirmed.cancelledAt, null);
 
-  assert.equal(
-    await getStock(current.laptopOne.id),
-    stockOneBefore - 3
-  );
+  assert.equal(await getStock(current.laptopOne.id), stockOneBefore - 3);
 
-  assert.equal(
-    await getStock(current.laptopTwo.id),
-    stockTwoBefore - 2
-  );
+  assert.equal(await getStock(current.laptopTwo.id), stockTwoBefore - 2);
 
   const movements = await getOrderMovements(primaryOrder.id);
 
   assert.equal(movements.length, 2);
 
   const firstMovement = movements.find(
-    (movement) => movement.product_id === current.laptopOne.id
+    (movement) => movement.product_id === current.laptopOne.id,
   );
 
   const secondMovement = movements.find(
-    (movement) => movement.product_id === current.laptopTwo.id
+    (movement) => movement.product_id === current.laptopTwo.id,
   );
 
   assert.ok(firstMovement);
@@ -1011,11 +892,7 @@ test("SALES_STAFF cannot confirm an order", async () => {
     .post(`/api/v1/orders/${adminOrder.id}/confirm`)
     .set("Authorization", `Bearer ${salesToken}`);
 
-  expectError(
-    response,
-    403,
-    "FORBIDDEN"
-  );
+  expectError(response, 403, "FORBIDDEN");
 });
 
 test("confirmed order cannot be updated or confirmed a second time", async () => {
@@ -1030,26 +907,18 @@ test("confirmed order cannot be updated or confirmed a second time", async () =>
       items: [
         {
           productId: current.laptopOne.id,
-          quantity: 1
-        }
-      ]
+          quantity: 1,
+        },
+      ],
     });
 
-  expectError(
-    updateResponse,
-    409,
-    "ORDER_NOT_DRAFT"
-  );
+  expectError(updateResponse, 409, "ORDER_NOT_DRAFT");
 
   const confirmResponse = await request(app)
     .post(`/api/v1/orders/${primaryOrder.id}/confirm`)
     .set("Authorization", `Bearer ${warehouseToken}`);
 
-  expectError(
-    confirmResponse,
-    409,
-    "ORDER_NOT_DRAFT"
-  );
+  expectError(confirmResponse, 409, "ORDER_NOT_DRAFT");
 });
 
 // --------------------------------------------------
@@ -1084,12 +953,12 @@ test("WAREHOUSE_STAFF can cancel a CONFIRMED order and restore stock", async () 
 
   assert.equal(
     await getStock(current.laptopOne.id),
-    current.laptopOne.baselineQuantity
+    current.laptopOne.baselineQuantity,
   );
 
   assert.equal(
     await getStock(current.laptopTwo.id),
-    current.laptopTwo.baselineQuantity
+    current.laptopTwo.baselineQuantity,
   );
 
   const movements = await getOrderMovements(primaryOrder.id);
@@ -1097,22 +966,22 @@ test("WAREHOUSE_STAFF can cancel a CONFIRMED order and restore stock", async () 
   assert.equal(movements.length, 4);
 
   const confirmMovements = movements.filter(
-    (movement) => movement.movement_type === "ORDER_CONFIRM"
+    (movement) => movement.movement_type === "ORDER_CONFIRM",
   );
 
   const cancelMovements = movements.filter(
-    (movement) => movement.movement_type === "ORDER_CANCEL"
+    (movement) => movement.movement_type === "ORDER_CANCEL",
   );
 
   assert.equal(confirmMovements.length, 2);
   assert.equal(cancelMovements.length, 2);
 
   const firstCancel = cancelMovements.find(
-    (movement) => movement.product_id === current.laptopOne.id
+    (movement) => movement.product_id === current.laptopOne.id,
   );
 
   const secondCancel = cancelMovements.find(
-    (movement) => movement.product_id === current.laptopTwo.id
+    (movement) => movement.product_id === current.laptopTwo.id,
   );
 
   assert.ok(firstCancel);
@@ -1129,11 +998,7 @@ test("already cancelled order cannot be cancelled again", async () => {
     .post(`/api/v1/orders/${primaryOrder.id}/cancel`)
     .set("Authorization", `Bearer ${warehouseToken}`);
 
-  expectError(
-    response,
-    409,
-    "ORDER_ALREADY_CANCELLED"
-  );
+  expectError(response, 409, "ORDER_ALREADY_CANCELLED");
 });
 
 test("cancelled order cannot be updated", async () => {
@@ -1148,16 +1013,12 @@ test("cancelled order cannot be updated", async () => {
       items: [
         {
           productId: current.laptopOne.id,
-          quantity: 1
-        }
-      ]
+          quantity: 1,
+        },
+      ],
     });
 
-  expectError(
-    response,
-    409,
-    "ORDER_NOT_DRAFT"
-  );
+  expectError(response, 409, "ORDER_NOT_DRAFT");
 });
 
 // --------------------------------------------------
@@ -1172,8 +1033,8 @@ test("concurrent confirmation cannot deduct stock twice", async () => {
   const order = await createOrder(salesToken, [
     {
       productId: current.laptopOne.id,
-      quantity: 1
-    }
+      quantity: 1,
+    },
   ]);
 
   const [responseA, responseB] = await Promise.all([
@@ -1183,40 +1044,28 @@ test("concurrent confirmation cannot deduct stock twice", async () => {
 
     request(app)
       .post(`/api/v1/orders/${order.id}/confirm`)
-      .set("Authorization", `Bearer ${warehouseToken}`)
+      .set("Authorization", `Bearer ${warehouseToken}`),
   ]);
 
-  const statuses = [
-    responseA.status,
-    responseB.status
-  ].sort((a, b) => a - b);
+  const statuses = [responseA.status, responseB.status].sort((a, b) => a - b);
 
   assert.deepEqual(
     statuses,
     [200, 409],
-    `Expected exactly one confirmation: A=${JSON.stringify(responseA.body)} B=${JSON.stringify(responseB.body)}`
+    `Expected exactly one confirmation: A=${JSON.stringify(responseA.body)} B=${JSON.stringify(responseB.body)}`,
   );
 
-  const failedResponse =
-    responseA.status === 409 ? responseA : responseB;
+  const failedResponse = responseA.status === 409 ? responseA : responseB;
 
-  expectError(
-    failedResponse,
-    409,
-    "ORDER_NOT_DRAFT"
-  );
+  expectError(failedResponse, 409, "ORDER_NOT_DRAFT");
 
-  const successfulResponse =
-    responseA.status === 200 ? responseA : responseB;
+  const successfulResponse = responseA.status === 200 ? responseA : responseB;
 
   const confirmed = getOrder(successfulResponse);
 
   assert.equal(confirmed.status, "CONFIRMED");
 
-  assert.equal(
-    await getStock(current.laptopOne.id),
-    stockBefore - 1
-  );
+  assert.equal(await getStock(current.laptopOne.id), stockBefore - 1);
 
   const movements = await getOrderMovements(order.id);
 
@@ -1230,10 +1079,7 @@ test("concurrent confirmation cannot deduct stock twice", async () => {
 
   expectStatus(cancelResponse, 200);
 
-  assert.equal(
-    await getStock(current.laptopOne.id),
-    stockBefore
-  );
+  assert.equal(await getStock(current.laptopOne.id), stockBefore);
 
   const finalMovements = await getOrderMovements(order.id);
 
@@ -1241,16 +1087,16 @@ test("concurrent confirmation cannot deduct stock twice", async () => {
 
   assert.equal(
     finalMovements.filter(
-      (movement) => movement.movement_type === "ORDER_CONFIRM"
+      (movement) => movement.movement_type === "ORDER_CONFIRM",
     ).length,
-    1
+    1,
   );
 
   assert.equal(
     finalMovements.filter(
-      (movement) => movement.movement_type === "ORDER_CANCEL"
+      (movement) => movement.movement_type === "ORDER_CANCEL",
     ).length,
-    1
+    1,
   );
 });
 
@@ -1259,31 +1105,25 @@ test("concurrent confirmation cannot deduct stock twice", async () => {
 // --------------------------------------------------
 
 test("orders can be filtered by status", async () => {
-  for (const status of [
-    "DRAFT",
-    "CONFIRMED",
-    "CANCELLED"
-  ]) {
+  for (const status of ["DRAFT", "CONFIRMED", "CANCELLED"]) {
     const response = await request(app)
       .get("/api/v1/orders")
       .query({
         status,
         limit: 100,
-        offset: 0
+        offset: 0,
       })
       .set("Authorization", `Bearer ${adminToken}`);
 
     expectStatus(response, 200);
 
-    const orders = response.body.data?.orders as
-      | TestOrder[]
-      | undefined;
+    const orders = response.body.data?.orders as TestOrder[] | undefined;
 
     assert.ok(orders);
 
     assert.ok(
       orders.every((order) => order.status === status),
-      `Order status filter ${status} returned an unexpected status.`
+      `Order status filter ${status} returned an unexpected status.`,
     );
   }
 });
@@ -1292,15 +1132,11 @@ test("invalid order query parameters are rejected", async () => {
   const response = await request(app)
     .get("/api/v1/orders")
     .query({
-      status: "INVALID_STATUS"
+      status: "INVALID_STATUS",
     })
     .set("Authorization", `Bearer ${adminToken}`);
 
-  expectError(
-    response,
-    400,
-    "VALIDATION_ERROR"
-  );
+  expectError(response, 400, "VALIDATION_ERROR");
 });
 
 // --------------------------------------------------
@@ -1337,9 +1173,5 @@ test("nonexistent order returns HTTP 404", async () => {
     .get("/api/v1/orders/9223372036854775807")
     .set("Authorization", `Bearer ${adminToken}`);
 
-  expectError(
-    response,
-    404,
-    "ORDER_NOT_FOUND"
-  );
+  expectError(response, 404, "ORDER_NOT_FOUND");
 });

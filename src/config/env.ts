@@ -19,27 +19,23 @@ const envSchema = z.object({
 
   DB_PASSWORD: z.string().min(1),
 
-  JWT_SECRET: z
-  .string()
-  .min(64, "JWT_SECRET must be at least 64 characters"),
+  JWT_SECRET: z.string().min(64, "JWT_SECRET must be at least 64 characters"),
 
   SEED_ADMIN_PASSWORD: z.preprocess(
-    (value) => value === "" ? undefined : value,
-    z.string().min(12).optional()
+    (value) => (value === "" ? undefined : value),
+    z.string().min(12).optional(),
   ),
 
   SEED_WAREHOUSE_PASSWORD: z.preprocess(
-    (value) => value === "" ? undefined : value,
-    z.string().min(12).optional()
+    (value) => (value === "" ? undefined : value),
+    z.string().min(12).optional(),
   ),
 
   SEED_SALES_PASSWORD: z.preprocess(
-    (value) => value === "" ? undefined : value,
-    z.string().min(12).optional()
-  )
-
+    (value) => (value === "" ? undefined : value),
+    z.string().min(12).optional(),
+  ),
 });
-
 
 // 2. Validate environment variables
 export const env = envSchema.parse(process.env);

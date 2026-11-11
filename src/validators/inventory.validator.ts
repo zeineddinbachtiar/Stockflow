@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 
 const MAX_BIGINT = 9223372036854775807n;
@@ -107,18 +106,8 @@ export const inventoryQuerySchema = z
       .transform((value) => value === "true")
       .optional(),
 
-    limit: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(100)
-      .default(50),
+    limit: z.coerce.number().int().min(1).max(100).default(50),
 
-    offset: z.coerce
-      .number()
-      .int()
-      .min(0)
-      .max(1000000)
-      .default(0),
+    offset: z.coerce.number().int().min(0).max(1000000).default(0),
   })
   .strict();

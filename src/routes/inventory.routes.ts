@@ -1,4 +1,3 @@
-
 import { Router } from "express";
 
 import {
@@ -24,17 +23,9 @@ import {
 const router = Router();
 
 // All authenticated users can view inventory.
-router.get(
-  "/",
-  authenticate,
-  listInventory
-);
+router.get("/", authenticate, listInventory);
 
-router.get(
-  "/:id",
-  authenticate,
-  getInventory
-);
+router.get("/:id", authenticate, getInventory);
 
 // ADMIN and WAREHOUSE_STAFF can receive stock.
 router.post(
@@ -42,7 +33,7 @@ router.post(
   authenticate,
   authorize("ADMIN", "WAREHOUSE_STAFF"),
   validateBody(receiveStockSchema),
-  receiveStockController
+  receiveStockController,
 );
 
 // ADMIN and WAREHOUSE_STAFF can issue stock.
@@ -51,7 +42,7 @@ router.post(
   authenticate,
   authorize("ADMIN", "WAREHOUSE_STAFF"),
   validateBody(issueStockSchema),
-  issueStockController
+  issueStockController,
 );
 
 // ADMIN and WAREHOUSE_STAFF can perform stock adjustments.
@@ -60,7 +51,7 @@ router.post(
   authenticate,
   authorize("ADMIN", "WAREHOUSE_STAFF"),
   validateBody(adjustStockSchema),
-  adjustStockController
+  adjustStockController,
 );
 
 // ADMIN and WAREHOUSE_STAFF can update reorder levels.
@@ -69,7 +60,7 @@ router.patch(
   authenticate,
   authorize("ADMIN", "WAREHOUSE_STAFF"),
   validateBody(reorderLevelSchema),
-  updateReorderLevelController
+  updateReorderLevelController,
 );
 
 export default router;

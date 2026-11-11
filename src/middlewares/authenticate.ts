@@ -1,4 +1,3 @@
-
 import type { RequestHandler } from "express";
 
 import { AppError } from "../errors/app-error";
@@ -12,18 +11,14 @@ import { verifyAccessToken } from "../utils/jwt";
  * The current user role is retrieved from the database
  * on every authenticated request.
  */
-export const authenticate: RequestHandler = async (
-  req,
-  _res,
-  next
-) => {
+export const authenticate: RequestHandler = async (req, _res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader) {
     throw new AppError(
       401,
       "AUTHENTICATION_REQUIRED",
-      "Authentication is required."
+      "Authentication is required.",
     );
   }
 
@@ -33,7 +28,7 @@ export const authenticate: RequestHandler = async (
     throw new AppError(
       401,
       "INVALID_AUTHORIZATION_FORMAT",
-      "Authorization header must use Bearer token format."
+      "Authorization header must use Bearer token format.",
     );
   }
 
@@ -47,7 +42,7 @@ export const authenticate: RequestHandler = async (
     throw new AppError(
       401,
       "INVALID_ACCESS_TOKEN",
-      "Access token is invalid or expired."
+      "Access token is invalid or expired.",
     );
   }
 
@@ -58,13 +53,13 @@ export const authenticate: RequestHandler = async (
     throw new AppError(
       401,
       "INVALID_ACCESS_TOKEN",
-      "Access token is invalid or expired."
+      "Access token is invalid or expired.",
     );
   }
 
   req.user = {
     id: user.id,
-    role: user.role
+    role: user.role,
   };
 
   next();

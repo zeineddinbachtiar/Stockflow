@@ -1,4 +1,5 @@
-
+import { AppError } from "../errors/app-error";
+import { hasPostgresErrorCode } from "../utils/postgres-errors";
 import {
   createCategory,
   deactivateCategory,
@@ -14,20 +15,6 @@ import type {
   PublicCategory,
   UpdateCategoryInput,
 } from "../types/category.types";
-
-export type CategoryServiceErrorCode =
-  | "CATEGORY_NOT_FOUND"
-  | "CATEGORY_ALREADY_EXISTS";
-
-export class CategoryServiceError extends Error {
-  constructor(
-    public readonly code: CategoryServiceErrorCode,
-    message: string
-  ) {
-    super(message);
-    this.name = "CategoryServiceError";
-  }
-}
 
 /**
  * Convert database category record into public response format.
@@ -55,16 +42,11 @@ export async function getAllCategories(): Promise<PublicCategory[]> {
 /**
  * Retrieve an active category by ID.
  */
-export async function getCategoryById(
-  id: string
-): Promise<PublicCategory> {
+export async function getCategoryById(id: string): Promise<PublicCategory> {
   const category = await findCategoryById(id);
 
   if (!category || !category.is_active) {
-    throw new CategoryServiceError(
-      "CATEGORY_NOT_FOUND",
-      "Category not found."
-    );
+    throw new AppError(404, "CATEGORY_NOT_FOUND", "Category not found.");
   }
 
   return toPublicCategory(category);
@@ -74,19 +56,19 @@ export async function getCategoryById(
  * Create a new category.
  */
 export async function createNewCategory(
-  input: CreateCategoryInput
+  input: CreateCategoryInput,
 ): Promise<PublicCategory> {
   const normalizedName = input.name.trim();
-  const normalizedDescription =
-    input.description?.trim() || null;
+  const normalizedDescription = input.description?.trim() || null;
 
   // Check whether the category name has already been used.
   const existingCategory = await findCategoryByName(normalizedName);
 
   if (existingCategory) {
-    throw new CategoryServiceError(
+    throw new AppError(
+      409,
       "CATEGORY_ALREADY_EXISTS",
-      "Category name is already registered."
+      "Category name is already registered.",
     );
   }
 
@@ -99,15 +81,11 @@ export async function createNewCategory(
     return toPublicCategory(category);
   } catch (error: unknown) {
     // Handle a duplicate-name race condition.
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      error.code === "23505"
-    ) {
-      throw new CategoryServiceError(
+    if (hasPostgresErrorCode(error, "23505")) {
+      throw new AppError(
+        409,
         "CATEGORY_ALREADY_EXISTS",
-        "Category name is already registered."
+        "Category name is already registered.",
       );
     }
 
@@ -120,16 +98,13 @@ export async function createNewCategory(
  */
 export async function updateExistingCategory(
   id: string,
-  input: UpdateCategoryInput
+  input: UpdateCategoryInput,
 ): Promise<PublicCategory> {
   // Ensure the category exists and is active.
   const currentCategory = await findCategoryById(id);
 
   if (!currentCategory || !currentCategory.is_active) {
-    throw new CategoryServiceError(
-      "CATEGORY_NOT_FOUND",
-      "Category not found."
-    );
+    throw new AppError(404, "CATEGORY_NOT_FOUND", "Category not found.");
   }
 
   const normalizedInput: UpdateCategoryInput = {};
@@ -141,9 +116,10 @@ export async function updateExistingCategory(
     const existingCategory = await findCategoryByName(normalizedName);
 
     if (existingCategory && existingCategory.id !== id) {
-      throw new CategoryServiceError(
+      throw new AppError(
+        409,
         "CATEGORY_ALREADY_EXISTS",
-        "Category name is already registered."
+        "Category name is already registered.",
       );
     }
 
@@ -152,21 +128,14 @@ export async function updateExistingCategory(
 
   // Normalize the description if it is provided.
   if (input.description !== undefined) {
-    normalizedInput.description =
-      input.description?.trim() || null;
+    normalizedInput.description = input.description?.trim() || null;
   }
 
   try {
-    const updatedCategory = await updateCategory(
-      id,
-      normalizedInput
-    );
+    const updatedCategory = await updateCategory(id, normalizedInput);
 
     if (!updatedCategory) {
-      throw new CategoryServiceError(
-        "CATEGORY_NOT_FOUND",
-        "Category not found."
-      );
+      throw new AppError(404, "CATEGORY_NOT_FOUND", "Category not found.");
     }
 
     return toPublicCategory(updatedCategory);
@@ -178,9 +147,10 @@ export async function updateExistingCategory(
       "code" in error &&
       error.code === "23505"
     ) {
-      throw new CategoryServiceError(
+      throw new AppError(
+        409,
         "CATEGORY_ALREADY_EXISTS",
-        "Category name is already registered."
+        "Category name is already registered.",
       );
     }
 
@@ -192,26 +162,19 @@ export async function updateExistingCategory(
  * Deactivate an active category without deleting it.
  */
 export async function deactivateExistingCategory(
-  id: string
+  id: string,
 ): Promise<PublicCategory> {
   const currentCategory = await findCategoryById(id);
 
   if (!currentCategory || !currentCategory.is_active) {
-    throw new CategoryServiceError(
-      "CATEGORY_NOT_FOUND",
-      "Category not found."
-    );
+    throw new AppError(404, "CATEGORY_NOT_FOUND", "Category not found.");
   }
 
   const deactivatedCategory = await deactivateCategory(id);
 
   if (!deactivatedCategory) {
-    throw new CategoryServiceError(
-      "CATEGORY_NOT_FOUND",
-      "Category not found."
-    );
+    throw new AppError(404, "CATEGORY_NOT_FOUND", "Category not found.");
   }
 
   return toPublicCategory(deactivatedCategory);
 }
-

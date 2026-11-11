@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 
 const categoryNameSchema = z
@@ -33,11 +32,6 @@ export const updateCategorySchema = z
     description: categoryDescriptionSchema,
   })
   .strict()
-  .refine(
-    (data) =>
-      data.name !== undefined ||
-      data.description !== undefined,
-    {
-      message: "At least one field must be provided for update.",
-    }
-  );
+  .refine((data) => data.name !== undefined || data.description !== undefined, {
+    message: "At least one field must be provided for update.",
+  });

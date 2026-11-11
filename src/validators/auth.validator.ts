@@ -1,4 +1,3 @@
-
 import { z } from "zod";
 
 /**
@@ -24,8 +23,8 @@ export const registerSchema = z
       .min(8, "Password must contain at least 8 characters.")
       .refine(
         (value) => Buffer.byteLength(value, "utf8") <= 72,
-        "Password must not exceed 72 UTF-8 bytes."
-      )
+        "Password must not exceed 72 UTF-8 bytes.",
+      ),
   })
   .strict();
 
@@ -46,18 +45,14 @@ export const loginSchema = z
       .min(1, "Password is required.")
       .refine(
         (value) => Buffer.byteLength(value, "utf8") <= 72,
-        "Invalid password length."
-      )
+        "Invalid password length.",
+      ),
   })
   .strict();
 
 /**
  * Export inferred request types.
  */
-export type RegisterRequest = z.infer<
-  typeof registerSchema
->;
+export type RegisterRequest = z.infer<typeof registerSchema>;
 
-export type LoginRequest = z.infer<
-  typeof loginSchema
->;
+export type LoginRequest = z.infer<typeof loginSchema>;

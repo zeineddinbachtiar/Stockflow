@@ -1,15 +1,7 @@
-
 export type StockMovementType =
-  | "RECEIPT"
-  | "ISSUE"
-  | "ADJUSTMENT"
-  | "ORDER_CONFIRM"
-  | "ORDER_CANCEL";
+  "RECEIPT" | "ISSUE" | "ADJUSTMENT" | "ORDER_CONFIRM" | "ORDER_CANCEL";
 
-export type ManualMovementType =
-  | "RECEIPT"
-  | "ISSUE"
-  | "ADJUSTMENT";
+export type ManualMovementType = "RECEIPT" | "ISSUE" | "ADJUSTMENT";
 
 export interface StockMovementRecord {
   id: string;

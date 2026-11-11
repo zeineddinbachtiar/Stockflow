@@ -1,4 +1,3 @@
-
 import { Router } from "express";
 
 import {
@@ -21,17 +20,9 @@ import {
 const router = Router();
 
 // All authenticated users can view categories.
-router.get(
-  "/",
-  authenticate,
-  listCategories
-);
+router.get("/", authenticate, listCategories);
 
-router.get(
-  "/:id",
-  authenticate,
-  getCategory
-);
+router.get("/:id", authenticate, getCategory);
 
 // Only ADMIN can create categories.
 router.post(
@@ -39,7 +30,7 @@ router.post(
   authenticate,
   authorize("ADMIN"),
   validateBody(createCategorySchema),
-  createCategoryController
+  createCategoryController,
 );
 
 // Only ADMIN can update categories.
@@ -48,7 +39,7 @@ router.patch(
   authenticate,
   authorize("ADMIN"),
   validateBody(updateCategorySchema),
-  updateCategoryController
+  updateCategoryController,
 );
 
 // Only ADMIN can deactivate categories.
@@ -56,7 +47,7 @@ router.patch(
   "/:id/deactivate",
   authenticate,
   authorize("ADMIN"),
-  deactivateCategoryController
+  deactivateCategoryController,
 );
 
 export default router;
