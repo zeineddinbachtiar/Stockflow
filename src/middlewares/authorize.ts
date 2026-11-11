@@ -1,34 +1,43 @@
 
 import type { RequestHandler } from "express";
+
+import { AppError } from "../errors/app-error";
+
 import type { UserRole } from "../types/user.types";
 
-export const authorize = (...allowedRoles: UserRole[]): RequestHandler => {
+/**
+ * Restrict a route to one or more allowed roles.
+ */
+export const authorize = (
+  ...allowedRoles: UserRole[]
+): RequestHandler => {
   if (allowedRoles.length === 0) {
-    throw new Error("authorize middleware requires at least one role.");
+    throw new Error(
+      "authorize middleware requires at least one role."
+    );
   }
 
-  return (req, res, next) => {
-    // Pastikan pengguna sudah melewati authentication.
+  return (req, _res, next) => {
     if (!req.user) {
-      res.status(401).json({
-        status: "error",
-        code: "AUTHENTICATION_REQUIRED",
-        message: "Authentication is required.",
-      });
-      return;
+      return next(
+        new AppError(
+          401,
+          "AUTHENTICATION_REQUIRED",
+          "Authentication is required."
+        )
+      );
     }
 
-    // Periksa apakah role pengguna diizinkan.
     if (!allowedRoles.includes(req.user.role)) {
-      res.status(403).json({
-        status: "error",
-        code: "FORBIDDEN",
-        message: "You do not have permission to access this resource.",
-      });
-      return;
+      return next(
+        new AppError(
+          403,
+          "FORBIDDEN",
+          "You do not have permission to access this resource."
+        )
+      );
     }
 
-    // Role diizinkan, lanjutkan request.
     next();
   };
 };

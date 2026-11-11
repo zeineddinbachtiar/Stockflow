@@ -1,6 +1,7 @@
 
 import type { RequestHandler, Response } from "express";
 import { positiveBigIntIdSchema } from "../validators/common.validator";
+import { parsePositiveBigIntId } from "../utils/route-params";
 
 import {
   ProductServiceError,
@@ -19,55 +20,22 @@ import type {
 /**
  * Validate and retrieve product ID from route parameters.
  */
-function getProductId(
-  param: unknown,
-  res: Response
-): string | null {
-  const parsed = positiveBigIntIdSchema.safeParse(param);
-
-  if (!parsed.success) {
-    res.status(400).json({
-      status: "error",
-      code: "INVALID_PRODUCT_ID",
-      message: "Product ID must be a valid positive BIGINT.",
-    });
-
-    return null;
-  }
-
-  return parsed.data;
+function getProductId(param: unknown): string {
+  return parsePositiveBigIntId(
+    param,
+    "INVALID_PRODUCT_ID",
+    "Product"
+  );
 }
 
 /**
  * Handle errors returned by product service.
  */
-function handleProductError(error: unknown, res: Response): void {
-  if (error instanceof ProductServiceError) {
-    let statusCode = 500;
-
-    if (error.code === "PRODUCT_NOT_FOUND" ||
-        error.code === "CATEGORY_NOT_FOUND") {
-      statusCode = 404;
-    } else if (error.code === "PRODUCT_SKU_ALREADY_EXISTS") {
-      statusCode = 409;
-    }
-
-    res.status(statusCode).json({
-      status: "error",
-      code: error.code,
-      message: error.message,
-    });
-
-    return;
-  }
-
-  console.error("Product controller error:", error);
-
-  res.status(500).json({
-    status: "error",
-    code: "INTERNAL_SERVER_ERROR",
-    message: "An unexpected error occurred.",
-  });
+function handleProductError(
+  error: unknown,
+  _res: Response
+): never {
+  throw error;
 }
 
 /**
@@ -93,9 +61,7 @@ export const listProducts: RequestHandler = async (_req, res) => {
  */
 export const getProduct: RequestHandler = async (req, res) => {
   try {
-    const productId = getProductId(req.params.id, res);
-
-    if (!productId) return;
+    const productId = getProductId(req.params.id);
 
     const product = await getProductById(productId);
 
@@ -142,9 +108,7 @@ export const updateProductController: RequestHandler = async (
   res
 ) => {
   try {
-    const productId = getProductId(req.params.id, res);
-
-    if (!productId) return;
+    const productId = getProductId(req.params.id);
 
     const input = req.body as UpdateProductInput;
 
@@ -170,9 +134,7 @@ export const deactivateProductController: RequestHandler = async (
   res
 ) => {
   try {
-    const productId = getProductId(req.params.id, res);
-
-    if (!productId) return;
+    const productId = getProductId(req.params.id);
 
     const product = await deactivateExistingProduct(productId);
 

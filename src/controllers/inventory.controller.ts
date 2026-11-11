@@ -1,5 +1,7 @@
 
 import type { Request, RequestHandler, Response } from "express";
+import { AppError } from "../errors/app-error";
+import { parsePositiveBigIntId } from "../utils/route-params";
 
 import {
   InventoryServiceError,
@@ -25,64 +27,24 @@ import {
 /**
  * Validate inventory ID from route parameters.
  */
-function getInventoryId(
-  param: unknown,
-  res: Response
-): string | null {
-  if (
-    typeof param !== "string" ||
-    !/^[1-9]\d*$/.test(param)
-  ) {
-    res.status(400).json({
-      status: "error",
-      code: "INVALID_INVENTORY_ID",
-      message: "Inventory ID must be a positive integer.",
-    });
-
-    return null;
-  }
-
-  try {
-    const id = BigInt(param);
-    const maxId = 9223372036854775807n;
-
-    if (id > maxId) {
-      res.status(400).json({
-        status: "error",
-        code: "INVALID_INVENTORY_ID",
-        message: "Inventory ID exceeds the maximum supported value.",
-      });
-
-      return null;
-    }
-  } catch {
-    res.status(400).json({
-      status: "error",
-      code: "INVALID_INVENTORY_ID",
-      message: "Inventory ID must be a positive integer.",
-    });
-
-    return null;
-  }
-
-  return param;
+function getInventoryId(param: unknown): string {
+  return parsePositiveBigIntId(
+    param,
+    "INVALID_INVENTORY_ID",
+    "Inventory"
+  );
 }
 
 /**
  * Retrieve authenticated user ID.
  */
-function getPerformedBy(
-  req: Request,
-  res: Response
-): string | null {
+function getPerformedBy(req: Request): string {
   if (!req.user) {
-    res.status(401).json({
-      status: "error",
-      code: "AUTHENTICATION_REQUIRED",
-      message: "Authentication is required.",
-    });
-
-    return null;
+    throw new AppError(
+      401,
+      "AUTHENTICATION_REQUIRED",
+      "Authentication is required."
+    );
   }
 
   return req.user.id;
@@ -93,41 +55,9 @@ function getPerformedBy(
  */
 function handleInventoryError(
   error: unknown,
-  res: Response
-): void {
-  if (error instanceof InventoryServiceError) {
-    let statusCode = 500;
-
-    if (
-      error.code === "WAREHOUSE_NOT_FOUND" ||
-      error.code === "PRODUCT_NOT_FOUND" ||
-      error.code === "INVENTORY_NOT_FOUND"
-    ) {
-      statusCode = 404;
-    } else if (error.code === "INSUFFICIENT_STOCK") {
-      statusCode = 409;
-    } else if (
-      error.code === "STOCK_QUANTITY_LIMIT_EXCEEDED"
-    ) {
-      statusCode = 422;
-    }
-
-    res.status(statusCode).json({
-      status: "error",
-      code: error.code,
-      message: error.message,
-    });
-
-    return;
-  }
-
-  console.error("Inventory controller error:", error);
-
-  res.status(500).json({
-    status: "error",
-    code: "INTERNAL_SERVER_ERROR",
-    message: "An unexpected error occurred.",
-  });
+  _res: Response
+): never {
+  throw error;
 }
 
 /**
@@ -135,16 +65,19 @@ function handleInventoryError(
  */
 function handleQueryValidationError(
   issues: Array<{ path: PropertyKey[]; message: string }>,
-  res: Response
-): void {
-  res.status(400).json({
-    status: "error",
-    message: "Request validation failed.",
-    errors: issues.map((issue) => ({
-      field: issue.path.map(String).join("."),
-      message: issue.message,
-    })),
-  });
+  _res: Response
+): never {
+  const details = issues.map((issue) => ({
+    field: issue.path.map(String).join("."),
+    message: issue.message
+  }));
+
+  throw new AppError(
+    400,
+    "VALIDATION_ERROR",
+    "Request validation failed.",
+    details
+  );
 }
 
 /**
@@ -177,9 +110,7 @@ export const listInventory: RequestHandler = async (req, res) => {
  */
 export const getInventory: RequestHandler = async (req, res) => {
   try {
-    const inventoryId = getInventoryId(req.params.id, res);
-
-    if (!inventoryId) return;
+    const inventoryId = getInventoryId(req.params.id);
 
     const inventory = await getInventoryById(inventoryId);
 
@@ -202,9 +133,7 @@ export const receiveStockController: RequestHandler = async (
   res
 ) => {
   try {
-    const performedBy = getPerformedBy(req, res);
-
-    if (!performedBy) return;
+    const performedBy = getPerformedBy(req);
 
     const input = req.body as StockOperationInput;
 
@@ -228,9 +157,7 @@ export const issueStockController: RequestHandler = async (
   res
 ) => {
   try {
-    const performedBy = getPerformedBy(req, res);
-
-    if (!performedBy) return;
+    const performedBy = getPerformedBy(req);
 
     const input = req.body as StockOperationInput;
 
@@ -254,9 +181,7 @@ export const adjustStockController: RequestHandler = async (
   res
 ) => {
   try {
-    const performedBy = getPerformedBy(req, res);
-
-    if (!performedBy) return;
+    const performedBy = getPerformedBy(req);
 
     const input = req.body as StockAdjustmentInput;
 
@@ -280,9 +205,7 @@ export const updateReorderLevelController: RequestHandler = async (
   res
 ) => {
   try {
-    const inventoryId = getInventoryId(req.params.id, res);
-
-    if (!inventoryId) return;
+    const inventoryId = getInventoryId(req.params.id);
 
     const input = req.body as ReorderLevelInput;
 

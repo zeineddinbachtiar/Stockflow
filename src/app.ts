@@ -9,6 +9,8 @@ import customerRouter from "./routes/customer.routes";
 import inventoryRouter from "./routes/inventory.routes";
 import stockMovementRouter from "./routes/stock-movement.routes";
 import orderRouter from "./routes/order.routes";
+import { notFoundHandler } from "./middlewares/not-found";
+import { errorHandler } from "./middlewares/error-handler";
 
 const app = express();
 
@@ -39,5 +41,12 @@ app.get("/api/v1/health", (_req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+// Handle unmatched routes.
+app.use(notFoundHandler);
+
+// Centralized application error handler.
+// This must be the last middleware.
+app.use(errorHandler);
 
 export default app;

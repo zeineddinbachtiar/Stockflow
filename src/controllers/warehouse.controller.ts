@@ -1,5 +1,6 @@
 
 import type { RequestHandler, Response } from "express";
+import { parsePositiveBigIntId } from "../utils/route-params";
 
 import {
   WarehouseServiceError,
@@ -19,47 +20,12 @@ import type {
 /**
  * Validate warehouse ID from route parameters.
  */
-function getWarehouseId(
-  param: unknown,
-  res: Response
-): string | null {
-  if (
-    typeof param !== "string" ||
-    !/^[1-9]\d*$/.test(param)
-  ) {
-    res.status(400).json({
-      status: "error",
-      code: "INVALID_WAREHOUSE_ID",
-      message: "Warehouse ID must be a positive integer.",
-    });
-
-    return null;
-  }
-
-  try {
-    const id = BigInt(param);
-    const maxId = 9223372036854775807n;
-
-    if (id > maxId) {
-      res.status(400).json({
-        status: "error",
-        code: "INVALID_WAREHOUSE_ID",
-        message: "Warehouse ID exceeds the maximum supported value.",
-      });
-
-      return null;
-    }
-  } catch {
-    res.status(400).json({
-      status: "error",
-      code: "INVALID_WAREHOUSE_ID",
-      message: "Warehouse ID must be a positive integer.",
-    });
-
-    return null;
-  }
-
-  return param;
+function getWarehouseId(param: unknown): string {
+  return parsePositiveBigIntId(
+    param,
+    "INVALID_WAREHOUSE_ID",
+    "Warehouse"
+  );
 }
 
 /**
@@ -67,28 +33,9 @@ function getWarehouseId(
  */
 function handleWarehouseError(
   error: unknown,
-  res: Response
-): void {
-  if (error instanceof WarehouseServiceError) {
-    const statusCode =
-      error.code === "WAREHOUSE_NOT_FOUND" ? 404 : 409;
-
-    res.status(statusCode).json({
-      status: "error",
-      code: error.code,
-      message: error.message,
-    });
-
-    return;
-  }
-
-  console.error("Warehouse controller error:", error);
-
-  res.status(500).json({
-    status: "error",
-    code: "INTERNAL_SERVER_ERROR",
-    message: "An unexpected error occurred.",
-  });
+  _res: Response
+): never {
+  throw error;
 }
 
 /**
@@ -114,9 +61,7 @@ export const listWarehouses: RequestHandler = async (_req, res) => {
  */
 export const getWarehouse: RequestHandler = async (req, res) => {
   try {
-    const warehouseId = getWarehouseId(req.params.id, res);
-
-    if (!warehouseId) return;
+    const warehouseId = getWarehouseId(req.params.id);
 
     const warehouse = await getWarehouseById(warehouseId);
 
@@ -163,9 +108,7 @@ export const updateWarehouseController: RequestHandler = async (
   res
 ) => {
   try {
-    const warehouseId = getWarehouseId(req.params.id, res);
-
-    if (!warehouseId) return;
+    const warehouseId = getWarehouseId(req.params.id);
 
     const input = req.body as UpdateWarehouseInput;
 
@@ -194,9 +137,7 @@ export const deactivateWarehouseController: RequestHandler = async (
   res
 ) => {
   try {
-    const warehouseId = getWarehouseId(req.params.id, res);
-
-    if (!warehouseId) return;
+    const warehouseId = getWarehouseId(req.params.id);
 
     const warehouse = await deactivateExistingWarehouse(warehouseId);
 
@@ -220,9 +161,7 @@ export const reactivateWarehouseController: RequestHandler = async (
   res
 ) => {
   try {
-    const warehouseId = getWarehouseId(req.params.id, res);
-
-    if (!warehouseId) return;
+    const warehouseId = getWarehouseId(req.params.id);
 
     const warehouse = await reactivateExistingWarehouse(warehouseId);
 

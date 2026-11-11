@@ -20,46 +20,10 @@ import type {
  */
 function handleAuthError(
   error: unknown,
-  res: Response
-): void {
-  if (error instanceof AuthServiceError) {
-    switch (error.code) {
-      case "EMAIL_ALREADY_REGISTERED":
-        res.status(409).json({
-          status: "error",
-          code: error.code,
-          message: error.message
-        });
-        return;
-
-      case "INVALID_CREDENTIALS":
-        res.status(401).json({
-          status: "error",
-          code: error.code,
-          message: error.message
-        });
-        return;
-
-      case "INVALID_INPUT":
-        res.status(400).json({
-          status: "error",
-          code: error.code,
-          message: error.message
-        });
-        return;
-    }
-  }
-
-  // Do not expose internal database or server errors.
-  console.error("Unexpected authentication error:", error);
-
-  res.status(500).json({
-    status: "error",
-    code: "INTERNAL_SERVER_ERROR",
-    message: "An unexpected server error occurred."
-  });
+  _res: Response
+): never {
+  throw error;
 }
-
 /**
  * POST /api/v1/auth/register
  */

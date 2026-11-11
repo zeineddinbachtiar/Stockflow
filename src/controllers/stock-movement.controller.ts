@@ -1,5 +1,7 @@
 
-import type { RequestHandler, Response } from "express";
+import type { RequestHandler } from "express";
+import { AppError } from "../errors/app-error";
+import { parsePositiveBigIntId } from "../utils/route-params";
 
 import {
   getAllStockMovements,
@@ -17,47 +19,12 @@ import {
 /**
  * Validate stock movement ID.
  */
-function getMovementId(
-  param: unknown,
-  res: Response
-): string | null {
-  if (
-    typeof param !== "string" ||
-    !/^[1-9]\d*$/.test(param)
-  ) {
-    res.status(400).json({
-      status: "error",
-      code: "INVALID_STOCK_MOVEMENT_ID",
-      message: "Stock movement ID must be a positive integer.",
-    });
-
-    return null;
-  }
-
-  try {
-    const id = BigInt(param);
-    const maxId = 9223372036854775807n;
-
-    if (id > maxId) {
-      res.status(400).json({
-        status: "error",
-        code: "INVALID_STOCK_MOVEMENT_ID",
-        message: "Stock movement ID exceeds the maximum supported value.",
-      });
-
-      return null;
-    }
-  } catch {
-    res.status(400).json({
-      status: "error",
-      code: "INVALID_STOCK_MOVEMENT_ID",
-      message: "Stock movement ID must be a positive integer.",
-    });
-
-    return null;
-  }
-
-  return param;
+function getMovementId(param: unknown): string {
+  return parsePositiveBigIntId(
+    param,
+    "INVALID_STOCK_MOVEMENT_ID",
+    "Stock movement"
+  );
 }
 
 /**
@@ -71,16 +38,15 @@ export const listStockMovements: RequestHandler = async (
     const parsed = stockMovementQuerySchema.safeParse(req.query);
 
     if (!parsed.success) {
-      res.status(400).json({
-        status: "error",
-        message: "Request validation failed.",
-        errors: parsed.error.issues.map((issue) => ({
-          field: issue.path.map(String).join("."),
-          message: issue.message,
-        })),
-      });
-
-      return;
+        throw new AppError(
+            400,
+            "VALIDATION_ERROR",
+            "Request validation failed.",
+            parsed.error.issues.map((issue) => ({
+                field: issue.path.map(String).join("."),
+                message: issue.message
+             }))
+        );
     }
 
     const query: StockMovementQuery = parsed.data;
@@ -92,14 +58,8 @@ export const listStockMovements: RequestHandler = async (
       data: result,
     });
   } catch (error: unknown) {
-    console.error("Stock movement controller error:", error);
-
-    res.status(500).json({
-      status: "error",
-      code: "INTERNAL_SERVER_ERROR",
-      message: "An unexpected error occurred.",
-    });
-  }
+     throw error;
+    }
 };
 
 /**
@@ -110,20 +70,16 @@ export const getStockMovement: RequestHandler = async (
   res
 ) => {
   try {
-    const movementId = getMovementId(req.params.id, res);
-
-    if (!movementId) return;
+    const movementId = getMovementId(req.params.id);
 
     const movement = await getStockMovementById(movementId);
 
     if (!movement) {
-      res.status(404).json({
-        status: "error",
-        code: "STOCK_MOVEMENT_NOT_FOUND",
-        message: "Stock movement not found.",
-      });
-
-      return;
+        throw new AppError(
+         404,
+         "STOCK_MOVEMENT_NOT_FOUND",
+         "Stock movement not found."
+         );
     }
 
     res.status(200).json({
@@ -133,12 +89,6 @@ export const getStockMovement: RequestHandler = async (
       },
     });
   } catch (error: unknown) {
-    console.error("Stock movement controller error:", error);
-
-    res.status(500).json({
-      status: "error",
-      code: "INTERNAL_SERVER_ERROR",
-      message: "An unexpected error occurred.",
-    });
-  }
+        throw error;
+    }
 };

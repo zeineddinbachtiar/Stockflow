@@ -1,4 +1,5 @@
 import type { RequestHandler, Response } from "express";
+import { parsePositiveBigIntId } from "../utils/route-params";
 
 import {
   CustomerServiceError,
@@ -16,47 +17,12 @@ import type {
 /**
  * Validate customer ID from route parameters.
  */
-function getCustomerId(
-  param: unknown,
-  res: Response
-): string | null {
-  if (
-    typeof param !== "string" ||
-    !/^[1-9]\d*$/.test(param)
-  ) {
-    res.status(400).json({
-      status: "error",
-      code: "INVALID_CUSTOMER_ID",
-      message: "Customer ID must be a positive integer.",
-    });
-
-    return null;
-  }
-
-  try {
-    const id = BigInt(param);
-    const maxId = 9223372036854775807n;
-
-    if (id > maxId) {
-      res.status(400).json({
-        status: "error",
-        code: "INVALID_CUSTOMER_ID",
-        message: "Customer ID exceeds the maximum supported value.",
-      });
-
-      return null;
-    }
-  } catch {
-    res.status(400).json({
-      status: "error",
-      code: "INVALID_CUSTOMER_ID",
-      message: "Customer ID must be a positive integer.",
-    });
-
-    return null;
-  }
-
-  return param;
+function getCustomerId(param: unknown): string {
+  return parsePositiveBigIntId(
+    param,
+    "INVALID_CUSTOMER_ID",
+    "Customer"
+  );
 }
 
 /**
@@ -64,28 +30,9 @@ function getCustomerId(
  */
 function handleCustomerError(
   error: unknown,
-  res: Response
-): void {
-  if (error instanceof CustomerServiceError) {
-    const statusCode =
-      error.code === "CUSTOMER_NOT_FOUND" ? 404 : 409;
-
-    res.status(statusCode).json({
-      status: "error",
-      code: error.code,
-      message: error.message,
-    });
-
-    return;
-  }
-
-  console.error("Customer controller error:", error);
-
-  res.status(500).json({
-    status: "error",
-    code: "INTERNAL_SERVER_ERROR",
-    message: "An unexpected error occurred.",
-  });
+  _res: Response
+): never {
+  throw error;
 }
 
 /**
@@ -111,9 +58,7 @@ export const listCustomers: RequestHandler = async (_req, res) => {
  */
 export const getCustomer: RequestHandler = async (req, res) => {
   try {
-    const customerId = getCustomerId(req.params.id, res);
-
-    if (!customerId) return;
+    const customerId = getCustomerId(req.params.id);
 
     const customer = await getCustomerById(customerId);
 
@@ -160,9 +105,7 @@ export const updateCustomerController: RequestHandler = async (
   res
 ) => {
   try {
-    const customerId = getCustomerId(req.params.id, res);
-
-    if (!customerId) return;
+    const customerId = getCustomerId(req.params.id);
 
     const input = req.body as UpdateCustomerInput;
 

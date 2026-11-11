@@ -1,6 +1,7 @@
 
 import type { RequestHandler, Response } from "express";
 import { positiveBigIntIdSchema } from "../validators/common.validator";
+import { parsePositiveBigIntId } from "../utils/route-params";
 
 import {
   CategoryServiceError,
@@ -22,52 +23,24 @@ import type {
 /**
  * Validate and retrieve category ID from route parameters.
  */
-function getCategoryId(
-  param: unknown,
-  res: Response
-): string | null {
-  const parsed = positiveBigIntIdSchema.safeParse(param);
-
-  if (!parsed.success) {
-    res.status(400).json({
-      status: "error",
-      code: "INVALID_CATEGORY_ID",
-      message: "Category ID must be a valid positive BIGINT.",
-    });
-
-    return null;
-  }
-
-  return parsed.data;
+function getCategoryId(param: unknown): string {
+  return parsePositiveBigIntId(
+    param,
+    "INVALID_CATEGORY_ID",
+    "Category"
+  );
 }
 
 
 /**
  * Handle errors returned by category service.
  */
-function handleCategoryError(error: unknown, res: Response): void {
-  if (error instanceof CategoryServiceError) {
-    const statusCode =
-      error.code === "CATEGORY_NOT_FOUND" ? 404 : 409;
-
-    res.status(statusCode).json({
-      status: "error",
-      code: error.code,
-      message: error.message,
-    });
-
-    return;
-  }
-
-  console.error("Category controller error:", error);
-
-  res.status(500).json({
-    status: "error",
-    code: "INTERNAL_SERVER_ERROR",
-    message: "An unexpected error occurred.",
-  });
+function handleCategoryError(
+  error: unknown,
+  _res: Response
+): never {
+  throw error;
 }
-
 /**
  * GET /api/v1/categories
  */
@@ -91,9 +64,7 @@ export const listCategories: RequestHandler = async (_req, res) => {
  */
 export const getCategory: RequestHandler = async (req, res) => {
   try {
-    const categoryId = getCategoryId(req.params.id, res);
-
-    if (!categoryId) return;
+    const categoryId = getCategoryId(req.params.id);
 
     const category = await getCategoryById(categoryId);
 
@@ -142,9 +113,7 @@ export const updateCategoryController: RequestHandler = async (
   try {
     const input = req.body as UpdateCategoryInput;
 
-    const categoryId = getCategoryId(req.params.id, res);
-
-    if (!categoryId) return;
+    const categoryId = getCategoryId(req.params.id);
 
     const category = await updateExistingCategory(
     categoryId,
@@ -171,9 +140,7 @@ export const deactivateCategoryController: RequestHandler = async (
   res
 ) => {
   try {
-    const categoryId = getCategoryId(req.params.id, res);
-
-    if (!categoryId) return;
+    const categoryId = getCategoryId(req.params.id);
 
     const category = await deactivateExistingCategory(categoryId);
 
