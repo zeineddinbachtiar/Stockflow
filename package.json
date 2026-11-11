@@ -4,12 +4,13 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --import=tsx --import=./tests/setup/test-env.cjs --test --test-concurrency=1 tests/**/*.test.ts",
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "seed": "tsx src/scripts/seed.ts"
+    "seed": "tsx src/scripts/seed.ts",
+    "test:typecheck": "tsc --noEmit -p tsconfig.test.json"
   },
   "keywords": [],
   "author": "",
@@ -30,8 +31,11 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^26.6.6",
     "@types/pg": "^8.23.1",
+    "@types/supertest": "^7.2.1",
+    "supertest": "^7.3.2",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   },
-  "type": "commonjs"
+  "type": "commonjs",
+  "overrides": {}
 }
