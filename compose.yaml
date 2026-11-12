@@ -1,0 +1,105 @@
+name: stockflow
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Set POSTGRES_ADMIN_PASSWORD in .env}
+      POSTGRES_DB: postgres
+
+      POSTGRES_APP_USER: ${DB_USER:?Set DB_USER in .env}
+      POSTGRES_APP_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      POSTGRES_APP_DB: ${DB_NAME:?Set DB_NAME in .env}
+
+    volumes:
+      - stockflow_postgres_data:/var/lib/postgresql
+      - ./docker/postgres/init/001-create-stockflow-db.sh:/docker-entrypoint-initdb.d/001-create-stockflow-db.sh:ro
+      - ./database/migrations/001_create_stockflow_schema.sql:/migrations/001_create_stockflow_schema.sql:ro
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+    stop_grace_period: 1m
+
+  api:
+    image: stockflow-api:local
+    build:
+      context: .
+      target: runtime
+
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 15s
+
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:?Set DB_NAME in .env}
+      DB_USER: ${DB_USER:?Set DB_USER in .env}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?Set CORS_ALLOWED_ORIGINS in .env}
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-0}
+
+    ports:
+      - "127.0.0.1:${PORT:-3000}:3000"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    read_only: true
+    tmpfs:
+      - /tmp
+
+    security_opt:
+      - no-new-privileges:true
+
+    cap_drop:
+      - ALL
+
+  seed:
+    profiles:
+      - tools
+
+    build:
+      context: .
+      target: build
+
+    command: ["npm", "run", "seed"]
+
+    restart: "no"
+
+    environment:
+      NODE_ENV: development
+
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME:?Set DB_NAME in .env}
+      DB_USER: ${DB_USER:?Set DB_USER in .env}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      SEED_WAREHOUSE_PASSWORD: ${SEED_WAREHOUSE_PASSWORD:-}
+      SEED_SALES_PASSWORD: ${SEED_SALES_PASSWORD:-}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  stockflow_postgres_data:
