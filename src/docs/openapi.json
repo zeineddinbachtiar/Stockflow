@@ -1,0 +1,3893 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "StockFlow API",
+    "version": "1.0.0",
+    "summary": "Inventory & Order Management REST API",
+    "description": "StockFlow provides authentication, master data, inventory balances, append-only stock movement history, and order management. Authentication uses JWT Bearer access tokens. Public user registration always creates the SALES_STAFF role.\n\nAll resource IDs are PostgreSQL BIGINT values serialized as strings. List endpoints use offset pagination (limit defaults to 50, maximum 100; offset defaults to 0).",
+    "contact": {
+      "name": "StockFlow API maintainers"
+    }
+  },
+  "servers": [
+    {
+      "url": "/api/v1",
+      "description": "StockFlow API v1 (relative to the current host)"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Liveness and database readiness checks."
+    },
+    {
+      "name": "Authentication",
+      "description": "Public registration and JWT login."
+    },
+    {
+      "name": "Categories",
+      "description": "Product category master data."
+    },
+    {
+      "name": "Products",
+      "description": "Product master data."
+    },
+    {
+      "name": "Warehouses",
+      "description": "Warehouse master data."
+    },
+    {
+      "name": "Customers",
+      "description": "Customer master data."
+    },
+    {
+      "name": "Inventory",
+      "description": "Current stock balances and stock operations."
+    },
+    {
+      "name": "Stock Movements",
+      "description": "Append-only audit history for stock changes."
+    },
+    {
+      "name": "Orders",
+      "description": "Draft, confirmation, and cancellation workflows."
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "operationId": "getHealth",
+        "summary": "Liveness check",
+        "description": "Confirms that the API process is responding. It does not check PostgreSQL.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "operationId": "getReadiness",
+        "summary": "Readiness check",
+        "description": "Checks PostgreSQL with a lightweight SELECT 1 query. Returns 503 when the database check fails.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "operationId": "registerUser",
+        "summary": "Register a user",
+        "description": "Public registration always assigns the SALES_STAFF role; clients cannot select a role. Rate limit: 5 requests per IP per hour.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "operationId": "loginUser",
+        "summary": "Log in",
+        "description": "Authenticates credentials and returns a signed JWT access token. Rate limit: 10 requests per IP per 15 minutes.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/categories": {
+      "get": {
+        "tags": [
+          "Categories"
+        ],
+        "operationId": "listCategories",
+        "summary": "List categories",
+        "description": "Returns active categories using offset pagination.\n\n**Allowed roles:** ADMIN, WAREHOUSE_STAFF, SALES_STAFF.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Categories"
+        ],
+        "operationId": "createCategory",
+        "summary": "Create a category",
+        "description": "**Allowed roles:** ADMIN.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/categories/{id}": {
+      "get": {
+        "tags": [
+          "Categories"
+        ],
+        "operationId": "getCategory",
+        "summary": "Get a category",
+        "description": "**Allowed roles:** ADMIN, WAREHOUSE_STAFF, SALES_STAFF.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Categories"
+        ],
+        "operationId": "updateCategory",
+        "summary": "Update a category",
+        "description": "**Allowed roles:** ADMIN.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/categories/{id}/deactivate": {
+      "patch": {
+        "tags": [
+          "Categories"
+        ],
+        "operationId": "deactivateCategory",
+        "summary": "Deactivate a category",
+        "description": "**Allowed roles:** ADMIN.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/products": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "listProducts",
+        "summary": "List products",
+        "description": "Returns active products using offset pagination.\n\n**Allowed roles:** ADMIN, WAREHOUSE_STAFF, SALES_STAFF.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "createProduct",
+        "summary": "Create a product",
+        "description": "**Allowed roles:** ADMIN.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/products/{id}": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "getProduct",
+        "summary": "Get a product",
+        "description": "**Allowed roles:** ADMIN, WAREHOUSE_STAFF, SALES_STAFF.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "updateProduct",
+        "summary": "Update a product",
+        "description": "**Allowed roles:** ADMIN.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/products/{id}/deactivate": {
+      "patch": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "deactivateProduct",
+        "summary": "Deactivate a product",
+        "description": "**Allowed roles:** ADMIN.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/warehouses": {
+      "get": {
+        "tags": [
+          "Warehouses"
+        ],
+        "operationId": "listWarehouses",
+        "summary": "List warehouses",
+        "description": "Returns active warehouses using offset pagination.\n\n**Allowed roles:** ADMIN, WAREHOUSE_STAFF, SALES_STAFF.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WarehouseListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Warehouses"
+        ],
+        "operationId": "createWarehouse",
+        "summary": "Create a warehouse",
+        "description": "**Allowed roles:** ADMIN.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WarehouseCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WarehouseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/warehouses/{id}": {
+      "get": {
+        "tags": [
+          "Warehouses"
+        ],
+        "operationId": "getWarehouse",
+        "summary": "Get a warehouse",
+        "description": "**Allowed roles:** ADMIN, WAREHOUSE_STAFF, SALES_STAFF.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WarehouseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Warehouses"
+        ],
+        "operationId": "updateWarehouse",
+        "summary": "Update a warehouse",
+        "description": "**Allowed roles:** ADMIN.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WarehouseUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WarehouseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/warehouses/{id}/deactivate": {
+      "patch": {
+        "tags": [
+          "Warehouses"
+        ],
+        "operationId": "deactivateWarehouse",
+        "summary": "Deactivate a warehouse",
+        "description": "**Allowed roles:** ADMIN.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WarehouseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/warehouses/{id}/reactivate": {
+      "patch": {
+        "tags": [
+          "Warehouses"
+        ],
+        "operationId": "reactivateWarehouse",
+        "summary": "Reactivate a warehouse",
+        "description": "**Allowed roles:** ADMIN.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WarehouseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/customers": {
+      "get": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "listCustomers",
+        "summary": "List customers",
+        "description": "**Allowed roles:** ADMIN, SALES_STAFF.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "createCustomer",
+        "summary": "Create a customer",
+        "description": "**Allowed roles:** ADMIN, SALES_STAFF.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/customers/{id}": {
+      "get": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "getCustomer",
+        "summary": "Get a customer",
+        "description": "**Allowed roles:** ADMIN, SALES_STAFF.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "updateCustomer",
+        "summary": "Update a customer",
+        "description": "**Allowed roles:** ADMIN, SALES_STAFF.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/inventory": {
+      "get": {
+        "tags": [
+          "Inventory"
+        ],
+        "operationId": "listInventory",
+        "summary": "List inventory balances",
+        "description": "**Allowed roles:** ADMIN, WAREHOUSE_STAFF, SALES_STAFF.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WarehouseId"
+          },
+          {
+            "$ref": "#/components/parameters/ProductId"
+          },
+          {
+            "$ref": "#/components/parameters/LowStock"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/inventory/{id}": {
+      "get": {
+        "tags": [
+          "Inventory"
+        ],
+        "operationId": "getInventory",
+        "summary": "Get an inventory balance",
+        "description": "**Allowed roles:** ADMIN, WAREHOUSE_STAFF, SALES_STAFF.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/inventory/receipts": {
+      "post": {
+        "tags": [
+          "Inventory"
+        ],
+        "operationId": "receiveStock",
+        "summary": "Receive stock",
+        "description": "Increases the on-hand balance and appends a RECEIPT stock movement in the same transaction.\n\n**Allowed roles:** ADMIN, WAREHOUSE_STAFF.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockOperationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryOperationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/inventory/issues": {
+      "post": {
+        "tags": [
+          "Inventory"
+        ],
+        "operationId": "issueStock",
+        "summary": "Issue stock",
+        "description": "Decreases the on-hand balance and appends an ISSUE stock movement in the same transaction. The request quantity is positive.\n\n**Allowed roles:** ADMIN, WAREHOUSE_STAFF.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockOperationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryOperationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/inventory/adjustments": {
+      "post": {
+        "tags": [
+          "Inventory"
+        ],
+        "operationId": "adjustStock",
+        "summary": "Adjust stock",
+        "description": "Applies a non-zero signed quantityDelta and appends an ADJUSTMENT stock movement in the same transaction.\n\n**Allowed roles:** ADMIN, WAREHOUSE_STAFF.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockAdjustmentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryOperationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/inventory/{id}/reorder-level": {
+      "patch": {
+        "tags": [
+          "Inventory"
+        ],
+        "operationId": "updateReorderLevel",
+        "summary": "Update inventory reorder level",
+        "description": "Changes the reorder threshold without changing physical on-hand quantity.\n\n**Allowed roles:** ADMIN, WAREHOUSE_STAFF.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderLevelRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/stock-movements": {
+      "get": {
+        "tags": [
+          "Stock Movements"
+        ],
+        "operationId": "listStockMovements",
+        "summary": "List stock movements",
+        "description": "Returns append-only stock movement history with optional filters and offset pagination.\n\n**Allowed roles:** ADMIN, WAREHOUSE_STAFF.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/WarehouseId"
+          },
+          {
+            "$ref": "#/components/parameters/ProductId"
+          },
+          {
+            "$ref": "#/components/parameters/MovementType"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockMovementListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/stock-movements/{id}": {
+      "get": {
+        "tags": [
+          "Stock Movements"
+        ],
+        "operationId": "getStockMovement",
+        "summary": "Get a stock movement",
+        "description": "**Allowed roles:** ADMIN, WAREHOUSE_STAFF.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockMovementResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/orders": {
+      "get": {
+        "tags": [
+          "Orders"
+        ],
+        "operationId": "listOrders",
+        "summary": "List orders",
+        "description": "SALES_STAFF users only receive orders they created; ADMIN and WAREHOUSE_STAFF can list all orders.\n\n**Allowed roles:** ADMIN, WAREHOUSE_STAFF, SALES_STAFF.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/CustomerId"
+          },
+          {
+            "$ref": "#/components/parameters/WarehouseId"
+          },
+          {
+            "$ref": "#/components/parameters/OrderStatus"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Orders"
+        ],
+        "operationId": "createOrder",
+        "summary": "Create a draft order",
+        "description": "Creates a DRAFT order. Unit prices are taken from the current product records; clients cannot submit prices.\n\n**Allowed roles:** ADMIN, SALES_STAFF.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/orders/{id}": {
+      "get": {
+        "tags": [
+          "Orders"
+        ],
+        "operationId": "getOrder",
+        "summary": "Get an order",
+        "description": "A SALES_STAFF user can only retrieve their own orders; other users' orders are concealed as not found.\n\n**Allowed roles:** ADMIN, WAREHOUSE_STAFF, SALES_STAFF.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Orders"
+        ],
+        "operationId": "updateOrder",
+        "summary": "Update a draft order",
+        "description": "Only DRAFT orders can be updated. ADMIN can update any draft; SALES_STAFF can update only drafts they created.\n\n**Allowed roles:** ADMIN, SALES_STAFF.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/orders/{id}/confirm": {
+      "post": {
+        "tags": [
+          "Orders"
+        ],
+        "operationId": "confirmOrder",
+        "summary": "Confirm an order",
+        "description": "Confirms a DRAFT order, verifies available stock, deducts inventory atomically, and appends ORDER_CONFIRM movements.\n\n**Allowed roles:** ADMIN, WAREHOUSE_STAFF.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/orders/{id}/cancel": {
+      "post": {
+        "tags": [
+          "Orders"
+        ],
+        "operationId": "cancelOrder",
+        "summary": "Cancel an order",
+        "description": "A SALES_STAFF user may cancel their own DRAFT order. Cancelling a CONFIRMED order is restricted to ADMIN and WAREHOUSE_STAFF and restores stock atomically.\n\n**Allowed roles:** ADMIN, WAREHOUSE_STAFF, SALES_STAFF.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Paste the accessToken returned by POST /auth/login or POST /auth/register. Do not include the Bearer prefix in the value; the client adds it automatically."
+      }
+    },
+    "parameters": {
+      "Id": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Positive PostgreSQL BIGINT ID, represented as a string.",
+        "schema": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$",
+          "maxLength": 19,
+          "example": "1",
+          "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+        }
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "description": "Maximum number of records returned (default 50, maximum 100).",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 50
+        }
+      },
+      "Offset": {
+        "name": "offset",
+        "in": "query",
+        "required": false,
+        "description": "Number of records to skip (default 0, maximum 1,000,000).",
+        "schema": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000,
+          "default": 0
+        }
+      },
+      "WarehouseId": {
+        "name": "warehouseId",
+        "in": "query",
+        "required": false,
+        "description": "Filter by warehouse ID.",
+        "schema": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$",
+          "maxLength": 19,
+          "example": "1",
+          "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+        }
+      },
+      "ProductId": {
+        "name": "productId",
+        "in": "query",
+        "required": false,
+        "description": "Filter by product ID.",
+        "schema": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$",
+          "maxLength": 19,
+          "example": "1",
+          "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+        }
+      },
+      "CustomerId": {
+        "name": "customerId",
+        "in": "query",
+        "required": false,
+        "description": "Filter by customer ID.",
+        "schema": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$",
+          "maxLength": 19,
+          "example": "1",
+          "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+        }
+      },
+      "LowStock": {
+        "name": "lowStock",
+        "in": "query",
+        "required": false,
+        "description": "Filter inventory records by low-stock status.",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "true",
+            "false"
+          ]
+        }
+      },
+      "MovementType": {
+        "name": "movementType",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "$ref": "#/components/schemas/StockMovementType"
+        }
+      },
+      "OrderStatus": {
+        "name": "status",
+        "in": "query",
+        "required": false,
+        "schema": {
+          "$ref": "#/components/schemas/OrderStatus"
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Request validation failed, malformed JSON, or invalid route/query value.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Authentication is required or the bearer token is invalid/expired.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "The authenticated role or resource ownership does not permit this operation.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "The requested resource or related active resource was not found.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "The request conflicts with current resource state or a unique database value.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "PayloadTooLarge": {
+        "description": "JSON request body exceeds the configured parser limit.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "UnprocessableEntity": {
+        "description": "A stock quantity would exceed the supported database integer range.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "TooManyRequests": {
+        "description": "The client exceeded the endpoint rate limit.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "InternalServerError": {
+        "description": "Unexpected server error.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "ServiceUnavailable": {
+        "description": "The service is not ready; the database readiness check failed.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/NotReadyResponse"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "error"
+          },
+          "code": {
+            "type": "string",
+            "example": "VALIDATION_ERROR"
+          },
+          "message": {
+            "type": "string"
+          },
+          "errors": {
+            "description": "Additional validation or domain error details, when provided.",
+            "oneOf": [
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ValidationIssue"
+                }
+              },
+              {
+                "type": "object"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "required": [
+          "status",
+          "code",
+          "message"
+        ],
+        "additionalProperties": false
+      },
+      "ValidationIssue": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string",
+            "example": "email"
+          },
+          "message": {
+            "type": "string",
+            "example": "Invalid email format."
+          }
+        },
+        "required": [
+          "field",
+          "message"
+        ],
+        "additionalProperties": false
+      },
+      "Category": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-12T08:30:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-12T08:30:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "isActive",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "Product": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "categoryId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "sku": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 150
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "unitPrice": {
+            "type": "string",
+            "pattern": "^(?:0|[1-9][0-9]{0,11})\\.[0-9]{2}$",
+            "example": "1250000.00",
+            "description": "Non-negative monetary value represented as a decimal string with two fractional digits."
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-12T08:30:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-12T08:30:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "categoryId",
+          "sku",
+          "name",
+          "description",
+          "unitPrice",
+          "isActive",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "Warehouse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 30
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-12T08:30:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-12T08:30:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "address",
+          "isActive",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "Customer": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "customerCode": {
+            "type": "string",
+            "maxLength": 30
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 150
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-12T08:30:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-12T08:30:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "customerCode",
+          "name",
+          "email",
+          "phone",
+          "address",
+          "createdAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "Inventory": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "warehouseId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "warehouseCode": {
+            "type": "string"
+          },
+          "warehouseName": {
+            "type": "string"
+          },
+          "warehouseIsActive": {
+            "type": "boolean"
+          },
+          "productId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "productSku": {
+            "type": "string"
+          },
+          "productName": {
+            "type": "string"
+          },
+          "productIsActive": {
+            "type": "boolean"
+          },
+          "quantityOnHand": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reorderLevel": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "isLowStock": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-12T08:30:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "warehouseId",
+          "warehouseCode",
+          "warehouseName",
+          "warehouseIsActive",
+          "productId",
+          "productSku",
+          "productName",
+          "productIsActive",
+          "quantityOnHand",
+          "reorderLevel",
+          "isLowStock",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "StockMovementType": {
+        "type": "string",
+        "enum": [
+          "RECEIPT",
+          "ISSUE",
+          "ADJUSTMENT",
+          "ORDER_CONFIRM",
+          "ORDER_CANCEL"
+        ]
+      },
+      "StockMovement": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "warehouseId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "warehouseCode": {
+            "type": "string"
+          },
+          "warehouseName": {
+            "type": "string"
+          },
+          "productId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "productSku": {
+            "type": "string"
+          },
+          "productName": {
+            "type": "string"
+          },
+          "performedBy": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "performedByName": {
+            "type": "string"
+          },
+          "orderId": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$",
+                "maxLength": 19,
+                "example": "1",
+                "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "movementType": {
+            "$ref": "#/components/schemas/StockMovementType"
+          },
+          "quantityDelta": {
+            "type": "integer"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-12T08:30:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "warehouseId",
+          "warehouseCode",
+          "warehouseName",
+          "productId",
+          "productSku",
+          "productName",
+          "performedBy",
+          "performedByName",
+          "orderId",
+          "movementType",
+          "quantityDelta",
+          "reason",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "UserRole": {
+        "type": "string",
+        "enum": [
+          "ADMIN",
+          "WAREHOUSE_STAFF",
+          "SALES_STAFF"
+        ]
+      },
+      "PublicUser": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "role": {
+            "$ref": "#/components/schemas/UserRole"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-12T08:30:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "fullName",
+          "email",
+          "role",
+          "isActive",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "OrderStatus": {
+        "type": "string",
+        "enum": [
+          "DRAFT",
+          "CONFIRMED",
+          "CANCELLED"
+        ]
+      },
+      "OrderItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "productId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "productSku": {
+            "type": "string"
+          },
+          "productName": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "unitPrice": {
+            "type": "string",
+            "pattern": "^(?:0|[1-9][0-9]{0,11})\\.[0-9]{2}$",
+            "example": "1250000.00",
+            "description": "Non-negative monetary value represented as a decimal string with two fractional digits."
+          },
+          "lineTotal": {
+            "type": "string",
+            "pattern": "^(?:0|[1-9][0-9]{0,11})\\.[0-9]{2}$",
+            "example": "1250000.00",
+            "description": "Non-negative monetary value represented as a decimal string with two fractional digits."
+          }
+        },
+        "required": [
+          "id",
+          "productId",
+          "productSku",
+          "productName",
+          "quantity",
+          "unitPrice",
+          "lineTotal"
+        ],
+        "additionalProperties": false
+      },
+      "Order": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "orderNumber": {
+            "type": "string"
+          },
+          "customerId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "customerCode": {
+            "type": "string"
+          },
+          "customerName": {
+            "type": "string"
+          },
+          "warehouseId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "warehouseCode": {
+            "type": "string"
+          },
+          "warehouseName": {
+            "type": "string"
+          },
+          "createdBy": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "createdByName": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OrderStatus"
+          },
+          "orderedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-12T08:30:00.000Z"
+          },
+          "confirmedAt": {
+            "oneOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "example": "2026-11-12T08:30:00.000Z"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cancelledAt": {
+            "oneOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "example": "2026-11-12T08:30:00.000Z"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-12T08:30:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-12T08:30:00.000Z"
+          },
+          "itemCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "totalAmount": {
+            "type": "string",
+            "pattern": "^(?:0|[1-9][0-9]{0,11})\\.[0-9]{2}$",
+            "example": "1250000.00",
+            "description": "Non-negative monetary value represented as a decimal string with two fractional digits."
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderItem"
+            },
+            "description": "Present on order detail and mutation responses that return the full order."
+          }
+        },
+        "required": [
+          "id",
+          "orderNumber",
+          "customerId",
+          "customerCode",
+          "customerName",
+          "warehouseId",
+          "warehouseCode",
+          "warehouseName",
+          "createdBy",
+          "createdByName",
+          "status",
+          "orderedAt",
+          "confirmedAt",
+          "cancelledAt",
+          "createdAt",
+          "updatedAt",
+          "itemCount",
+          "totalAmount"
+        ],
+        "additionalProperties": false
+      },
+      "Pagination": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000,
+            "default": 0
+          }
+        },
+        "required": [
+          "total",
+          "limit",
+          "offset"
+        ],
+        "additionalProperties": false
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 150
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "description": "At most 72 UTF-8 bytes (bcrypt input limit). Public registration always assigns the SALES_STAFF role."
+          }
+        },
+        "required": [
+          "fullName",
+          "email",
+          "password"
+        ],
+        "additionalProperties": false
+      },
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 150
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1,
+            "description": "At most 72 UTF-8 bytes."
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "additionalProperties": false
+      },
+      "AuthResult": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "description": "Signed JWT access token."
+          },
+          "tokenType": {
+            "type": "string",
+            "const": "Bearer"
+          },
+          "expiresIn": {
+            "type": "integer",
+            "description": "Access token lifetime in seconds."
+          },
+          "user": {
+            "$ref": "#/components/schemas/PublicUser"
+          }
+        },
+        "required": [
+          "accessToken",
+          "tokenType",
+          "expiresIn",
+          "user"
+        ],
+        "additionalProperties": false
+      },
+      "CategoryCreateRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "CategoryUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          }
+        },
+        "required": [],
+        "additionalProperties": false,
+        "description": "At least one property must be supplied.",
+        "minProperties": 1
+      },
+      "ProductCreateRequest": {
+        "type": "object",
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "sku": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 150
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          },
+          "unitPrice": {
+            "type": "string",
+            "pattern": "^(?:0|[1-9][0-9]{0,11})(?:\\.[0-9]{1,2})?$",
+            "description": "Non-negative decimal; up to 12 integer digits and 2 decimal places."
+          }
+        },
+        "required": [
+          "categoryId",
+          "sku",
+          "name",
+          "unitPrice"
+        ],
+        "additionalProperties": false
+      },
+      "ProductUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "sku": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 150
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          },
+          "unitPrice": {
+            "type": "string",
+            "pattern": "^(?:0|[1-9][0-9]{0,11})(?:\\.[0-9]{1,2})?$"
+          }
+        },
+        "required": [],
+        "additionalProperties": false,
+        "description": "At least one property must be supplied.",
+        "minProperties": 1
+      },
+      "WarehouseCreateRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 30
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "code",
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "WarehouseUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 30
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          }
+        },
+        "required": [],
+        "additionalProperties": false,
+        "description": "At least one property must be supplied.",
+        "minProperties": 1
+      },
+      "CustomerCreateRequest": {
+        "type": "object",
+        "properties": {
+          "customerCode": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 30
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 150
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "email",
+            "maxLength": 150
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 30
+          },
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 5000
+          }
+        },
+        "required": [
+          "customerCode",
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "CustomerUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "customerCode": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 30
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 150
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "email",
+            "maxLength": 150
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 30
+          },
+          "address": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 5000
+          }
+        },
+        "required": [],
+        "additionalProperties": false,
+        "description": "At least one property must be supplied.",
+        "minProperties": 1
+      },
+      "StockOperationRequest": {
+        "type": "object",
+        "properties": {
+          "warehouseId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "productId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "warehouseId",
+          "productId",
+          "quantity"
+        ],
+        "additionalProperties": false
+      },
+      "StockAdjustmentRequest": {
+        "type": "object",
+        "properties": {
+          "warehouseId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "productId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "quantityDelta": {
+            "type": "integer",
+            "minimum": -2147483647,
+            "maximum": 2147483647,
+            "not": {
+              "const": 0
+            }
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "warehouseId",
+          "productId",
+          "quantityDelta",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "ReorderLevelRequest": {
+        "type": "object",
+        "properties": {
+          "reorderLevel": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+          }
+        },
+        "required": [
+          "reorderLevel"
+        ],
+        "additionalProperties": false
+      },
+      "OrderItemRequest": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          }
+        },
+        "required": [
+          "productId",
+          "quantity"
+        ],
+        "additionalProperties": false
+      },
+      "OrderCreateRequest": {
+        "type": "object",
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "warehouseId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/OrderItemRequest"
+            },
+            "description": "Each productId must be unique within the order."
+          }
+        },
+        "required": [
+          "customerId",
+          "warehouseId",
+          "items"
+        ],
+        "additionalProperties": false
+      },
+      "OrderUpdateRequest": {
+        "type": "object",
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "warehouseId": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "maxLength": 19,
+            "example": "1",
+            "description": "Positive PostgreSQL BIGINT identifier, serialized as a string."
+          },
+          "items": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/OrderItemRequest"
+            },
+            "description": "If supplied, each productId must be unique within the order."
+          }
+        },
+        "required": [],
+        "additionalProperties": false,
+        "description": "At least one property must be supplied.",
+        "minProperties": 1
+      },
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "success"
+          },
+          "message": {
+            "type": "string",
+            "example": "StockFlow API is running"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-12T08:30:00.000Z"
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "timestamp"
+        ],
+        "additionalProperties": false
+      },
+      "ReadinessResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "success"
+          },
+          "message": {
+            "type": "string",
+            "example": "StockFlow API is ready."
+          },
+          "checks": {
+            "type": "object",
+            "properties": {
+              "database": {
+                "type": "string",
+                "const": "ok"
+              }
+            },
+            "required": [
+              "database"
+            ],
+            "additionalProperties": false
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-12T08:30:00.000Z"
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "checks",
+          "timestamp"
+        ],
+        "additionalProperties": false
+      },
+      "NotReadyResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "error"
+          },
+          "code": {
+            "type": "string",
+            "const": "SERVICE_UNAVAILABLE"
+          },
+          "message": {
+            "type": "string"
+          },
+          "checks": {
+            "type": "object",
+            "properties": {
+              "database": {
+                "type": "string",
+                "const": "unavailable"
+              }
+            },
+            "required": [
+              "database"
+            ],
+            "additionalProperties": false
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-11-12T08:30:00.000Z"
+          }
+        },
+        "required": [
+          "status",
+          "code",
+          "message",
+          "checks",
+          "timestamp"
+        ],
+        "additionalProperties": false
+      },
+      "AuthResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "success"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/AuthResult"
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "CategoryListResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "success"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "categories": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Category"
+                }
+              },
+              "total": {
+                "type": "integer"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "offset": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "categories",
+              "total",
+              "limit",
+              "offset"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "status",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "CategoryResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "success"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "category": {
+                "$ref": "#/components/schemas/Category"
+              }
+            },
+            "required": [
+              "category"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "status",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "ProductListResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "success"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "products": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Product"
+                }
+              },
+              "total": {
+                "type": "integer"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "offset": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "products",
+              "total",
+              "limit",
+              "offset"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "status",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "ProductResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "success"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "product": {
+                "$ref": "#/components/schemas/Product"
+              }
+            },
+            "required": [
+              "product"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "status",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "WarehouseListResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "success"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "warehouses": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Warehouse"
+                }
+              },
+              "total": {
+                "type": "integer"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "offset": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "warehouses",
+              "total",
+              "limit",
+              "offset"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "status",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "WarehouseResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "success"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "warehouse": {
+                "$ref": "#/components/schemas/Warehouse"
+              }
+            },
+            "required": [
+              "warehouse"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "status",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "CustomerListResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "success"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "customers": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Customer"
+                }
+              },
+              "total": {
+                "type": "integer"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "offset": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "customers",
+              "total",
+              "limit",
+              "offset"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "status",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "CustomerResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "success"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "customer": {
+                "$ref": "#/components/schemas/Customer"
+              }
+            },
+            "required": [
+              "customer"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "status",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "InventoryListResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "success"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "inventory": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Inventory"
+                }
+              },
+              "total": {
+                "type": "integer"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "offset": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "inventory",
+              "total",
+              "limit",
+              "offset"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "status",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "InventoryResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "success"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "inventory": {
+                "$ref": "#/components/schemas/Inventory"
+              }
+            },
+            "required": [
+              "inventory"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "status",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "InventoryOperationResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "success"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "inventory": {
+                "$ref": "#/components/schemas/Inventory"
+              },
+              "movement": {
+                "$ref": "#/components/schemas/StockMovement"
+              }
+            },
+            "required": [
+              "inventory",
+              "movement"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "status",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "StockMovementListResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "success"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "movements": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/StockMovement"
+                }
+              },
+              "total": {
+                "type": "integer"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "offset": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "movements",
+              "total",
+              "limit",
+              "offset"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "status",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "StockMovementResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "success"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "movement": {
+                "$ref": "#/components/schemas/StockMovement"
+              }
+            },
+            "required": [
+              "movement"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "status",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "OrderListResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "success"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "orders": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Order"
+                }
+              },
+              "total": {
+                "type": "integer"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "offset": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "orders",
+              "total",
+              "limit",
+              "offset"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "status",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "OrderResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "success"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "order": {
+                "$ref": "#/components/schemas/Order"
+              }
+            },
+            "required": [
+              "order"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "status",
+          "data"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

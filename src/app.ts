@@ -14,6 +14,10 @@ import { errorHandler } from "./middlewares/error-handler";
 import { env } from "./config/env";
 import { readinessCheck } from "./controllers/health.controller";
 import { requestLogger } from "./middlewares/request-logger";
+import { randomBytes } from "node:crypto";
+import { apiReference } from "@scalar/express-api-reference";
+import openApiDocument from "./docs/openapi.json";
+import type { RequestHandler } from "express";
 
 const app = express();
 
@@ -68,6 +72,48 @@ app.get("/api/v1/health", (_req, res) => {
 
 // Database readiness endpoint
 app.get("/api/v1/ready", readinessCheck);
+
+// Serve the OpenAPI specification.
+app.get("/api/v1/openapi.json", (_req, res) => {
+  res.setHeader("Cache-Control", "public, max-age=300");
+
+  return res.status(200).json(openApiDocument);
+});
+
+// Serve interactive Scalar API documentation.
+app.get("/api/v1/docs", (req, res, next) => {
+  const nonce = randomBytes(18).toString("base64");
+
+  // Keep a strict script policy while allowing Scalar's trusted CDN.
+  const directives = [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "font-src 'self' https: data:",
+    "form-action 'self'",
+    "frame-ancestors 'self'",
+    "img-src 'self' data: https:",
+    "object-src 'none'",
+    `script-src 'self' 'nonce-${nonce}' https://cdn.jsdelivr.net`,
+    "script-src-attr 'none'",
+    "style-src 'self' https: 'unsafe-inline'",
+    "connect-src 'self'",
+  ];
+
+  if (env.NODE_ENV === "production") {
+    directives.push("upgrade-insecure-requests");
+  }
+
+  res.setHeader("Content-Security-Policy", directives.join("; "));
+  res.setHeader("Cache-Control", "no-store");
+
+  const scalarHandler = apiReference({
+    url: "/api/v1/openapi.json",
+    theme: "default",
+    nonce,
+  }) as unknown as RequestHandler;
+
+  return scalarHandler(req, res, next);
+});
 
 // Handle unmatched routes.
 app.use(notFoundHandler);
