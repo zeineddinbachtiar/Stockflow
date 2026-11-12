@@ -61,9 +61,7 @@
   "paths": {
     "/health": {
       "get": {
-        "tags": [
-          "Health"
-        ],
+        "tags": ["Health"],
         "operationId": "getHealth",
         "summary": "Liveness check",
         "description": "Confirms that the API process is responding. It does not check PostgreSQL.",
@@ -84,9 +82,7 @@
     },
     "/ready": {
       "get": {
-        "tags": [
-          "Health"
-        ],
+        "tags": ["Health"],
         "operationId": "getReadiness",
         "summary": "Readiness check",
         "description": "Checks PostgreSQL with a lightweight SELECT 1 query. Returns 503 when the database check fails.",
@@ -110,9 +106,7 @@
     },
     "/auth/register": {
       "post": {
-        "tags": [
-          "Authentication"
-        ],
+        "tags": ["Authentication"],
         "operationId": "registerUser",
         "summary": "Register a user",
         "description": "Public registration always assigns the SALES_STAFF role; clients cannot select a role. Rate limit: 5 requests per IP per hour.",
@@ -158,9 +152,7 @@
     },
     "/auth/login": {
       "post": {
-        "tags": [
-          "Authentication"
-        ],
+        "tags": ["Authentication"],
         "operationId": "loginUser",
         "summary": "Log in",
         "description": "Authenticates credentials and returns a signed JWT access token. Rate limit: 10 requests per IP per 15 minutes.",
@@ -206,9 +198,7 @@
     },
     "/categories": {
       "get": {
-        "tags": [
-          "Categories"
-        ],
+        "tags": ["Categories"],
         "operationId": "listCategories",
         "summary": "List categories",
         "description": "Returns active categories using offset pagination.\n\n**Allowed roles:** ADMIN, WAREHOUSE_STAFF, SALES_STAFF.",
@@ -243,9 +233,7 @@
         }
       },
       "post": {
-        "tags": [
-          "Categories"
-        ],
+        "tags": ["Categories"],
         "operationId": "createCategory",
         "summary": "Create a category",
         "description": "**Allowed roles:** ADMIN.",
@@ -293,9 +281,7 @@
     },
     "/categories/{id}": {
       "get": {
-        "tags": [
-          "Categories"
-        ],
+        "tags": ["Categories"],
         "operationId": "getCategory",
         "summary": "Get a category",
         "description": "**Allowed roles:** ADMIN, WAREHOUSE_STAFF, SALES_STAFF.",
@@ -330,9 +316,7 @@
         }
       },
       "patch": {
-        "tags": [
-          "Categories"
-        ],
+        "tags": ["Categories"],
         "operationId": "updateCategory",
         "summary": "Update a category",
         "description": "**Allowed roles:** ADMIN.",
@@ -388,9 +372,7 @@
     },
     "/categories/{id}/deactivate": {
       "patch": {
-        "tags": [
-          "Categories"
-        ],
+        "tags": ["Categories"],
         "operationId": "deactivateCategory",
         "summary": "Deactivate a category",
         "description": "**Allowed roles:** ADMIN.",
@@ -430,9 +412,7 @@
     },
     "/products": {
       "get": {
-        "tags": [
-          "Products"
-        ],
+        "tags": ["Products"],
         "operationId": "listProducts",
         "summary": "List products",
         "description": "Returns active products using offset pagination.\n\n**Allowed roles:** ADMIN, WAREHOUSE_STAFF, SALES_STAFF.",
@@ -467,9 +447,7 @@
         }
       },
       "post": {
-        "tags": [
-          "Products"
-        ],
+        "tags": ["Products"],
         "operationId": "createProduct",
         "summary": "Create a product",
         "description": "**Allowed roles:** ADMIN.",
@@ -520,9 +498,7 @@
     },
     "/products/{id}": {
       "get": {
-        "tags": [
-          "Products"
-        ],
+        "tags": ["Products"],
         "operationId": "getProduct",
         "summary": "Get a product",
         "description": "**Allowed roles:** ADMIN, WAREHOUSE_STAFF, SALES_STAFF.",
@@ -557,9 +533,7 @@
         }
       },
       "patch": {
-        "tags": [
-          "Products"
-        ],
+        "tags": ["Products"],
         "operationId": "updateProduct",
         "summary": "Update a product",
         "description": "**Allowed roles:** ADMIN.",
@@ -615,9 +589,7 @@
     },
     "/products/{id}/deactivate": {
       "patch": {
-        "tags": [
-          "Products"
-        ],
+        "tags": ["Products"],
         "operationId": "deactivateProduct",
         "summary": "Deactivate a product",
         "description": "**Allowed roles:** ADMIN.",
@@ -657,9 +629,7 @@
     },
     "/warehouses": {
       "get": {
-        "tags": [
-          "Warehouses"
-        ],
+        "tags": ["Warehouses"],
         "operationId": "listWarehouses",
         "summary": "List warehouses",
         "description": "Returns active warehouses using offset pagination.\n\n**Allowed roles:** ADMIN, WAREHOUSE_STAFF, SALES_STAFF.",
@@ -694,9 +664,7 @@
         }
       },
       "post": {
-        "tags": [
-          "Warehouses"
-        ],
+        "tags": ["Warehouses"],
         "operationId": "createWarehouse",
         "summary": "Create a warehouse",
         "description": "**Allowed roles:** ADMIN.",
@@ -744,9 +712,7 @@
     },
     "/warehouses/{id}": {
       "get": {
-        "tags": [
-          "Warehouses"
-        ],
+        "tags": ["Warehouses"],
         "operationId": "getWarehouse",
         "summary": "Get a warehouse",
         "description": "**Allowed roles:** ADMIN, WAREHOUSE_STAFF, SALES_STAFF.",
@@ -781,9 +747,7 @@
         }
       },
       "patch": {
-        "tags": [
-          "Warehouses"
-        ],
+        "tags": ["Warehouses"],
         "operationId": "updateWarehouse",
         "summary": "Update a warehouse",
         "description": "**Allowed roles:** ADMIN.",
@@ -839,9 +803,7 @@
     },
     "/warehouses/{id}/deactivate": {
       "patch": {
-        "tags": [
-          "Warehouses"
-        ],
+        "tags": ["Warehouses"],
         "operationId": "deactivateWarehouse",
         "summary": "Deactivate a warehouse",
         "description": "**Allowed roles:** ADMIN.",
@@ -881,9 +843,7 @@
     },
     "/warehouses/{id}/reactivate": {
       "patch": {
-        "tags": [
-          "Warehouses"
-        ],
+        "tags": ["Warehouses"],
         "operationId": "reactivateWarehouse",
         "summary": "Reactivate a warehouse",
         "description": "**Allowed roles:** ADMIN.",
@@ -926,9 +886,7 @@
     },
     "/customers": {
       "get": {
-        "tags": [
-          "Customers"
-        ],
+        "tags": ["Customers"],
         "operationId": "listCustomers",
         "summary": "List customers",
         "description": "**Allowed roles:** ADMIN, SALES_STAFF.",
@@ -966,9 +924,7 @@
         }
       },
       "post": {
-        "tags": [
-          "Customers"
-        ],
+        "tags": ["Customers"],
         "operationId": "createCustomer",
         "summary": "Create a customer",
         "description": "**Allowed roles:** ADMIN, SALES_STAFF.",
@@ -1016,9 +972,7 @@
     },
     "/customers/{id}": {
       "get": {
-        "tags": [
-          "Customers"
-        ],
+        "tags": ["Customers"],
         "operationId": "getCustomer",
         "summary": "Get a customer",
         "description": "**Allowed roles:** ADMIN, SALES_STAFF.",
@@ -1056,9 +1010,7 @@
         }
       },
       "patch": {
-        "tags": [
-          "Customers"
-        ],
+        "tags": ["Customers"],
         "operationId": "updateCustomer",
         "summary": "Update a customer",
         "description": "**Allowed roles:** ADMIN, SALES_STAFF.",
@@ -1114,9 +1066,7 @@
     },
     "/inventory": {
       "get": {
-        "tags": [
-          "Inventory"
-        ],
+        "tags": ["Inventory"],
         "operationId": "listInventory",
         "summary": "List inventory balances",
         "description": "**Allowed roles:** ADMIN, WAREHOUSE_STAFF, SALES_STAFF.",
@@ -1162,9 +1112,7 @@
     },
     "/inventory/{id}": {
       "get": {
-        "tags": [
-          "Inventory"
-        ],
+        "tags": ["Inventory"],
         "operationId": "getInventory",
         "summary": "Get an inventory balance",
         "description": "**Allowed roles:** ADMIN, WAREHOUSE_STAFF, SALES_STAFF.",
@@ -1201,9 +1149,7 @@
     },
     "/inventory/receipts": {
       "post": {
-        "tags": [
-          "Inventory"
-        ],
+        "tags": ["Inventory"],
         "operationId": "receiveStock",
         "summary": "Receive stock",
         "description": "Increases the on-hand balance and appends a RECEIPT stock movement in the same transaction.\n\n**Allowed roles:** ADMIN, WAREHOUSE_STAFF.",
@@ -1254,9 +1200,7 @@
     },
     "/inventory/issues": {
       "post": {
-        "tags": [
-          "Inventory"
-        ],
+        "tags": ["Inventory"],
         "operationId": "issueStock",
         "summary": "Issue stock",
         "description": "Decreases the on-hand balance and appends an ISSUE stock movement in the same transaction. The request quantity is positive.\n\n**Allowed roles:** ADMIN, WAREHOUSE_STAFF.",
@@ -1310,9 +1254,7 @@
     },
     "/inventory/adjustments": {
       "post": {
-        "tags": [
-          "Inventory"
-        ],
+        "tags": ["Inventory"],
         "operationId": "adjustStock",
         "summary": "Adjust stock",
         "description": "Applies a non-zero signed quantityDelta and appends an ADJUSTMENT stock movement in the same transaction.\n\n**Allowed roles:** ADMIN, WAREHOUSE_STAFF.",
@@ -1366,9 +1308,7 @@
     },
     "/inventory/{id}/reorder-level": {
       "patch": {
-        "tags": [
-          "Inventory"
-        ],
+        "tags": ["Inventory"],
         "operationId": "updateReorderLevel",
         "summary": "Update inventory reorder level",
         "description": "Changes the reorder threshold without changing physical on-hand quantity.\n\n**Allowed roles:** ADMIN, WAREHOUSE_STAFF.",
@@ -1421,9 +1361,7 @@
     },
     "/stock-movements": {
       "get": {
-        "tags": [
-          "Stock Movements"
-        ],
+        "tags": ["Stock Movements"],
         "operationId": "listStockMovements",
         "summary": "List stock movements",
         "description": "Returns append-only stock movement history with optional filters and offset pagination.\n\n**Allowed roles:** ADMIN, WAREHOUSE_STAFF.",
@@ -1472,9 +1410,7 @@
     },
     "/stock-movements/{id}": {
       "get": {
-        "tags": [
-          "Stock Movements"
-        ],
+        "tags": ["Stock Movements"],
         "operationId": "getStockMovement",
         "summary": "Get a stock movement",
         "description": "**Allowed roles:** ADMIN, WAREHOUSE_STAFF.",
@@ -1514,9 +1450,7 @@
     },
     "/orders": {
       "get": {
-        "tags": [
-          "Orders"
-        ],
+        "tags": ["Orders"],
         "operationId": "listOrders",
         "summary": "List orders",
         "description": "SALES_STAFF users only receive orders they created; ADMIN and WAREHOUSE_STAFF can list all orders.\n\n**Allowed roles:** ADMIN, WAREHOUSE_STAFF, SALES_STAFF.",
@@ -1560,9 +1494,7 @@
         }
       },
       "post": {
-        "tags": [
-          "Orders"
-        ],
+        "tags": ["Orders"],
         "operationId": "createOrder",
         "summary": "Create a draft order",
         "description": "Creates a DRAFT order. Unit prices are taken from the current product records; clients cannot submit prices.\n\n**Allowed roles:** ADMIN, SALES_STAFF.",
@@ -1613,9 +1545,7 @@
     },
     "/orders/{id}": {
       "get": {
-        "tags": [
-          "Orders"
-        ],
+        "tags": ["Orders"],
         "operationId": "getOrder",
         "summary": "Get an order",
         "description": "A SALES_STAFF user can only retrieve their own orders; other users' orders are concealed as not found.\n\n**Allowed roles:** ADMIN, WAREHOUSE_STAFF, SALES_STAFF.",
@@ -1650,9 +1580,7 @@
         }
       },
       "patch": {
-        "tags": [
-          "Orders"
-        ],
+        "tags": ["Orders"],
         "operationId": "updateOrder",
         "summary": "Update a draft order",
         "description": "Only DRAFT orders can be updated. ADMIN can update any draft; SALES_STAFF can update only drafts they created.\n\n**Allowed roles:** ADMIN, SALES_STAFF.",
@@ -1708,9 +1636,7 @@
     },
     "/orders/{id}/confirm": {
       "post": {
-        "tags": [
-          "Orders"
-        ],
+        "tags": ["Orders"],
         "operationId": "confirmOrder",
         "summary": "Confirm an order",
         "description": "Confirms a DRAFT order, verifies available stock, deducts inventory atomically, and appends ORDER_CONFIRM movements.\n\n**Allowed roles:** ADMIN, WAREHOUSE_STAFF.",
@@ -1753,9 +1679,7 @@
     },
     "/orders/{id}/cancel": {
       "post": {
-        "tags": [
-          "Orders"
-        ],
+        "tags": ["Orders"],
         "operationId": "cancelOrder",
         "summary": "Cancel an order",
         "description": "A SALES_STAFF user may cancel their own DRAFT order. Cancelling a CONFIRMED order is restricted to ADMIN and WAREHOUSE_STAFF and restores stock atomically.\n\n**Allowed roles:** ADMIN, WAREHOUSE_STAFF, SALES_STAFF.",
@@ -1893,10 +1817,7 @@
         "description": "Filter inventory records by low-stock status.",
         "schema": {
           "type": "string",
-          "enum": [
-            "true",
-            "false"
-          ]
+          "enum": ["true", "false"]
         }
       },
       "MovementType": {
@@ -2051,11 +1972,7 @@
             ]
           }
         },
-        "required": [
-          "status",
-          "code",
-          "message"
-        ],
+        "required": ["status", "code", "message"],
         "additionalProperties": false
       },
       "ValidationIssue": {
@@ -2070,10 +1987,7 @@
             "example": "Invalid email format."
           }
         },
-        "required": [
-          "field",
-          "message"
-        ],
+        "required": ["field", "message"],
         "additionalProperties": false
       },
       "Category": {
@@ -2091,10 +2005,7 @@
             "maxLength": 100
           },
           "description": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "isActive": {
             "type": "boolean"
@@ -2146,10 +2057,7 @@
             "maxLength": 150
           },
           "description": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "unitPrice": {
             "type": "string",
@@ -2203,10 +2111,7 @@
             "maxLength": 100
           },
           "address": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "isActive": {
             "type": "boolean"
@@ -2252,22 +2157,13 @@
             "maxLength": 150
           },
           "email": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "phone": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "address": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "createdAt": {
             "type": "string",
@@ -2445,10 +2341,7 @@
             "type": "integer"
           },
           "reason": {
-            "type": [
-              "string",
-              "null"
-            ]
+            "type": ["string", "null"]
           },
           "createdAt": {
             "type": "string",
@@ -2476,11 +2369,7 @@
       },
       "UserRole": {
         "type": "string",
-        "enum": [
-          "ADMIN",
-          "WAREHOUSE_STAFF",
-          "SALES_STAFF"
-        ]
+        "enum": ["ADMIN", "WAREHOUSE_STAFF", "SALES_STAFF"]
       },
       "PublicUser": {
         "type": "object",
@@ -2523,11 +2412,7 @@
       },
       "OrderStatus": {
         "type": "string",
-        "enum": [
-          "DRAFT",
-          "CONFIRMED",
-          "CANCELLED"
-        ]
+        "enum": ["DRAFT", "CONFIRMED", "CANCELLED"]
       },
       "OrderItem": {
         "type": "object",
@@ -2732,11 +2617,7 @@
             "default": 0
           }
         },
-        "required": [
-          "total",
-          "limit",
-          "offset"
-        ],
+        "required": ["total", "limit", "offset"],
         "additionalProperties": false
       },
       "RegisterRequest": {
@@ -2758,11 +2639,7 @@
             "description": "At most 72 UTF-8 bytes (bcrypt input limit). Public registration always assigns the SALES_STAFF role."
           }
         },
-        "required": [
-          "fullName",
-          "email",
-          "password"
-        ],
+        "required": ["fullName", "email", "password"],
         "additionalProperties": false
       },
       "LoginRequest": {
@@ -2779,10 +2656,7 @@
             "description": "At most 72 UTF-8 bytes."
           }
         },
-        "required": [
-          "email",
-          "password"
-        ],
+        "required": ["email", "password"],
         "additionalProperties": false
       },
       "AuthResult": {
@@ -2804,12 +2678,7 @@
             "$ref": "#/components/schemas/PublicUser"
           }
         },
-        "required": [
-          "accessToken",
-          "tokenType",
-          "expiresIn",
-          "user"
-        ],
+        "required": ["accessToken", "tokenType", "expiresIn", "user"],
         "additionalProperties": false
       },
       "CategoryCreateRequest": {
@@ -2821,16 +2690,11 @@
             "maxLength": 100
           },
           "description": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "maxLength": 2000
           }
         },
-        "required": [
-          "name"
-        ],
+        "required": ["name"],
         "additionalProperties": false
       },
       "CategoryUpdateRequest": {
@@ -2842,10 +2706,7 @@
             "maxLength": 100
           },
           "description": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "maxLength": 2000
           }
         },
@@ -2875,10 +2736,7 @@
             "maxLength": 150
           },
           "description": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "maxLength": 2000
           },
           "unitPrice": {
@@ -2887,12 +2745,7 @@
             "description": "Non-negative decimal; up to 12 integer digits and 2 decimal places."
           }
         },
-        "required": [
-          "categoryId",
-          "sku",
-          "name",
-          "unitPrice"
-        ],
+        "required": ["categoryId", "sku", "name", "unitPrice"],
         "additionalProperties": false
       },
       "ProductUpdateRequest": {
@@ -2916,10 +2769,7 @@
             "maxLength": 150
           },
           "description": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "maxLength": 2000
           },
           "unitPrice": {
@@ -2946,17 +2796,11 @@
             "maxLength": 100
           },
           "address": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "maxLength": 2000
           }
         },
-        "required": [
-          "code",
-          "name"
-        ],
+        "required": ["code", "name"],
         "additionalProperties": false
       },
       "WarehouseUpdateRequest": {
@@ -2973,10 +2817,7 @@
             "maxLength": 100
           },
           "address": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "maxLength": 2000
           }
         },
@@ -2999,32 +2840,20 @@
             "maxLength": 150
           },
           "email": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "format": "email",
             "maxLength": 150
           },
           "phone": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "maxLength": 30
           },
           "address": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "maxLength": 5000
           }
         },
-        "required": [
-          "customerCode",
-          "name"
-        ],
+        "required": ["customerCode", "name"],
         "additionalProperties": false
       },
       "CustomerUpdateRequest": {
@@ -3041,25 +2870,16 @@
             "maxLength": 150
           },
           "email": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "format": "email",
             "maxLength": 150
           },
           "phone": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "maxLength": 30
           },
           "address": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "maxLength": 5000
           }
         },
@@ -3091,18 +2911,11 @@
             "maximum": 2147483647
           },
           "reason": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": ["string", "null"],
             "maxLength": 2000
           }
         },
-        "required": [
-          "warehouseId",
-          "productId",
-          "quantity"
-        ],
+        "required": ["warehouseId", "productId", "quantity"],
         "additionalProperties": false
       },
       "StockAdjustmentRequest": {
@@ -3136,12 +2949,7 @@
             "maxLength": 2000
           }
         },
-        "required": [
-          "warehouseId",
-          "productId",
-          "quantityDelta",
-          "reason"
-        ],
+        "required": ["warehouseId", "productId", "quantityDelta", "reason"],
         "additionalProperties": false
       },
       "ReorderLevelRequest": {
@@ -3153,9 +2961,7 @@
             "maximum": 2147483647
           }
         },
-        "required": [
-          "reorderLevel"
-        ],
+        "required": ["reorderLevel"],
         "additionalProperties": false
       },
       "OrderItemRequest": {
@@ -3174,10 +2980,7 @@
             "maximum": 2147483647
           }
         },
-        "required": [
-          "productId",
-          "quantity"
-        ],
+        "required": ["productId", "quantity"],
         "additionalProperties": false
       },
       "OrderCreateRequest": {
@@ -3207,11 +3010,7 @@
             "description": "Each productId must be unique within the order."
           }
         },
-        "required": [
-          "customerId",
-          "warehouseId",
-          "items"
-        ],
+        "required": ["customerId", "warehouseId", "items"],
         "additionalProperties": false
       },
       "OrderUpdateRequest": {
@@ -3263,11 +3062,7 @@
             "example": "2026-11-12T08:30:00.000Z"
           }
         },
-        "required": [
-          "status",
-          "message",
-          "timestamp"
-        ],
+        "required": ["status", "message", "timestamp"],
         "additionalProperties": false
       },
       "ReadinessResponse": {
@@ -3289,9 +3084,7 @@
                 "const": "ok"
               }
             },
-            "required": [
-              "database"
-            ],
+            "required": ["database"],
             "additionalProperties": false
           },
           "timestamp": {
@@ -3300,12 +3093,7 @@
             "example": "2026-11-12T08:30:00.000Z"
           }
         },
-        "required": [
-          "status",
-          "message",
-          "checks",
-          "timestamp"
-        ],
+        "required": ["status", "message", "checks", "timestamp"],
         "additionalProperties": false
       },
       "NotReadyResponse": {
@@ -3330,9 +3118,7 @@
                 "const": "unavailable"
               }
             },
-            "required": [
-              "database"
-            ],
+            "required": ["database"],
             "additionalProperties": false
           },
           "timestamp": {
@@ -3341,13 +3127,7 @@
             "example": "2026-11-12T08:30:00.000Z"
           }
         },
-        "required": [
-          "status",
-          "code",
-          "message",
-          "checks",
-          "timestamp"
-        ],
+        "required": ["status", "code", "message", "checks", "timestamp"],
         "additionalProperties": false
       },
       "AuthResponse": {
@@ -3364,11 +3144,7 @@
             "$ref": "#/components/schemas/AuthResult"
           }
         },
-        "required": [
-          "status",
-          "message",
-          "data"
-        ],
+        "required": ["status", "message", "data"],
         "additionalProperties": false
       },
       "CategoryListResponse": {
@@ -3397,19 +3173,11 @@
                 "type": "integer"
               }
             },
-            "required": [
-              "categories",
-              "total",
-              "limit",
-              "offset"
-            ],
+            "required": ["categories", "total", "limit", "offset"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "status",
-          "data"
-        ],
+        "required": ["status", "data"],
         "additionalProperties": false
       },
       "CategoryResponse": {
@@ -3429,16 +3197,11 @@
                 "$ref": "#/components/schemas/Category"
               }
             },
-            "required": [
-              "category"
-            ],
+            "required": ["category"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "status",
-          "data"
-        ],
+        "required": ["status", "data"],
         "additionalProperties": false
       },
       "ProductListResponse": {
@@ -3467,19 +3230,11 @@
                 "type": "integer"
               }
             },
-            "required": [
-              "products",
-              "total",
-              "limit",
-              "offset"
-            ],
+            "required": ["products", "total", "limit", "offset"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "status",
-          "data"
-        ],
+        "required": ["status", "data"],
         "additionalProperties": false
       },
       "ProductResponse": {
@@ -3499,16 +3254,11 @@
                 "$ref": "#/components/schemas/Product"
               }
             },
-            "required": [
-              "product"
-            ],
+            "required": ["product"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "status",
-          "data"
-        ],
+        "required": ["status", "data"],
         "additionalProperties": false
       },
       "WarehouseListResponse": {
@@ -3537,19 +3287,11 @@
                 "type": "integer"
               }
             },
-            "required": [
-              "warehouses",
-              "total",
-              "limit",
-              "offset"
-            ],
+            "required": ["warehouses", "total", "limit", "offset"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "status",
-          "data"
-        ],
+        "required": ["status", "data"],
         "additionalProperties": false
       },
       "WarehouseResponse": {
@@ -3569,16 +3311,11 @@
                 "$ref": "#/components/schemas/Warehouse"
               }
             },
-            "required": [
-              "warehouse"
-            ],
+            "required": ["warehouse"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "status",
-          "data"
-        ],
+        "required": ["status", "data"],
         "additionalProperties": false
       },
       "CustomerListResponse": {
@@ -3607,19 +3344,11 @@
                 "type": "integer"
               }
             },
-            "required": [
-              "customers",
-              "total",
-              "limit",
-              "offset"
-            ],
+            "required": ["customers", "total", "limit", "offset"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "status",
-          "data"
-        ],
+        "required": ["status", "data"],
         "additionalProperties": false
       },
       "CustomerResponse": {
@@ -3639,16 +3368,11 @@
                 "$ref": "#/components/schemas/Customer"
               }
             },
-            "required": [
-              "customer"
-            ],
+            "required": ["customer"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "status",
-          "data"
-        ],
+        "required": ["status", "data"],
         "additionalProperties": false
       },
       "InventoryListResponse": {
@@ -3677,19 +3401,11 @@
                 "type": "integer"
               }
             },
-            "required": [
-              "inventory",
-              "total",
-              "limit",
-              "offset"
-            ],
+            "required": ["inventory", "total", "limit", "offset"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "status",
-          "data"
-        ],
+        "required": ["status", "data"],
         "additionalProperties": false
       },
       "InventoryResponse": {
@@ -3709,16 +3425,11 @@
                 "$ref": "#/components/schemas/Inventory"
               }
             },
-            "required": [
-              "inventory"
-            ],
+            "required": ["inventory"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "status",
-          "data"
-        ],
+        "required": ["status", "data"],
         "additionalProperties": false
       },
       "InventoryOperationResponse": {
@@ -3741,17 +3452,11 @@
                 "$ref": "#/components/schemas/StockMovement"
               }
             },
-            "required": [
-              "inventory",
-              "movement"
-            ],
+            "required": ["inventory", "movement"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "status",
-          "data"
-        ],
+        "required": ["status", "data"],
         "additionalProperties": false
       },
       "StockMovementListResponse": {
@@ -3780,19 +3485,11 @@
                 "type": "integer"
               }
             },
-            "required": [
-              "movements",
-              "total",
-              "limit",
-              "offset"
-            ],
+            "required": ["movements", "total", "limit", "offset"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "status",
-          "data"
-        ],
+        "required": ["status", "data"],
         "additionalProperties": false
       },
       "StockMovementResponse": {
@@ -3809,16 +3506,11 @@
                 "$ref": "#/components/schemas/StockMovement"
               }
             },
-            "required": [
-              "movement"
-            ],
+            "required": ["movement"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "status",
-          "data"
-        ],
+        "required": ["status", "data"],
         "additionalProperties": false
       },
       "OrderListResponse": {
@@ -3847,19 +3539,11 @@
                 "type": "integer"
               }
             },
-            "required": [
-              "orders",
-              "total",
-              "limit",
-              "offset"
-            ],
+            "required": ["orders", "total", "limit", "offset"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "status",
-          "data"
-        ],
+        "required": ["status", "data"],
         "additionalProperties": false
       },
       "OrderResponse": {
@@ -3876,16 +3560,11 @@
                 "$ref": "#/components/schemas/Order"
               }
             },
-            "required": [
-              "order"
-            ],
+            "required": ["order"],
             "additionalProperties": false
           }
         },
-        "required": [
-          "status",
-          "data"
-        ],
+        "required": ["status", "data"],
         "additionalProperties": false
       }
     }
