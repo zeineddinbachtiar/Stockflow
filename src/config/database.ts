@@ -1,5 +1,6 @@
 import { Pool } from "pg";
 import { env } from "./env";
+import { getSafeErrorMetadata, logger } from "../utils/logger";
 
 // 1. Create PostgreSQL connection pool
 export const pool = new Pool({
@@ -17,7 +18,10 @@ export const pool = new Pool({
   application_name: "stockflow-api",
 });
 
-// 2. Handle unexpected pool errors
+// 2. Handle unexpected pool errors without exposing sensitive details.
 pool.on("error", (error) => {
-  console.error("Unexpected PostgreSQL pool error:", error.message);
+  logger.error(
+    "Unexpected PostgreSQL pool error.",
+    getSafeErrorMetadata(error),
+  );
 });

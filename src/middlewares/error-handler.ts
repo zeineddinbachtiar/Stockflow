@@ -4,6 +4,8 @@ import { ZodError } from "zod";
 
 import { AppError } from "../errors/app-error";
 
+import { getSafeErrorMetadata, logger } from "../utils/logger";
+
 function getStringProperty(
   value: unknown,
   property: string,
@@ -31,7 +33,7 @@ function formatZodIssues(error: ZodError) {
 /**
  * Centralized Express error middleware.
  */
-export const errorHandler: ErrorRequestHandler = (error, _req, res, next) => {
+export const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
   if (res.headersSent) {
     return next(error);
   }
@@ -117,7 +119,15 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, next) => {
   }
 
   // 6. Unexpected internal error.
-  console.error("Unhandled application error:", error);
+  logger.error("Unhandled application error.", {
+    requestId:
+      typeof res.locals.requestId === "string"
+        ? res.locals.requestId
+        : "unavailable",
+    method: req.method,
+    path: req.path,
+    ...getSafeErrorMetadata(error),
+  });
 
   return res.status(500).json({
     status: "error",

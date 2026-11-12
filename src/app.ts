@@ -12,11 +12,16 @@ import orderRouter from "./routes/order.routes";
 import { notFoundHandler } from "./middlewares/not-found";
 import { errorHandler } from "./middlewares/error-handler";
 import { env } from "./config/env";
+import { readinessCheck } from "./controllers/health.controller";
+import { requestLogger } from "./middlewares/request-logger";
 
 const app = express();
 
 // Trust only the explicitly configured number of reverse-proxy hops.
 app.set("trust proxy", env.TRUST_PROXY_HOPS);
+
+// Attach request IDs and structured request logging.
+app.use(requestLogger);
 
 // Security middleware
 app.use(helmet());
@@ -60,6 +65,9 @@ app.get("/api/v1/health", (_req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+// Database readiness endpoint
+app.get("/api/v1/ready", readinessCheck);
 
 // Handle unmatched routes.
 app.use(notFoundHandler);
