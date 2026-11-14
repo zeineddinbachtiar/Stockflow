@@ -9,6 +9,8 @@ import {
 
 import { findCategoryById } from "../repositories/category.repositories";
 
+import type { ProductListQuery } from "../types/product.types";
+
 import { AppError } from "../errors/app-error";
 import { hasPostgresErrorCode } from "../utils/postgres-errors";
 
@@ -18,8 +20,6 @@ import type {
   CreateProductInput,
   UpdateProductInput,
 } from "../types/product.types";
-
-import type { PaginationQuery } from "../types/common.types";
 
 /**
  * Convert database product record into public response format.
@@ -55,7 +55,7 @@ async function ensureActiveCategory(categoryId: string): Promise<void> {
 /**
  * Retrieve active products with pagination.
  */
-export async function getAllProducts(query: PaginationQuery): Promise<{
+export async function getAllProducts(query: ProductListQuery): Promise<{
   products: PublicProduct[];
   total: number;
   limit: number;

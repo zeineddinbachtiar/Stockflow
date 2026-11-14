@@ -1,3 +1,9 @@
+import type { PaginationQuery } from "./common.types";
+
+export interface ProductListQuery extends PaginationQuery {
+  search?: string;
+}
+
 export interface ProductRecord {
   id: string;
   category_id: string;

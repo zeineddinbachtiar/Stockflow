@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { paginationQuerySchema } from "./common.validator";
 
 // PostgreSQL BIGINT maximum value.
 const MAX_BIGINT = 9223372036854775807n;
@@ -66,6 +67,17 @@ const unitPriceSchema = z
 
     return `${integerPart}.${decimalPart.padEnd(2, "0")}`;
   });
+
+export const productListQuerySchema = paginationQuerySchema
+  .extend({
+    search: z
+      .string()
+      .trim()
+      .max(100, "Search must not exceed 100 characters.")
+      .optional()
+      .transform((value) => value || undefined),
+  })
+  .strict();
 
 /**
  * Validation schema for creating a product.

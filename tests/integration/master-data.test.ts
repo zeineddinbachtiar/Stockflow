@@ -663,6 +663,89 @@ test("product list supports pagination and stable ordering", async () => {
   );
 });
 
+test("product list supports case-insensitive search by name and SKU", async () => {
+  const category = await createCategoryFixture();
+
+  const uniquePart = runId.slice(0, 8);
+  const sku = `SRCH-${uniquePart.toUpperCase()}`;
+  const name = `Search Test Product ${uniquePart}`;
+
+  const createResponse = await request(app)
+    .post("/api/v1/products")
+    .set("Authorization", `Bearer ${adminToken}`)
+    .send({
+      categoryId: category.id,
+      sku,
+      name,
+      unitPrice: "25000",
+    });
+
+  expectStatus(createResponse, 201);
+
+  const created = getResource<ProductResource>(createResponse, "product");
+  createdProductIds.push(created.id);
+
+  // Search using part of SKU in lowercase.
+  const skuSearchResponse = await request(app)
+    .get("/api/v1/products")
+    .query({ search: uniquePart.toLowerCase() })
+    .set("Authorization", `Bearer ${adminToken}`);
+
+  expectStatus(skuSearchResponse, 200);
+
+  const skuSearchBody = skuSearchResponse.body as {
+    data?: {
+      products?: ProductResource[];
+      total?: number;
+    };
+  };
+
+  assert.ok(skuSearchBody.data);
+  assert.ok(skuSearchBody.data.products);
+  assert.equal(skuSearchBody.data.total, 1);
+  assert.equal(skuSearchBody.data.products[0].id, created.id);
+
+  // Search using product name in lowercase.
+  const nameSearchResponse = await request(app)
+    .get("/api/v1/products")
+    .query({ search: name.toLowerCase() })
+    .set("Authorization", `Bearer ${adminToken}`);
+
+  expectStatus(nameSearchResponse, 200);
+
+  const nameSearchBody = nameSearchResponse.body as {
+    data?: {
+      products?: ProductResource[];
+      total?: number;
+    };
+  };
+
+  assert.ok(nameSearchBody.data);
+  assert.ok(nameSearchBody.data.products);
+  assert.equal(nameSearchBody.data.total, 1);
+  assert.equal(nameSearchBody.data.products[0].id, created.id);
+
+  // A search with no matching product returns an empty result.
+  const emptySearchResponse = await request(app)
+    .get("/api/v1/products")
+    .query({ search: `NO-MATCH-${runId}` })
+    .set("Authorization", `Bearer ${adminToken}`);
+
+  expectStatus(emptySearchResponse, 200);
+
+  const emptySearchBody = emptySearchResponse.body as {
+    data?: {
+      products?: ProductResource[];
+      total?: number;
+    };
+  };
+
+  assert.ok(emptySearchBody.data);
+  assert.ok(emptySearchBody.data.products);
+  assert.equal(emptySearchBody.data.total, 0);
+  assert.equal(emptySearchBody.data.products.length, 0);
+});
+
 test("product list applies default pagination and rejects invalid parameters", async () => {
   const defaultResponse = await request(app)
     .get("/api/v1/products")
@@ -694,6 +777,7 @@ test("product list applies default pagination and rejects invalid parameters", a
     "offset=-1",
     "offset=1.5",
     "offset=1000001",
+    `search=${"a".repeat(101)}`,
   ];
 
   for (const query of invalidQueries) {

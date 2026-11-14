@@ -1,75 +1,137 @@
+import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ArrowRight,
   Boxes,
   Package,
+  RefreshCw,
   ShoppingCart,
   Warehouse,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { NavLink } from "react-router";
 
-interface MetricCard {
+import { useAuth } from "../context/useAuth";
+import {
+  getDashboardData,
+  type DashboardOrderStatus,
+} from "../features/dashboard/dashboard.api";
+
+interface MetricCardProps {
   title: string;
-  value: string;
+  value: number | undefined;
   description: string;
   icon: LucideIcon;
   iconStyle: string;
+  isLoading: boolean;
 }
 
-const metrics: MetricCard[] = [
-  {
-    title: "Total Products",
-    value: "—",
-    description: "Awaiting API integration",
-    icon: Package,
-    iconStyle: "bg-blue-50 text-blue-600",
-  },
-  {
-    title: "Warehouses",
-    value: "—",
-    description: "Awaiting API integration",
-    icon: Warehouse,
-    iconStyle: "bg-violet-50 text-violet-600",
-  },
-  {
-    title: "Low Stock Items",
-    value: "—",
-    description: "Awaiting API integration",
-    icon: AlertTriangle,
-    iconStyle: "bg-amber-50 text-amber-600",
-  },
-  {
-    title: "Open Orders",
-    value: "—",
-    description: "Awaiting API integration",
-    icon: ShoppingCart,
-    iconStyle: "bg-emerald-50 text-emerald-600",
-  },
-];
+function MetricCard({
+  title,
+  value,
+  description,
+  icon: Icon,
+  iconStyle,
+  isLoading,
+}: MetricCardProps) {
+  return (
+    <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-100">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium text-slate-500">{title}</p>
 
-const quickLinks = [
-  {
-    title: "Manage Products",
-    description: "View and manage your product catalog.",
-    path: "/products",
-    icon: Package,
-  },
-  {
-    title: "View Inventory",
-    description: "Monitor stock across warehouses.",
-    path: "/inventory",
-    icon: Boxes,
-  },
-  {
-    title: "Manage Orders",
-    description: "Review and process sales orders.",
-    path: "/orders",
-    icon: ShoppingCart,
-  },
-];
+        <div className={`rounded-xl p-2.5 ${iconStyle}`}>
+          <Icon size={20} />
+        </div>
+      </div>
+
+      <p className="mt-5 text-3xl font-bold tracking-tight text-slate-900">
+        {isLoading ? (
+          <span className="inline-block h-9 w-16 animate-pulse rounded-lg bg-slate-100" />
+        ) : (
+          (value ?? 0).toLocaleString("id-ID")
+        )}
+      </p>
+
+      <p className="mt-2 text-xs text-slate-400">{description}</p>
+    </article>
+  );
+}
+
+function formatDate(value: string): string {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "—";
+
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
+function formatAmount(value: string): string {
+  const amount = Number(value);
+
+  if (!Number.isFinite(amount)) return value;
+
+  return new Intl.NumberFormat("id-ID", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+function getOrderStatusStyle(status: DashboardOrderStatus): string {
+  switch (status) {
+    case "DRAFT":
+      return "bg-amber-50 text-amber-700";
+    case "CONFIRMED":
+      return "bg-emerald-50 text-emerald-700";
+    case "CANCELLED":
+      return "bg-slate-100 text-slate-600";
+  }
+}
 
 export default function DashboardPage() {
+  const { accessToken, user } = useAuth();
+
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
+    queryKey: ["dashboard", user?.id],
+    queryFn: () => getDashboardData(accessToken!),
+    enabled: Boolean(accessToken),
+    staleTime: 30_000,
+  });
+
+  const metrics = [
+    {
+      title: "Active Products",
+      value: data?.totalProducts,
+      description: "Products available in catalog",
+      icon: Package,
+      iconStyle: "bg-blue-50 text-blue-600",
+    },
+    {
+      title: "Active Warehouses",
+      value: data?.totalWarehouses,
+      description: "Registered active warehouses",
+      icon: Warehouse,
+      iconStyle: "bg-violet-50 text-violet-600",
+    },
+    {
+      title: "Low Stock Records",
+      value: data?.lowStockTotal,
+      description: "Product and warehouse combinations",
+      icon: AlertTriangle,
+      iconStyle: "bg-amber-50 text-amber-600",
+    },
+    {
+      title: "Draft Orders",
+      value: data?.draftOrderTotal,
+      description: "Orders awaiting confirmation",
+      icon: ShoppingCart,
+      iconStyle: "bg-emerald-50 text-emerald-600",
+    },
+  ];
+
   return (
     <div className="space-y-8">
       <section>
@@ -86,41 +148,48 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <span className="inline-flex w-fit items-center rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700">
-            Dashboard preview
-          </span>
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            disabled={isFetching}
+            className="inline-flex w-fit items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+          >
+            <RefreshCw size={16} className={isFetching ? "animate-spin" : ""} />
+            Refresh
+          </button>
         </div>
       </section>
 
+      {isError && (
+        <section
+          role="alert"
+          className="flex flex-col justify-between gap-4 rounded-xl border border-red-200 bg-red-50 p-4 sm:flex-row sm:items-center"
+        >
+          <div>
+            <h2 className="text-sm font-semibold text-red-800">
+              Unable to load dashboard data
+            </h2>
+            <p className="mt-1 text-sm text-red-700">
+              {error instanceof Error
+                ? error.message
+                : "Please check the API connection and try again."}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => void refetch()}
+            className="w-fit rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+          >
+            Retry
+          </button>
+        </section>
+      )}
+
       <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-        {metrics.map((metric) => {
-          const Icon = metric.icon;
-
-          return (
-            <article
-              key={metric.title}
-              className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-100"
-            >
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-slate-500">
-                  {metric.title}
-                </p>
-
-                <div className={`rounded-xl p-2.5 ${metric.iconStyle}`}>
-                  <Icon size={20} />
-                </div>
-              </div>
-
-              <p className="mt-5 text-3xl font-bold tracking-tight text-slate-900">
-                {metric.value}
-              </p>
-
-              <p className="mt-2 text-xs text-slate-400">
-                {metric.description}
-              </p>
-            </article>
-          );
-        })}
+        {metrics.map((metric) => (
+          <MetricCard key={metric.title} {...metric} isLoading={isLoading} />
+        ))}
       </section>
 
       <section className="grid gap-5 xl:grid-cols-3">
@@ -128,30 +197,96 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="font-semibold text-slate-900">
-                Inventory Overview
+                Low Stock Watchlist
               </h2>
               <p className="mt-1 text-sm text-slate-500">
-                Stock summary across all warehouses.
+                Products that have reached their reorder levels.
               </p>
             </div>
 
             <Boxes size={21} className="text-slate-400" />
           </div>
 
-          <div className="flex min-h-64 flex-col items-center justify-center text-center">
-            <div className="rounded-2xl bg-slate-50 p-4 text-slate-400">
-              <Boxes size={30} strokeWidth={1.5} />
+          {isLoading ? (
+            <div className="mt-6 space-y-4">
+              {[1, 2, 3].map((item) => (
+                <div
+                  key={item}
+                  className="h-14 animate-pulse rounded-xl bg-slate-100"
+                />
+              ))}
             </div>
+          ) : data?.lowStockItems.length ? (
+            <div className="mt-6 overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 text-xs text-slate-400">
+                    <th className="pb-3 font-medium">Product</th>
+                    <th className="pb-3 font-medium">Warehouse</th>
+                    <th className="pb-3 text-right font-medium">On Hand</th>
+                    <th className="pb-3 text-right font-medium">Reorder</th>
+                  </tr>
+                </thead>
 
-            <h3 className="mt-4 text-sm font-semibold text-slate-700">
-              No inventory data connected yet
-            </h3>
+                <tbody>
+                  {data.lowStockItems.map((item) => (
+                    <tr
+                      key={item.id}
+                      className="border-b border-slate-50 last:border-0"
+                    >
+                      <td className="py-4 pr-3">
+                        <p className="font-medium text-slate-800">
+                          {item.productName}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-400">
+                          {item.productSku}
+                        </p>
+                      </td>
 
-            <p className="mt-1 max-w-sm text-sm text-slate-500">
-              Connect the inventory API to display stock levels and warehouse
-              distribution.
-            </p>
-          </div>
+                      <td className="py-4 pr-3 text-slate-600">
+                        {item.warehouseName}
+                      </td>
+
+                      <td className="py-4 text-right font-semibold text-amber-700">
+                        {item.quantityOnHand}
+                      </td>
+
+                      <td className="py-4 text-right text-slate-500">
+                        {item.reorderLevel}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {data.lowStockTotal > data.lowStockItems.length && (
+                <p className="mt-3 text-xs text-slate-400">
+                  Showing {data.lowStockItems.length} of {data.lowStockTotal}{" "}
+                  low-stock records.
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="flex min-h-56 flex-col items-center justify-center text-center">
+              <div className="rounded-2xl bg-emerald-50 p-4 text-emerald-600">
+                <Boxes size={30} strokeWidth={1.5} />
+              </div>
+              <h3 className="mt-4 text-sm font-semibold text-slate-700">
+                No low-stock records
+              </h3>
+              <p className="mt-1 text-sm text-slate-500">
+                All inventory records are above their reorder levels.
+              </p>
+            </div>
+          )}
+
+          <NavLink
+            to="/inventory"
+            className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700"
+          >
+            View inventory
+            <ArrowRight size={16} />
+          </NavLink>
         </article>
 
         <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-100">
@@ -161,65 +296,72 @@ export default function DashboardPage() {
             Latest sales order activity.
           </p>
 
-          <div className="flex min-h-64 flex-col items-center justify-center text-center">
-            <div className="rounded-2xl bg-slate-50 p-4 text-slate-400">
-              <ShoppingCart size={29} strokeWidth={1.5} />
+          {isLoading ? (
+            <div className="mt-6 space-y-4">
+              {[1, 2, 3].map((item) => (
+                <div
+                  key={item}
+                  className="h-16 animate-pulse rounded-xl bg-slate-100"
+                />
+              ))}
             </div>
+          ) : data?.recentOrders.length ? (
+            <div className="mt-5 space-y-4">
+              {data.recentOrders.map((order) => (
+                <div
+                  key={order.id}
+                  className="border-b border-slate-100 pb-4 last:border-0 last:pb-0"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-800">
+                        {order.orderNumber}
+                      </p>
+                      <p className="mt-1 truncate text-xs text-slate-500">
+                        {order.customerName}
+                      </p>
+                    </div>
 
-            <h3 className="mt-4 text-sm font-semibold text-slate-700">
-              No order data connected yet
-            </h3>
-
-            <p className="mt-1 text-sm text-slate-500">
-              Recent orders will appear here.
-            </p>
-          </div>
-        </article>
-      </section>
-
-      <section>
-        <div className="mb-4">
-          <h2 className="font-semibold text-slate-900">Quick Access</h2>
-
-          <p className="mt-1 text-sm text-slate-500">
-            Navigate to frequently used modules.
-          </p>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-3">
-          {quickLinks.map((item) => {
-            const Icon = item.icon;
-
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className="group flex items-start justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="rounded-xl bg-blue-50 p-2.5 text-blue-600">
-                    <Icon size={20} />
+                    <span
+                      className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold ${getOrderStatusStyle(order.status)}`}
+                    >
+                      {order.status}
+                    </span>
                   </div>
 
-                  <div>
-                    <h3 className="text-sm font-semibold text-slate-800">
-                      {item.title}
-                    </h3>
-
-                    <p className="mt-1 text-xs leading-5 text-slate-500">
-                      {item.description}
-                    </p>
+                  <div className="mt-2 flex justify-between gap-2 text-xs text-slate-400">
+                    <span>{formatDate(order.orderedAt)}</span>
+                    <span className="font-medium text-slate-600">
+                      {formatAmount(order.totalAmount)}
+                    </span>
                   </div>
                 </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex min-h-56 flex-col items-center justify-center text-center">
+              <ShoppingCart
+                size={30}
+                strokeWidth={1.5}
+                className="text-slate-300"
+              />
+              <h3 className="mt-4 text-sm font-semibold text-slate-700">
+                No orders yet
+              </h3>
+              <p className="mt-1 text-sm text-slate-500">
+                New orders will appear here.
+              </p>
+            </div>
+          )}
 
-                <ArrowRight
-                  size={17}
-                  className="mt-1 shrink-0 text-slate-400 transition group-hover:translate-x-1 group-hover:text-blue-600"
-                />
-              </NavLink>
-            );
-          })}
-        </div>
+          <NavLink
+            to="/orders"
+            className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700"
+          >
+            View orders
+            <ArrowRight size={16} />
+          </NavLink>
+        </article>
       </section>
     </div>
   );

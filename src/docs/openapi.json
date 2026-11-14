@@ -422,6 +422,16 @@
           },
           {
             "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "description": "Case-insensitive partial match against product name or SKU. Maximum 100 characters.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
           }
         ],
         "responses": {

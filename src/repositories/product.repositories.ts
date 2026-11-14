@@ -4,8 +4,9 @@ import type {
   ProductRecord,
   CreateProductInput,
   UpdateProductInput,
+  ProductListQuery,
 } from "../types/product.types";
-import type { PaginationQuery, PaginatedRecords } from "../types/common.types";
+import type { PaginatedRecords } from "../types/common.types";
 
 /**
  * Retrieve all active products.
@@ -13,13 +14,24 @@ import type { PaginationQuery, PaginatedRecords } from "../types/common.types";
 /**
  * Retrieve active products with pagination.
  */
+/**
+ * Retrieve active products with pagination and optional search.
+ */
 export async function findAllActiveProducts(
-  query: PaginationQuery,
+  query: ProductListQuery,
 ): Promise<PaginatedRecords<ProductRecord>> {
+  const search = query.search ?? null;
+
   const countResult = await pool.query<{ total: string }>(
     `SELECT COUNT(*)::text AS total
      FROM products
-     WHERE is_active = TRUE`,
+     WHERE is_active = TRUE
+       AND (
+         $1::text IS NULL
+         OR name ILIKE '%' || $1 || '%'
+         OR sku ILIKE '%' || $1 || '%'
+       )`,
+    [search],
   );
 
   const result = await pool.query<ProductRecord>(
@@ -35,9 +47,14 @@ export async function findAllActiveProducts(
        updated_at
      FROM products
      WHERE is_active = TRUE
+       AND (
+         $1::text IS NULL
+         OR name ILIKE '%' || $1 || '%'
+         OR sku ILIKE '%' || $1 || '%'
+       )
      ORDER BY name ASC, id ASC
-     LIMIT $1 OFFSET $2`,
-    [query.limit, query.offset],
+     LIMIT $2 OFFSET $3`,
+    [search, query.limit, query.offset],
   );
 
   return {

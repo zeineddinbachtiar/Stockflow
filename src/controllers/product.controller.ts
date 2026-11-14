@@ -16,7 +16,7 @@ import type {
 } from "../types/product.types";
 
 import { AppError } from "../errors/app-error";
-import { paginationQuerySchema } from "../validators/common.validator";
+import { productListQuerySchema } from "../validators/product.validator";
 
 /**
  * Validate and retrieve product ID from route parameters.
@@ -32,7 +32,7 @@ function getProductId(param: unknown): string {
  * GET /api/v1/products
  */
 export const listProducts: RequestHandler = async (req, res) => {
-  const parsed = paginationQuerySchema.safeParse(req.query);
+  const parsed = productListQuerySchema.safeParse(req.query);
 
   if (!parsed.success) {
     throw new AppError(
