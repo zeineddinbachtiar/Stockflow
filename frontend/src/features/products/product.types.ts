@@ -1,3 +1,4 @@
+export type { Category } from "../categories/category.types";
 export interface Product {
   id: string;
   categoryId: string;
@@ -5,15 +6,6 @@ export interface Product {
   name: string;
   description: string | null;
   unitPrice: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Category {
-  id: string;
-  name: string;
-  description: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
