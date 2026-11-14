@@ -9,6 +9,7 @@ import LoginPage from "./pages/LoginPage";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import ProductsPage from "./pages/ProductsPage";
 import CategoriesPage from "./pages/CategoriesPage";
+import WarehousesPage from "./pages/WarehousesPage";
 
 function App() {
   return (
@@ -24,15 +25,7 @@ function App() {
 
             <Route path="categories" element={<CategoriesPage />} />
 
-            <Route
-              path="warehouses"
-              element={
-                <PlaceholderPage
-                  title="Warehouses"
-                  description="Manage warehouse locations and operational information."
-                />
-              }
-            />
+            <Route path="warehouses" element={<WarehousesPage />} />
 
             <Route
               path="inventory"
