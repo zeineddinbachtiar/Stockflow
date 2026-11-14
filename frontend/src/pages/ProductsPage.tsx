@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   ChevronLeft,
@@ -9,15 +9,25 @@ import {
   RefreshCw,
   Search,
   X,
+  Pencil,
+  Plus,
+  Ban,
 } from "lucide-react";
 
 import { useAuth } from "../context/useAuth";
 import {
+  createProduct,
+  deactivateProduct,
   getCategories,
   getProductById,
   getProducts,
+  updateProduct,
 } from "../features/products/product.api";
-import type { Product } from "../features/products/product.types";
+import ProductFormDialog from "../features/products/ProductFormDialog";
+import type {
+  Product,
+  ProductPayload,
+} from "../features/products/product.types";
 
 const PAGE_SIZE = 10;
 
@@ -208,7 +218,82 @@ function ProductDetailDialog({
 }
 
 export default function ProductsPage() {
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const isAdmin = user?.role === "ADMIN";
+
+  const [formMode, setFormMode] = useState<"create" | "edit" | null>(null);
+
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const [deactivateError, setDeactivateError] = useState<string | null>(null);
+
+  const saveProductMutation = useMutation({
+    mutationFn: (payload: ProductPayload) => {
+      if (!accessToken) {
+        throw new Error("Your session is unavailable. Please log in again.");
+      }
+
+      if (formMode === "edit" && editingProduct) {
+        return updateProduct(accessToken, editingProduct.id, payload);
+      }
+
+      return createProduct(accessToken, payload);
+    },
+
+    onMutate: () => {
+      setSaveError(null);
+    },
+
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["products"] }),
+        queryClient.invalidateQueries({ queryKey: ["product"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
+
+      setFormMode(null);
+      setEditingProduct(null);
+      setSearchInput("");
+      setSearch("");
+      setOffset(0);
+    },
+
+    onError: (error: Error) => {
+      setSaveError(error.message);
+    },
+  });
+
+  const deactivateMutation = useMutation({
+    mutationFn: (productId: string) => {
+      if (!accessToken) {
+        throw new Error("Your session is unavailable. Please log in again.");
+      }
+
+      return deactivateProduct(accessToken, productId);
+    },
+
+    onMutate: () => {
+      setDeactivateError(null);
+    },
+
+    onSuccess: async (product) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["products"] }),
+        queryClient.invalidateQueries({
+          queryKey: ["product", product.id],
+        }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
+    },
+
+    onError: (error: Error) => {
+      setDeactivateError(error.message);
+    },
+  });
 
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -278,11 +363,28 @@ export default function ProductsPage() {
           </p>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white px-4 py-2.5">
-          <p className="text-xs text-slate-400">Total active products</p>
-          <p className="mt-1 text-lg font-bold text-slate-900">
-            {isInitialLoading ? "—" : total.toLocaleString("id-ID")}
-          </p>
+        <div className="flex items-center gap-3">
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => {
+                setSaveError(null);
+                setEditingProduct(null);
+                setFormMode("create");
+              }}
+              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+            >
+              <Plus size={17} />
+              Add Product
+            </button>
+          )}
+
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-2.5">
+            <p className="text-xs text-slate-400">Total active products</p>
+            <p className="mt-1 text-lg font-bold text-slate-900">
+              {isInitialLoading ? "—" : total.toLocaleString("id-ID")}
+            </p>
+          </div>
         </div>
       </section>
 
@@ -341,6 +443,28 @@ export default function ProductsPage() {
           </div>
         )}
 
+        {deactivateError && (
+          <div
+            role="alert"
+            className="mt-4 flex items-start justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4"
+          >
+            <div>
+              <p className="text-sm font-semibold text-red-800">
+                Unable to deactivate product
+              </p>
+              <p className="mt-1 text-sm text-red-700">{deactivateError}</p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setDeactivateError(null)}
+              aria-label="Dismiss error"
+              className="text-red-500 hover:text-red-700"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        )}
         {!isRequestError && (
           <>
             <div className="mt-6 overflow-x-auto">
@@ -407,16 +531,58 @@ export default function ProductsPage() {
                           </span>
                         </td>
 
-                        <td className="px-3 py-4 text-right">
-                          <button
-                            type="button"
-                            onClick={() => openProduct(product)}
-                            aria-label={`View ${product.name} details`}
-                            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-                          >
-                            <Eye size={15} />
-                            View
-                          </button>
+                        <td className="px-3 py-4">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openProduct(product)}
+                              aria-label={`View ${product.name} details`}
+                              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                            >
+                              <Eye size={15} />
+                              View
+                            </button>
+
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSaveError(null);
+                                  setEditingProduct(product);
+                                  setFormMode("edit");
+                                }}
+                                aria-label={`Edit ${product.name}`}
+                                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                              >
+                                <Pencil size={15} />
+                                Edit
+                              </button>
+                            )}
+                            {isAdmin && product.isActive && (
+                              <button
+                                type="button"
+                                disabled={deactivateMutation.isPending}
+                                onClick={() => {
+                                  const confirmed = window.confirm(
+                                    `Deactivate product "${product.name}"? This product will become inactive.`,
+                                  );
+
+                                  if (!confirmed) return;
+
+                                  setDeactivateError(null);
+                                  deactivateMutation.mutate(product.id);
+                                }}
+                                aria-label={`Deactivate ${product.name}`}
+                                className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                <Ban size={15} />
+                                {deactivateMutation.isPending &&
+                                deactivateMutation.variables === product.id
+                                  ? "Deactivating..."
+                                  : "Deactivate"}
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -497,6 +663,31 @@ export default function ProductsPage() {
         )}
       </section>
 
+      {formMode && accessToken && (
+        <ProductFormDialog
+          mode={formMode}
+          product={editingProduct ?? undefined}
+          categories={categoryQuery.data ?? []}
+          categoriesLoading={categoryQuery.isPending}
+          categoriesError={
+            categoryQuery.isError
+              ? categoryQuery.error instanceof Error
+                ? categoryQuery.error.message
+                : "Unknown category error."
+              : null
+          }
+          isSubmitting={saveProductMutation.isPending}
+          submitError={saveError}
+          onClose={() => {
+            if (saveProductMutation.isPending) return;
+
+            setFormMode(null);
+            setEditingProduct(null);
+            setSaveError(null);
+          }}
+          onSubmit={(payload) => saveProductMutation.mutate(payload)}
+        />
+      )}
       {selectedProductId && accessToken && (
         <ProductDetailDialog
           productId={selectedProductId}
