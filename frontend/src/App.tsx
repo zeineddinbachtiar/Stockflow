@@ -1,9 +1,4 @@
-
-import {
-  BrowserRouter,
-  Route,
-  Routes,
-} from "react-router";
+import { BrowserRouter, Route, Routes } from "react-router";
 
 import AppLayout from "./components/layout/AppLayout";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
@@ -12,6 +7,7 @@ import RoleGuard from "./components/auth/RoleGuard";
 import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
 import PlaceholderPage from "./pages/PlaceholderPage";
+import ProductsPage from "./pages/ProductsPage";
 
 function App() {
   return (
@@ -23,15 +19,7 @@ function App() {
           <Route element={<AppLayout />}>
             <Route index element={<DashboardPage />} />
 
-            <Route
-              path="products"
-              element={
-                <PlaceholderPage
-                  title="Products"
-                  description="Manage your product catalog, pricing, and product details."
-                />
-              }
-            />
+            <Route path="products" element={<ProductsPage />} />
 
             <Route
               path="categories"

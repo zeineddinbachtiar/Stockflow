@@ -1,9 +1,4 @@
-
-import {
-  useCallback,
-  useMemo,
-  useState,
-} from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
 import { apiRequest } from "../lib/api";
@@ -17,18 +12,13 @@ import type {
   UserRole,
 } from "../types/auth.types";
 
-import type {
-  AuthContextValue,
-  LoginCredentials,
-} from "./auth-context";
+import type { AuthContextValue, LoginCredentials } from "./auth-context";
 
 const SESSION_KEY = "stockflow.auth.session";
 
 function isValidRole(value: unknown): value is UserRole {
   return (
-    value === "ADMIN" ||
-    value === "WAREHOUSE_STAFF" ||
-    value === "SALES_STAFF"
+    value === "ADMIN" || value === "WAREHOUSE_STAFF" || value === "SALES_STAFF"
   );
 }
 
@@ -84,9 +74,7 @@ function readStoredSession(): AuthSession | null {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<AuthSession | null>(
-    readStoredSession,
-  );
+  const [session, setSession] = useState<AuthSession | null>(readStoredSession);
 
   const logout = useCallback(() => {
     sessionStorage.removeItem(SESSION_KEY);
@@ -94,13 +82,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (credentials: LoginCredentials) => {
-    const response = await apiRequest<ApiEnvelope<AuthResult>>(
-      "/auth/login",
-      {
-        method: "POST",
-        body: JSON.stringify(credentials),
-      },
-    );
+    const response = await apiRequest<ApiEnvelope<AuthResult>>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify(credentials),
+    });
 
     const result = response.data;
 
@@ -134,9 +119,5 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [session, login, logout],
   );
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

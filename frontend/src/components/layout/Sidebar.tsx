@@ -1,4 +1,3 @@
-
 import {
   Activity,
   ArrowLeftRight,
@@ -72,10 +71,7 @@ const navigationGroups: NavigationGroup[] = [
   },
 ];
 
-export default function Sidebar({
-  isOpen,
-  onNavigate,
-}: SidebarProps) {
+export default function Sidebar({ isOpen, onNavigate }: SidebarProps) {
   const { user } = useAuth();
 
   return (
@@ -97,9 +93,7 @@ export default function Sidebar({
           <h1 className="text-xl font-bold tracking-tight text-slate-900">
             StockFlow
           </h1>
-          <p className="text-xs text-slate-500">
-            Inventory Management
-          </p>
+          <p className="text-xs text-slate-500">Inventory Management</p>
         </div>
       </div>
 

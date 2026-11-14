@@ -1,4 +1,3 @@
-
 import { LogOut, Menu, UserRound } from "lucide-react";
 import { useLocation, useNavigate } from "react-router";
 
@@ -44,9 +43,7 @@ export default function Topbar({ onMenuClick }: TopbarProps) {
         </button>
 
         <div>
-          <p className="text-xs text-slate-400">
-            Workspace / {currentTitle}
-          </p>
+          <p className="text-xs text-slate-400">Workspace / {currentTitle}</p>
           <h2 className="mt-1 text-lg font-semibold text-slate-900">
             {currentTitle}
           </h2>
