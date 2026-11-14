@@ -48,8 +48,9 @@ export default function WarehousesPage() {
   const [offset, setOffset] = useState(0);
 
   const [formMode, setFormMode] = useState<"create" | "edit" | null>(null);
-  const [editingWarehouse, setEditingWarehouse] =
-    useState<Warehouse | null>(null);
+  const [editingWarehouse, setEditingWarehouse] = useState<Warehouse | null>(
+    null,
+  );
 
   const [formError, setFormError] = useState<string | null>(null);
   const [deactivateError, setDeactivateError] = useState<string | null>(null);
@@ -415,9 +416,7 @@ export default function WarehousesPage() {
                     {Math.min(offset + PAGE_SIZE, total)}
                   </span>{" "}
                   of{" "}
-                  <span className="font-semibold text-slate-700">
-                    {total}
-                  </span>{" "}
+                  <span className="font-semibold text-slate-700">{total}</span>{" "}
                   warehouses
                 </p>
 
@@ -426,9 +425,7 @@ export default function WarehousesPage() {
                     type="button"
                     disabled={!hasPreviousPage}
                     onClick={() =>
-                      setOffset((current) =>
-                        Math.max(0, current - PAGE_SIZE),
-                      )
+                      setOffset((current) => Math.max(0, current - PAGE_SIZE))
                     }
                     className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                   >
@@ -443,9 +440,7 @@ export default function WarehousesPage() {
                   <button
                     type="button"
                     disabled={!hasNextPage}
-                    onClick={() =>
-                      setOffset((current) => current + PAGE_SIZE)
-                    }
+                    onClick={() => setOffset((current) => current + PAGE_SIZE)}
                     className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Next

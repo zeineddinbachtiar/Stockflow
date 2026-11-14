@@ -1,10 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { AlertCircle, X } from "lucide-react";
 
-import type {
-  Warehouse,
-  WarehousePayload,
-} from "./warehouse.types";
+import type { Warehouse, WarehousePayload } from "./warehouse.types";
 
 interface WarehouseFormDialogProps {
   mode: "create" | "edit";
