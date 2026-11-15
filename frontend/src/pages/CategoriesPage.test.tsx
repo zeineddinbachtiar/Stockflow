@@ -284,4 +284,174 @@ describe("CategoriesPage", () => {
 
     expect(screen.getByText("Database unavailable.")).toBeInTheDocument();
   });
+
+  it("displays API errors when category creation fails", async () => {
+    const user = userEvent.setup();
+
+    installCategoryHandlers();
+
+    server.use(
+      http.post(`${API_URL}/categories`, () =>
+        HttpResponse.json(
+          {
+            status: "error",
+            code: "DUPLICATE_RESOURCE",
+            message: "Category name already exists.",
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderWithProviders(<CategoriesPage />);
+
+    await screen.findByText("Computers");
+
+    await user.click(screen.getByRole("button", { name: "Add Category" }));
+
+    await user.type(screen.getByLabelText("Category Name"), "Computers");
+
+    await user.click(screen.getByRole("button", { name: "Create Category" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Category name already exists.",
+    );
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    expect(screen.getByLabelText("Category Name")).toHaveValue("Computers");
+  });
+
+  it("displays and dismisses deactivation errors", async () => {
+    const user = userEvent.setup();
+
+    installCategoryHandlers();
+
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    server.use(
+      http.patch(`${API_URL}/categories/:id/deactivate`, () =>
+        HttpResponse.json(
+          {
+            status: "error",
+            code: "RELATED_RESOURCE_CONFLICT",
+            message: "Category is assigned to existing products.",
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderWithProviders(<CategoriesPage />);
+
+    await screen.findByText("Computers");
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Deactivate Computers",
+      }),
+    );
+
+    const alert = await screen.findByRole("alert");
+
+    expect(alert).toHaveTextContent("Unable to deactivate category");
+
+    expect(alert).toHaveTextContent(
+      "Category is assigned to existing products.",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Dismiss error" }));
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    expect(screen.getByText("Computers")).toBeInTheDocument();
+  });
+
+  it("retries loading categories after an initial API failure", async () => {
+    const user = userEvent.setup();
+
+    let requestCount = 0;
+
+    server.use(
+      http.get(`${API_URL}/categories`, () => {
+        requestCount += 1;
+
+        if (requestCount === 1) {
+          return HttpResponse.json(
+            {
+              status: "error",
+              code: "SERVICE_UNAVAILABLE",
+              message: "Category service is temporarily unavailable.",
+            },
+            { status: 503 },
+          );
+        }
+
+        return HttpResponse.json(
+          success({
+            categories: [category],
+            total: 1,
+            limit: 10,
+            offset: 0,
+          }),
+        );
+      }),
+    );
+
+    renderWithProviders(<CategoriesPage />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Category service is temporarily unavailable.",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(await screen.findByText("Computers")).toBeInTheDocument();
+
+    expect(requestCount).toBe(2);
+
+    expect(
+      screen.queryByText("Unable to load categories"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("returns to the previous page after deactivating its last category", async () => {
+    const user = userEvent.setup();
+
+    const records = Array.from({ length: 11 }, (_, index) => ({
+      ...category,
+      id: `category-${index + 1}`,
+      name: `Category ${index + 1}`,
+    }));
+
+    installCategoryHandlers(records);
+
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    renderWithProviders(<CategoriesPage />);
+
+    expect(await screen.findByText("Category 1")).toBeInTheDocument();
+
+    expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Next page" }));
+
+    expect(await screen.findByText("Category 11")).toBeInTheDocument();
+
+    expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Deactivate Category 11",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Page 1 of 1")).toBeInTheDocument();
+
+      expect(screen.queryByText("Category 11")).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByText("Category 1")).toBeInTheDocument();
+  });
 });

@@ -403,4 +403,193 @@ describe("ProductsPage", () => {
       screen.getByText("Product service unavailable."),
     ).toBeInTheDocument();
   });
+
+  it("displays API errors when product creation fails", async () => {
+    const user = userEvent.setup();
+
+    installProductHandlers();
+
+    server.use(
+      http.post(`${API_URL}/products`, () =>
+        HttpResponse.json(
+          {
+            status: "error",
+            code: "DUPLICATE_RESOURCE",
+            message: "Product SKU already exists.",
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderWithProviders(<ProductsPage />);
+
+    await screen.findByText("Business Laptop");
+
+    await user.click(screen.getByRole("button", { name: "Add Product" }));
+
+    await user.selectOptions(screen.getByLabelText("Category"), category.id);
+
+    await user.type(screen.getByLabelText("SKU"), "LAP-001");
+
+    await user.type(screen.getByLabelText("Product Name"), "Duplicate Laptop");
+
+    await user.type(screen.getByLabelText("Unit Price"), "12000000.00");
+
+    await user.click(screen.getByRole("button", { name: "Create Product" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Product SKU already exists.",
+    );
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    expect(screen.getByLabelText("SKU")).toHaveValue("LAP-001");
+  });
+
+  it("displays and dismisses product deactivation errors", async () => {
+    const user = userEvent.setup();
+
+    installProductHandlers();
+
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    server.use(
+      http.patch(`${API_URL}/products/:id/deactivate`, () =>
+        HttpResponse.json(
+          {
+            status: "error",
+            code: "RELATED_RESOURCE_CONFLICT",
+            message: "Product cannot be deactivated.",
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderWithProviders(<ProductsPage />);
+
+    await screen.findByText("Business Laptop");
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Deactivate Business Laptop",
+      }),
+    );
+
+    const alert = await screen.findByRole("alert");
+
+    expect(alert).toHaveTextContent("Unable to deactivate product");
+
+    expect(alert).toHaveTextContent("Product cannot be deactivated.");
+
+    await user.click(screen.getByRole("button", { name: "Dismiss error" }));
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    expect(screen.getByText("Business Laptop")).toBeInTheDocument();
+  });
+
+  it("retries loading products after an initial API failure", async () => {
+    const user = userEvent.setup();
+
+    let requestCount = 0;
+
+    installProductHandlers();
+
+    server.use(
+      http.get(`${API_URL}/products`, () => {
+        requestCount += 1;
+
+        if (requestCount === 1) {
+          return HttpResponse.json(
+            {
+              status: "error",
+              code: "SERVICE_UNAVAILABLE",
+              message: "Product service is temporarily unavailable.",
+            },
+            { status: 503 },
+          );
+        }
+
+        return HttpResponse.json(
+          success({
+            products: [product],
+            total: 1,
+            limit: 10,
+            offset: 0,
+          }),
+        );
+      }),
+    );
+
+    renderWithProviders(<ProductsPage />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Product service is temporarily unavailable.",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(await screen.findByText("Business Laptop")).toBeInTheDocument();
+
+    expect(requestCount).toBe(2);
+
+    expect(
+      screen.queryByText("Unable to load products"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("retries loading product details after an initial API failure", async () => {
+    const user = userEvent.setup();
+
+    let detailRequestCount = 0;
+
+    installProductHandlers();
+
+    server.use(
+      http.get(`${API_URL}/products/:id`, () => {
+        detailRequestCount += 1;
+
+        if (detailRequestCount === 1) {
+          return HttpResponse.json(
+            {
+              status: "error",
+              code: "SERVICE_UNAVAILABLE",
+              message: "Product detail service is unavailable.",
+            },
+            { status: 503 },
+          );
+        }
+
+        return HttpResponse.json(success({ product }));
+      }),
+    );
+
+    renderWithProviders(<ProductsPage />);
+
+    await screen.findByText("Business Laptop");
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "View Business Laptop details",
+      }),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Unable to load product details.",
+    );
+
+    expect(
+      screen.getByText("Product detail service is unavailable."),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+
+    expect(
+      await screen.findByText("Product ID: product-001"),
+    ).toBeInTheDocument();
+
+    expect(detailRequestCount).toBe(2);
+  });
 });

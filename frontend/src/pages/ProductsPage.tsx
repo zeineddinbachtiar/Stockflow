@@ -116,7 +116,10 @@ function ProductDetailDialog({
           )}
 
           {isError && (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+            <div
+              role="alert"
+              className="rounded-xl border border-red-200 bg-red-50 p-4"
+            >
               <p className="text-sm font-semibold text-red-800">
                 Unable to load product details.
               </p>
