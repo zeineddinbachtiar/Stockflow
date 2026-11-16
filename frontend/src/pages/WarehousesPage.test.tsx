@@ -123,6 +123,19 @@ describe("WarehousesPage", () => {
     expect(
       await screen.findByText("Jakarta Central Warehouse"),
     ).toBeInTheDocument();
+    const warehousesTable = screen.getByRole("table");
+    expect(warehousesTable.parentElement).toHaveClass(
+      "overflow-x-auto",
+      "overscroll-x-contain",
+    );
+    expect(warehousesTable).toHaveClass("min-w-[760px]");
+    expect(warehousesTable).toHaveClass("responsive-data-table");
+    expect(
+      warehousesTable.querySelector('[data-label="Address"]'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Actions" })).toHaveClass(
+      "sticky",
+    );
 
     expect(
       screen.getByRole("button", { name: "Add Warehouse" }),

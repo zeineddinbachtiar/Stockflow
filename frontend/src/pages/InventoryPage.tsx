@@ -344,8 +344,9 @@ export default function InventoryPage() {
 
         {!isRequestError && (
           <>
-            <div className="mt-6 overflow-x-auto">
-              <table className="w-full min-w-[950px] text-left text-sm">
+            <div className="relative mt-6 max-w-full overflow-x-auto overscroll-x-contain [scrollbar-width:thin]">
+              <table className="responsive-data-table w-full min-w-[950px] text-left text-sm">
+                <caption className="sr-only">Inventory balances</caption>
                 <thead>
                   <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
                     <th className="px-3 py-3 font-semibold">Warehouse</th>
@@ -353,7 +354,7 @@ export default function InventoryPage() {
                     <th className="px-3 py-3 font-semibold">On hand</th>
                     <th className="px-3 py-3 font-semibold">Reorder level</th>
                     <th className="px-3 py-3 font-semibold">Status</th>
-                    <th className="px-3 py-3 text-right font-semibold">
+                    <th className="sticky right-0 z-10 bg-white px-3 py-3 text-right font-semibold shadow-[-4px_0_8px_-6px_rgba(15,23,42,0.35)]">
                       Actions
                     </th>
                   </tr>
@@ -371,9 +372,9 @@ export default function InventoryPage() {
                     inventory.map((item) => (
                       <tr
                         key={item.id}
-                        className="border-b border-slate-50 hover:bg-slate-50/70"
+                        className="group border-b border-slate-50 hover:bg-slate-50/70"
                       >
-                        <td className="px-3 py-4">
+                        <td data-label="Warehouse" className="px-3 py-4">
                           <p className="font-semibold text-slate-800">
                             {item.warehouseName}
                           </p>
@@ -381,7 +382,7 @@ export default function InventoryPage() {
                             {item.warehouseCode}
                           </p>
                         </td>
-                        <td className="px-3 py-4">
+                        <td data-label="Product" className="px-3 py-4">
                           <p className="font-semibold text-slate-800">
                             {item.productName}
                           </p>
@@ -389,20 +390,29 @@ export default function InventoryPage() {
                             {item.productSku}
                           </p>
                         </td>
-                        <td className="px-3 py-4 font-semibold text-slate-800">
+                        <td
+                          data-label="On hand"
+                          className="px-3 py-4 font-semibold text-slate-800"
+                        >
                           {formatQuantity(item.quantityOnHand)}
                         </td>
-                        <td className="px-3 py-4 text-slate-600">
+                        <td
+                          data-label="Reorder level"
+                          className="px-3 py-4 text-slate-600"
+                        >
                           {formatQuantity(item.reorderLevel)}
                         </td>
-                        <td className="px-3 py-4">
+                        <td data-label="Status" className="px-3 py-4">
                           <span
                             className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${item.isLowStock ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}
                           >
                             {item.isLowStock ? "Low stock" : "Healthy"}
                           </span>
                         </td>
-                        <td className="px-3 py-4">
+                        <td
+                          data-label="Actions"
+                          className="sticky right-0 z-10 bg-white px-3 py-4 shadow-[-4px_0_8px_-6px_rgba(15,23,42,0.35)] group-hover:bg-slate-50/70"
+                        >
                           <div className="flex justify-end gap-2">
                             <button
                               type="button"

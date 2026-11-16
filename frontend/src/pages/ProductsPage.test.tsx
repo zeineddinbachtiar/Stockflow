@@ -158,6 +158,19 @@ describe("ProductsPage", () => {
     renderWithProviders(<ProductsPage />);
 
     expect(await screen.findByText("Business Laptop")).toBeInTheDocument();
+    const productsTable = screen.getByRole("table");
+    expect(productsTable.parentElement).toHaveClass(
+      "overflow-x-auto",
+      "overscroll-x-contain",
+    );
+    expect(productsTable).toHaveClass("min-w-[760px]");
+    expect(productsTable).toHaveClass("responsive-data-table");
+    expect(
+      productsTable.querySelector('[data-label="Category"]'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Action" })).toHaveClass(
+      "sticky",
+    );
 
     expect(
       screen.getByRole("button", { name: "Add Product" }),

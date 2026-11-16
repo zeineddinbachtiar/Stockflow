@@ -166,6 +166,19 @@ describe("OrdersPage", () => {
     const user = userEvent.setup();
     renderPage();
     expect(await screen.findByText("SO-001")).toBeInTheDocument();
+    const ordersTable = screen.getByRole("table");
+    expect(ordersTable.parentElement).toHaveClass(
+      "overflow-x-auto",
+      "overscroll-x-contain",
+    );
+    expect(ordersTable).toHaveClass("min-w-[1050px]");
+    expect(ordersTable).toHaveClass("responsive-data-table");
+    expect(
+      ordersTable.querySelector('[data-label="Customer"]'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Actions" })).toHaveClass(
+      "sticky",
+    );
     await user.click(screen.getByRole("button", { name: "View" }));
     expect(
       await screen.findByRole("heading", { name: "Order Detail" }),

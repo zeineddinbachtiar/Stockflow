@@ -75,6 +75,19 @@ describe("StockMovementsPage", () => {
     renderWithProviders(<StockMovementsPage />, "ADMIN");
 
     expect(await screen.findByText("Business Laptop")).toBeInTheDocument();
+    const movementsTable = screen.getByRole("table");
+    expect(movementsTable.parentElement).toHaveClass(
+      "overflow-x-auto",
+      "overscroll-x-contain",
+    );
+    expect(movementsTable).toHaveClass("min-w-[1050px]");
+    expect(movementsTable).toHaveClass("responsive-data-table");
+    expect(
+      movementsTable.querySelector('[data-label="Movement type"]'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Actions" })).toHaveClass(
+      "sticky",
+    );
     expect(screen.getAllByText("Order confirmation").length).toBeGreaterThan(1);
     expect(screen.getByText("-2")).toBeInTheDocument();
     expect(

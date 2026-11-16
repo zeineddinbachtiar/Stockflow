@@ -25,3 +25,84 @@ body {
   outline: 2px solid #2563eb;
   outline-offset: 2px;
 }
+
+@media (max-width: 767px) {
+  .responsive-data-table {
+    min-width: 0 !important;
+    display: block;
+  }
+
+  .responsive-data-table thead {
+    display: none;
+  }
+
+  .responsive-data-table tbody,
+  .responsive-data-table tfoot {
+    display: block;
+  }
+
+  .responsive-data-table tbody tr {
+    display: block;
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    background: #ffffff;
+    padding: 0.75rem 1rem;
+  }
+
+  .responsive-data-table tbody td {
+    position: static !important;
+    display: flex !important;
+    width: 100%;
+    max-width: none;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    border: 0;
+    padding: 0.625rem 0;
+    text-align: right;
+  }
+
+  .responsive-data-table tbody td::before {
+    flex: 0 0 auto;
+    color: #64748b;
+    content: attr(data-label);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  .responsive-data-table tbody td:first-child,
+  .responsive-data-table tbody td:last-child {
+    display: block !important;
+    text-align: left;
+  }
+
+  .responsive-data-table tbody td:first-child::before,
+  .responsive-data-table tbody td:last-child::before {
+    display: block;
+    margin-bottom: 0.35rem;
+  }
+
+  .responsive-data-table tbody td:last-child > div {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .responsive-data-table tbody td[colspan] {
+    display: block !important;
+    text-align: left;
+  }
+
+  .responsive-data-table tbody td[colspan]::before {
+    display: none;
+  }
+
+  .responsive-data-table tfoot tr,
+  .responsive-data-table tfoot td {
+    display: block;
+  }
+}

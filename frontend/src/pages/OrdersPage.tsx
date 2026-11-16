@@ -436,8 +436,9 @@ export default function OrdersPage() {
 
         {!isRequestError && (
           <>
-            <div className="mt-6 overflow-x-auto">
-              <table className="w-full min-w-[1050px] text-left text-sm">
+            <div className="relative mt-6 max-w-full overflow-x-auto overscroll-x-contain [scrollbar-width:thin]">
+              <table className="responsive-data-table w-full min-w-[1050px] text-left text-sm">
+                <caption className="sr-only">Orders</caption>
                 <thead>
                   <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
                     <th className="px-3 py-3 font-semibold">Order</th>
@@ -446,7 +447,7 @@ export default function OrdersPage() {
                     <th className="px-3 py-3 font-semibold">Status</th>
                     <th className="px-3 py-3 font-semibold">Total</th>
                     <th className="px-3 py-3 font-semibold">Ordered At</th>
-                    <th className="px-3 py-3 text-right font-semibold">
+                    <th className="sticky right-0 z-10 bg-white px-3 py-3 text-right font-semibold shadow-[-4px_0_8px_-6px_rgba(15,23,42,0.35)]">
                       Actions
                     </th>
                   </tr>
@@ -464,9 +465,9 @@ export default function OrdersPage() {
                     orders.map((order) => (
                       <tr
                         key={order.id}
-                        className="border-b border-slate-50 hover:bg-slate-50/70"
+                        className="group border-b border-slate-50 hover:bg-slate-50/70"
                       >
-                        <td className="px-3 py-4">
+                        <td data-label="Order" className="px-3 py-4">
                           <p className="font-semibold text-slate-800">
                             {order.orderNumber}
                           </p>
@@ -474,7 +475,7 @@ export default function OrdersPage() {
                             {order.itemCount} item(s)
                           </p>
                         </td>
-                        <td className="px-3 py-4">
+                        <td data-label="Customer" className="px-3 py-4">
                           <p className="font-semibold text-slate-700">
                             {order.customerName}
                           </p>
@@ -482,23 +483,35 @@ export default function OrdersPage() {
                             {order.customerCode}
                           </p>
                         </td>
-                        <td className="px-3 py-4 text-slate-600">
+                        <td
+                          data-label="Warehouse"
+                          className="px-3 py-4 text-slate-600"
+                        >
                           {order.warehouseCode}
                         </td>
-                        <td className="px-3 py-4">
+                        <td data-label="Status" className="px-3 py-4">
                           <span
                             className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass(order.status)}`}
                           >
                             {order.status}
                           </span>
                         </td>
-                        <td className="px-3 py-4 font-medium text-slate-700">
+                        <td
+                          data-label="Total"
+                          className="px-3 py-4 font-medium text-slate-700"
+                        >
                           {formatMoney(order.totalAmount)}
                         </td>
-                        <td className="px-3 py-4 text-slate-500">
+                        <td
+                          data-label="Ordered at"
+                          className="px-3 py-4 text-slate-500"
+                        >
                           {formatDate(order.orderedAt)}
                         </td>
-                        <td className="px-3 py-4">
+                        <td
+                          data-label="Actions"
+                          className="sticky right-0 z-10 bg-white px-3 py-4 shadow-[-4px_0_8px_-6px_rgba(15,23,42,0.35)] group-hover:bg-slate-50/70"
+                        >
                           <div className="flex justify-end">
                             <button
                               type="button"
@@ -672,8 +685,9 @@ export default function OrdersPage() {
                     </dd>
                   </div>
                 </div>
-                <div className="mt-6 overflow-x-auto">
-                  <table className="w-full text-left text-sm">
+                <div className="relative mt-6 max-w-full overflow-x-auto overscroll-x-contain [scrollbar-width:thin]">
+                  <table className="responsive-data-table w-full min-w-[520px] text-left text-sm">
+                    <caption className="sr-only">Order items</caption>
                     <thead>
                       <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
                         <th className="px-3 py-3">Product</th>
@@ -685,7 +699,7 @@ export default function OrdersPage() {
                     <tbody>
                       {detail.items?.map((item) => (
                         <tr key={item.id} className="border-b border-slate-50">
-                          <td className="px-3 py-3">
+                          <td data-label="Product" className="px-3 py-3">
                             <p className="font-semibold text-slate-800">
                               {item.productName}
                             </p>
@@ -693,13 +707,22 @@ export default function OrdersPage() {
                               {item.productSku}
                             </p>
                           </td>
-                          <td className="px-3 py-3 text-slate-600">
+                          <td
+                            data-label="Quantity"
+                            className="px-3 py-3 text-slate-600"
+                          >
                             {item.quantity}
                           </td>
-                          <td className="px-3 py-3 text-slate-600">
+                          <td
+                            data-label="Unit price"
+                            className="px-3 py-3 text-slate-600"
+                          >
                             {formatMoney(item.unitPrice)}
                           </td>
-                          <td className="px-3 py-3 text-right font-medium text-slate-700">
+                          <td
+                            data-label="Subtotal"
+                            className="px-3 py-3 text-right font-medium text-slate-700"
+                          >
                             {formatMoney(item.lineTotal)}
                           </td>
                         </tr>

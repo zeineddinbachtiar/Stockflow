@@ -103,6 +103,19 @@ describe("InventoryPage", () => {
     renderWithProviders(<InventoryPage />);
 
     expect(await screen.findByText("Business Laptop")).toBeInTheDocument();
+    const inventoryTable = screen.getByRole("table");
+    expect(inventoryTable.parentElement).toHaveClass(
+      "overflow-x-auto",
+      "overscroll-x-contain",
+    );
+    expect(inventoryTable).toHaveClass("min-w-[950px]");
+    expect(inventoryTable).toHaveClass("responsive-data-table");
+    expect(
+      inventoryTable.querySelector('[data-label="Reorder level"]'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Actions" })).toHaveClass(
+      "sticky",
+    );
     expect(screen.getByText("12")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "View" })).toBeInTheDocument();
 

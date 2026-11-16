@@ -482,8 +482,9 @@ export default function ProductsPage() {
         )}
         {!isRequestError && (
           <>
-            <div className="mt-6 overflow-x-auto">
-              <table className="w-full min-w-[760px] text-left text-sm">
+            <div className="relative mt-6 max-w-full overflow-x-auto overscroll-x-contain [scrollbar-width:thin]">
+              <table className="responsive-data-table w-full min-w-[760px] text-left text-sm">
+                <caption className="sr-only">Products</caption>
                 <thead>
                   <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
                     <th className="px-3 py-3 font-semibold">Product</th>
@@ -492,7 +493,7 @@ export default function ProductsPage() {
                       Unit Price
                     </th>
                     <th className="px-3 py-3 font-semibold">Status</th>
-                    <th className="px-3 py-3 text-right font-semibold">
+                    <th className="sticky right-0 z-10 bg-white px-3 py-3 text-right font-semibold shadow-[-4px_0_8px_-6px_rgba(15,23,42,0.35)]">
                       Action
                     </th>
                   </tr>
@@ -512,9 +513,9 @@ export default function ProductsPage() {
                     products.map((product) => (
                       <tr
                         key={product.id}
-                        className="border-b border-slate-50 transition hover:bg-slate-50/70"
+                        className="group border-b border-slate-50 transition hover:bg-slate-50/70"
                       >
-                        <td className="px-3 py-4">
+                        <td data-label="Product" className="px-3 py-4">
                           <p className="font-semibold text-slate-800">
                             {product.name}
                           </p>
@@ -523,18 +524,24 @@ export default function ProductsPage() {
                           </p>
                         </td>
 
-                        <td className="px-3 py-4 text-slate-600">
+                        <td
+                          data-label="Category"
+                          className="px-3 py-4 text-slate-600"
+                        >
                           {categories.get(product.categoryId) ??
                             (categoryQuery.isError
                               ? "Unavailable"
                               : "Loading...")}
                         </td>
 
-                        <td className="px-3 py-4 text-right font-medium tabular-nums text-slate-800">
+                        <td
+                          data-label="Unit price"
+                          className="px-3 py-4 text-right font-medium tabular-nums text-slate-800"
+                        >
                           {formatPrice(product.unitPrice)}
                         </td>
 
-                        <td className="px-3 py-4">
+                        <td data-label="Status" className="px-3 py-4">
                           <span
                             className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
                               product.isActive
@@ -546,7 +553,10 @@ export default function ProductsPage() {
                           </span>
                         </td>
 
-                        <td className="px-3 py-4">
+                        <td
+                          data-label="Actions"
+                          className="sticky right-0 z-10 bg-white px-3 py-4 shadow-[-4px_0_8px_-6px_rgba(15,23,42,0.35)] group-hover:bg-slate-50/70"
+                        >
                           <div className="flex justify-end gap-2">
                             <button
                               type="button"

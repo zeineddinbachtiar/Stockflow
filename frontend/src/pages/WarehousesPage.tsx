@@ -250,8 +250,9 @@ export default function WarehousesPage() {
         {!isRequestError && (
           <>
             {/* WAREHOUSE TABLE */}
-            <div className="mt-6 overflow-x-auto">
-              <table className="w-full min-w-[760px] text-left text-sm">
+            <div className="relative mt-6 max-w-full overflow-x-auto overscroll-x-contain [scrollbar-width:thin]">
+              <table className="responsive-data-table w-full min-w-[760px] text-left text-sm">
+                <caption className="sr-only">Warehouses</caption>
                 <thead>
                   <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
                     <th className="px-3 py-3 font-semibold">Warehouse</th>
@@ -260,7 +261,7 @@ export default function WarehousesPage() {
                     <th className="px-3 py-3 font-semibold">Status</th>
 
                     {isAdmin && (
-                      <th className="px-3 py-3 text-right font-semibold">
+                      <th className="sticky right-0 z-10 bg-white px-3 py-3 text-right font-semibold shadow-[-4px_0_8px_-6px_rgba(15,23,42,0.35)]">
                         Actions
                       </th>
                     )}
@@ -283,9 +284,9 @@ export default function WarehousesPage() {
                     warehouses.map((warehouse) => (
                       <tr
                         key={warehouse.id}
-                        className="border-b border-slate-50 transition hover:bg-slate-50/70"
+                        className="group border-b border-slate-50 transition hover:bg-slate-50/70"
                       >
-                        <td className="px-3 py-4">
+                        <td data-label="Warehouse" className="px-3 py-4">
                           <div className="flex items-center gap-3">
                             <div className="rounded-xl bg-blue-50 p-2.5 text-blue-600">
                               <Building2 size={19} />
@@ -303,7 +304,10 @@ export default function WarehousesPage() {
                           </div>
                         </td>
 
-                        <td className="max-w-sm px-3 py-4 text-slate-600">
+                        <td
+                          data-label="Address"
+                          className="max-w-sm px-3 py-4 text-slate-600"
+                        >
                           <div className="flex items-start gap-2">
                             <MapPin
                               size={15}
@@ -316,11 +320,14 @@ export default function WarehousesPage() {
                           </div>
                         </td>
 
-                        <td className="px-3 py-4 text-slate-500">
+                        <td
+                          data-label="Created at"
+                          className="px-3 py-4 text-slate-500"
+                        >
                           {formatDate(warehouse.createdAt)}
                         </td>
 
-                        <td className="px-3 py-4">
+                        <td data-label="Status" className="px-3 py-4">
                           <span
                             className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
                               warehouse.isActive
@@ -333,7 +340,10 @@ export default function WarehousesPage() {
                         </td>
 
                         {isAdmin && (
-                          <td className="px-3 py-4">
+                          <td
+                            data-label="Actions"
+                            className="sticky right-0 z-10 bg-white px-3 py-4 shadow-[-4px_0_8px_-6px_rgba(15,23,42,0.35)] group-hover:bg-slate-50/70"
+                          >
                             <div className="flex justify-end gap-2">
                               <button
                                 type="button"

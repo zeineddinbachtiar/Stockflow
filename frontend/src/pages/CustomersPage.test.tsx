@@ -75,6 +75,19 @@ describe("CustomersPage", () => {
     renderWithProviders(<CustomersPage />, "ADMIN");
 
     expect(await screen.findByText("PT Maju Jaya")).toBeInTheDocument();
+    const customersTable = screen.getByRole("table");
+    expect(customersTable.parentElement).toHaveClass(
+      "overflow-x-auto",
+      "overscroll-x-contain",
+    );
+    expect(customersTable).toHaveClass("min-w-[900px]");
+    expect(customersTable).toHaveClass("responsive-data-table");
+    expect(
+      customersTable.querySelector('[data-label="Email"]'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Actions" })).toHaveClass(
+      "sticky",
+    );
     expect(screen.getByText("CUST-001")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "View" }));
     expect(

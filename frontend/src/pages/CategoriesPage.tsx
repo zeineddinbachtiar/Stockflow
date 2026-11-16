@@ -251,8 +251,9 @@ export default function CategoriesPage() {
         {!isRequestError && (
           <>
             {/* CATEGORY TABLE */}
-            <div className="mt-6 overflow-x-auto">
-              <table className="w-full min-w-[760px] text-left text-sm">
+            <div className="relative mt-6 max-w-full overflow-x-auto overscroll-x-contain [scrollbar-width:thin]">
+              <table className="responsive-data-table w-full min-w-[760px] text-left text-sm">
+                <caption className="sr-only">Categories</caption>
                 <thead>
                   <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
                     <th className="px-3 py-3 font-semibold">Category</th>
@@ -264,7 +265,7 @@ export default function CategoriesPage() {
                     <th className="px-3 py-3 font-semibold">Status</th>
 
                     {isAdmin && (
-                      <th className="px-3 py-3 text-right font-semibold">
+                      <th className="sticky right-0 z-10 bg-white px-3 py-3 text-right font-semibold shadow-[-4px_0_8px_-6px_rgba(15,23,42,0.35)]">
                         Actions
                       </th>
                     )}
@@ -287,9 +288,9 @@ export default function CategoriesPage() {
                     categories.map((category) => (
                       <tr
                         key={category.id}
-                        className="border-b border-slate-50 transition hover:bg-slate-50/70"
+                        className="group border-b border-slate-50 transition hover:bg-slate-50/70"
                       >
-                        <td className="px-3 py-4">
+                        <td data-label="Category" className="px-3 py-4">
                           <div className="flex items-center gap-3">
                             <div className="rounded-xl bg-blue-50 p-2.5 text-blue-600">
                               <Tags size={19} />
@@ -301,17 +302,23 @@ export default function CategoriesPage() {
                           </div>
                         </td>
 
-                        <td className="max-w-md px-3 py-4 text-slate-600">
+                        <td
+                          data-label="Description"
+                          className="max-w-md px-3 py-4 text-slate-600"
+                        >
                           <p className="line-clamp-2">
                             {category.description || "No description provided."}
                           </p>
                         </td>
 
-                        <td className="px-3 py-4 text-slate-500">
+                        <td
+                          data-label="Created at"
+                          className="px-3 py-4 text-slate-500"
+                        >
                           {formatDate(category.createdAt)}
                         </td>
 
-                        <td className="px-3 py-4">
+                        <td data-label="Status" className="px-3 py-4">
                           <span
                             className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
                               category.isActive
@@ -324,7 +331,10 @@ export default function CategoriesPage() {
                         </td>
 
                         {isAdmin && (
-                          <td className="px-3 py-4">
+                          <td
+                            data-label="Actions"
+                            className="sticky right-0 z-10 bg-white px-3 py-4 shadow-[-4px_0_8px_-6px_rgba(15,23,42,0.35)] group-hover:bg-slate-50/70"
+                          >
                             <div className="flex justify-end gap-2">
                               {/* EDIT */}
                               <button

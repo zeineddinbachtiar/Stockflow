@@ -261,8 +261,9 @@ export default function StockMovementsPage() {
 
         {!isRequestError && (
           <>
-            <div className="mt-6 overflow-x-auto">
-              <table className="w-full min-w-[1050px] text-left text-sm">
+            <div className="relative mt-6 max-w-full overflow-x-auto overscroll-x-contain [scrollbar-width:thin]">
+              <table className="responsive-data-table w-full min-w-[1050px] text-left text-sm">
+                <caption className="sr-only">Stock movements</caption>
                 <thead>
                   <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
                     <th className="px-3 py-3 font-semibold">Date</th>
@@ -272,7 +273,7 @@ export default function StockMovementsPage() {
                     <th className="px-3 py-3 font-semibold">Quantity</th>
                     <th className="px-3 py-3 font-semibold">Reason</th>
                     <th className="px-3 py-3 font-semibold">Reference</th>
-                    <th className="px-3 py-3 text-right font-semibold">
+                    <th className="sticky right-0 z-10 bg-white px-3 py-3 text-right font-semibold shadow-[-4px_0_8px_-6px_rgba(15,23,42,0.35)]">
                       Actions
                     </th>
                   </tr>
@@ -290,19 +291,22 @@ export default function StockMovementsPage() {
                     movements.map((movement) => (
                       <tr
                         key={movement.id}
-                        className="border-b border-slate-50 hover:bg-slate-50/70"
+                        className="group border-b border-slate-50 hover:bg-slate-50/70"
                       >
-                        <td className="whitespace-nowrap px-3 py-4 text-slate-500">
+                        <td
+                          data-label="Date"
+                          className="whitespace-nowrap px-3 py-4 text-slate-500"
+                        >
                           {formatDate(movement.createdAt)}
                         </td>
-                        <td className="px-3 py-4">
+                        <td data-label="Movement type" className="px-3 py-4">
                           <span
                             className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${movementTone(movement.movementType)}`}
                           >
                             {movementLabel(movement.movementType)}
                           </span>
                         </td>
-                        <td className="px-3 py-4">
+                        <td data-label="Warehouse" className="px-3 py-4">
                           <p className="font-semibold text-slate-800">
                             {movement.warehouseName}
                           </p>
@@ -310,7 +314,7 @@ export default function StockMovementsPage() {
                             {movement.warehouseCode}
                           </p>
                         </td>
-                        <td className="px-3 py-4">
+                        <td data-label="Product" className="px-3 py-4">
                           <p className="font-semibold text-slate-800">
                             {movement.productName}
                           </p>
@@ -319,19 +323,29 @@ export default function StockMovementsPage() {
                           </p>
                         </td>
                         <td
+                          data-label="Quantity"
                           className={`px-3 py-4 font-semibold ${movement.quantityDelta >= 0 ? "text-emerald-700" : "text-red-700"}`}
                         >
                           {formatQuantity(movement.quantityDelta)}
                         </td>
-                        <td className="max-w-xs px-3 py-4 text-slate-600">
+                        <td
+                          data-label="Reason"
+                          className="max-w-xs px-3 py-4 text-slate-600"
+                        >
                           {movement.reason || "—"}
                         </td>
-                        <td className="px-3 py-4 text-slate-600">
+                        <td
+                          data-label="Reference"
+                          className="px-3 py-4 text-slate-600"
+                        >
                           {movement.orderId
                             ? `Order #${movement.orderId}`
                             : "Manual movement"}
                         </td>
-                        <td className="px-3 py-4 text-right">
+                        <td
+                          data-label="Actions"
+                          className="sticky right-0 z-10 bg-white px-3 py-4 text-right shadow-[-4px_0_8px_-6px_rgba(15,23,42,0.35)] group-hover:bg-slate-50/70"
+                        >
                           <button
                             type="button"
                             onClick={() => setSelectedMovement(movement)}

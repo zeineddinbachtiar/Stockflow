@@ -118,6 +118,19 @@ describe("CategoriesPage", () => {
     renderWithProviders(<CategoriesPage />);
 
     expect(await screen.findByText("Computers")).toBeInTheDocument();
+    const categoriesTable = screen.getByRole("table");
+    expect(categoriesTable.parentElement).toHaveClass(
+      "overflow-x-auto",
+      "overscroll-x-contain",
+    );
+    expect(categoriesTable).toHaveClass("min-w-[760px]");
+    expect(categoriesTable).toHaveClass("responsive-data-table");
+    expect(
+      categoriesTable.querySelector('[data-label="Description"]'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Actions" })).toHaveClass(
+      "sticky",
+    );
 
     expect(
       screen.getByRole("button", { name: "Add Category" }),

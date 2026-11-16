@@ -198,8 +198,9 @@ export default function CustomersPage() {
 
         {!isRequestError && (
           <>
-            <div className="mt-6 overflow-x-auto">
-              <table className="w-full min-w-[900px] text-left text-sm">
+            <div className="relative mt-6 max-w-full overflow-x-auto overscroll-x-contain [scrollbar-width:thin]">
+              <table className="responsive-data-table w-full min-w-[900px] text-left text-sm">
+                <caption className="sr-only">Customers</caption>
                 <thead>
                   <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
                     <th className="px-3 py-3 font-semibold">Customer</th>
@@ -207,7 +208,7 @@ export default function CustomersPage() {
                     <th className="px-3 py-3 font-semibold">Phone</th>
                     <th className="px-3 py-3 font-semibold">Address</th>
                     <th className="px-3 py-3 font-semibold">Created At</th>
-                    <th className="px-3 py-3 text-right font-semibold">
+                    <th className="sticky right-0 z-10 bg-white px-3 py-3 text-right font-semibold shadow-[-4px_0_8px_-6px_rgba(15,23,42,0.35)]">
                       Actions
                     </th>
                   </tr>
@@ -225,9 +226,9 @@ export default function CustomersPage() {
                     customers.map((customer) => (
                       <tr
                         key={customer.id}
-                        className="border-b border-slate-50 hover:bg-slate-50/70"
+                        className="group border-b border-slate-50 hover:bg-slate-50/70"
                       >
-                        <td className="px-3 py-4">
+                        <td data-label="Customer" className="px-3 py-4">
                           <p className="font-semibold text-slate-800">
                             {customer.name}
                           </p>
@@ -235,21 +236,36 @@ export default function CustomersPage() {
                             {customer.customerCode}
                           </p>
                         </td>
-                        <td className="px-3 py-4 text-slate-600">
+                        <td
+                          data-label="Email"
+                          className="px-3 py-4 text-slate-600"
+                        >
                           {customer.email || "—"}
                         </td>
-                        <td className="px-3 py-4 text-slate-600">
+                        <td
+                          data-label="Phone"
+                          className="px-3 py-4 text-slate-600"
+                        >
                           {customer.phone || "—"}
                         </td>
-                        <td className="max-w-xs px-3 py-4 text-slate-600">
+                        <td
+                          data-label="Address"
+                          className="max-w-xs px-3 py-4 text-slate-600"
+                        >
                           <p className="line-clamp-2">
                             {customer.address || "—"}
                           </p>
                         </td>
-                        <td className="px-3 py-4 text-slate-500">
+                        <td
+                          data-label="Created at"
+                          className="px-3 py-4 text-slate-500"
+                        >
                           {formatDate(customer.createdAt)}
                         </td>
-                        <td className="px-3 py-4">
+                        <td
+                          data-label="Actions"
+                          className="sticky right-0 z-10 bg-white px-3 py-4 shadow-[-4px_0_8px_-6px_rgba(15,23,42,0.35)] group-hover:bg-slate-50/70"
+                        >
                           <div className="flex justify-end gap-2">
                             <button
                               type="button"
