@@ -235,6 +235,9 @@ describe("ProductsPage", () => {
     await user.click(screen.getByRole("button", { name: "Create Product" }));
 
     expect(await screen.findByText("New Laptop")).toBeInTheDocument();
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Product created successfully.",
+    );
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });

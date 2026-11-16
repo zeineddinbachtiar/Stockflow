@@ -268,6 +268,7 @@ export default function InventoryOperationDialog({
           {(validationError || submitError) && (
             <p
               role="alert"
+              aria-live="assertive"
               className="rounded-lg bg-red-50 p-3 text-sm text-red-700"
             >
               {validationError ?? submitError}

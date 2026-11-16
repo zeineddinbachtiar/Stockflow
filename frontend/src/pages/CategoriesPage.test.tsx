@@ -187,6 +187,9 @@ describe("CategoriesPage", () => {
     await user.click(screen.getByRole("button", { name: "Create Category" }));
 
     expect(await screen.findByText("Storage")).toBeInTheDocument();
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Category created successfully.",
+    );
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });

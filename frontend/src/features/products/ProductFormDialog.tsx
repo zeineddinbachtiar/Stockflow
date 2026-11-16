@@ -123,6 +123,7 @@ export default function ProductFormDialog({
           {(validationError || submitError) && (
             <div
               role="alert"
+              aria-live="assertive"
               className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-700"
             >
               <AlertCircle size={18} className="mt-0.5 shrink-0" />

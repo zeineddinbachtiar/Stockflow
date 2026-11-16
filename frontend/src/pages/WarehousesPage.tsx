@@ -9,11 +9,11 @@ import {
   MapPin,
   Pencil,
   Plus,
-  X,
 } from "lucide-react";
 
 import { useAuth } from "../context/useAuth";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
+import MutationFeedback from "../components/ui/MutationFeedback";
 import {
   createWarehouse,
   deactivateWarehouse,
@@ -55,6 +55,7 @@ export default function WarehousesPage() {
 
   const [formError, setFormError] = useState<string | null>(null);
   const [deactivateError, setDeactivateError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [warehouseToDeactivate, setWarehouseToDeactivate] =
     useState<Warehouse | null>(null);
 
@@ -93,9 +94,14 @@ export default function WarehousesPage() {
 
     onMutate: () => {
       setFormError(null);
+      setSuccessMessage(null);
     },
 
     onSuccess: async () => {
+      const message =
+        formMode === "edit"
+          ? "Warehouse updated successfully."
+          : "Warehouse created successfully.";
       await queryClient.invalidateQueries({
         queryKey: ["warehouses"],
       });
@@ -104,6 +110,7 @@ export default function WarehousesPage() {
       setEditingWarehouse(null);
       setFormError(null);
       setOffset(0);
+      setSuccessMessage(message);
     },
 
     onError: (error: Error) => {
@@ -123,6 +130,7 @@ export default function WarehousesPage() {
 
     onMutate: () => {
       setDeactivateError(null);
+      setSuccessMessage(null);
     },
 
     onSuccess: async () => {
@@ -133,6 +141,7 @@ export default function WarehousesPage() {
       if (warehouses.length === 1 && offset > 0) {
         setOffset(Math.max(0, offset - PAGE_SIZE));
       }
+      setSuccessMessage("Warehouse deactivated successfully.");
     },
 
     onError: (error: Error) => {
@@ -193,29 +202,13 @@ export default function WarehousesPage() {
         </div>
 
         {/* DEACTIVATION ERROR */}
-        {deactivateError && (
-          <div
-            role="alert"
-            className="mt-4 flex items-start justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4"
-          >
-            <div>
-              <p className="text-sm font-semibold text-red-800">
-                Unable to deactivate warehouse
-              </p>
-
-              <p className="mt-1 text-sm text-red-700">{deactivateError}</p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setDeactivateError(null)}
-              aria-label="Dismiss error"
-              className="text-red-500 hover:text-red-700"
-            >
-              <X size={18} />
-            </button>
-          </div>
-        )}
+        <MutationFeedback
+          successMessage={successMessage}
+          errorMessage={deactivateError}
+          errorTitle="Unable to deactivate warehouse"
+          onDismissSuccess={() => setSuccessMessage(null)}
+          onDismissError={() => setDeactivateError(null)}
+        />
 
         {/* LOAD ERROR */}
         {isRequestError && (

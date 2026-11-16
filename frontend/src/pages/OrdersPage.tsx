@@ -16,6 +16,7 @@ import {
 import { useAuth } from "../context/useAuth";
 import useModalDialog from "../components/ui/useModalDialog";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
+import MutationFeedback from "../components/ui/MutationFeedback";
 import QueryStateMessage from "../components/ui/QueryStateMessage";
 import { getCustomers } from "../features/customers/customer.api";
 import { getProducts } from "../features/products/product.api";
@@ -252,30 +253,13 @@ export default function OrdersPage() {
         )}
       </section>
 
-      {successMessage && (
-        <div
-          role="status"
-          className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700"
-        >
-          {successMessage}
-          <button
-            type="button"
-            aria-label="Dismiss success message"
-            onClick={() => setSuccessMessage(null)}
-          >
-            <X size={17} />
-          </button>
-        </div>
-      )}
-
-      {operationError && !selectedOrder && (
-        <div
-          role="alert"
-          className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
-        >
-          {operationError}
-        </div>
-      )}
+      <MutationFeedback
+        successMessage={successMessage}
+        errorMessage={operationError && !selectedOrder ? operationError : null}
+        errorTitle="Unable to update order"
+        onDismissSuccess={() => setSuccessMessage(null)}
+        onDismissError={() => setOperationError(null)}
+      />
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-100">
         <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
@@ -781,6 +765,7 @@ export default function OrdersPage() {
                 {operationError && (
                   <p
                     role="alert"
+                    aria-live="assertive"
                     className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700"
                   >
                     {operationError}

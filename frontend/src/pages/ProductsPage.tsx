@@ -17,6 +17,7 @@ import {
 import { useAuth } from "../context/useAuth";
 import useModalDialog from "../components/ui/useModalDialog";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
+import MutationFeedback from "../components/ui/MutationFeedback";
 import {
   createProduct,
   deactivateProduct,
@@ -241,6 +242,7 @@ export default function ProductsPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const [deactivateError, setDeactivateError] = useState<string | null>(null);
   const [productToDeactivate, setProductToDeactivate] =
@@ -261,9 +263,14 @@ export default function ProductsPage() {
 
     onMutate: () => {
       setSaveError(null);
+      setSuccessMessage(null);
     },
 
     onSuccess: async () => {
+      const message =
+        formMode === "edit"
+          ? "Product updated successfully."
+          : "Product created successfully.";
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["products"] }),
         queryClient.invalidateQueries({ queryKey: ["product"] }),
@@ -275,6 +282,7 @@ export default function ProductsPage() {
       setSearchInput("");
       setSearch("");
       setOffset(0);
+      setSuccessMessage(message);
     },
 
     onError: (error: Error) => {
@@ -293,6 +301,7 @@ export default function ProductsPage() {
 
     onMutate: () => {
       setDeactivateError(null);
+      setSuccessMessage(null);
     },
 
     onSuccess: async (product) => {
@@ -303,6 +312,7 @@ export default function ProductsPage() {
         }),
         queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
       ]);
+      setSuccessMessage("Product deactivated successfully.");
     },
 
     onError: (error: Error) => {
@@ -458,28 +468,13 @@ export default function ProductsPage() {
           </div>
         )}
 
-        {deactivateError && (
-          <div
-            role="alert"
-            className="mt-4 flex items-start justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4"
-          >
-            <div>
-              <p className="text-sm font-semibold text-red-800">
-                Unable to deactivate product
-              </p>
-              <p className="mt-1 text-sm text-red-700">{deactivateError}</p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setDeactivateError(null)}
-              aria-label="Dismiss error"
-              className="text-red-500 hover:text-red-700"
-            >
-              <X size={18} />
-            </button>
-          </div>
-        )}
+        <MutationFeedback
+          successMessage={successMessage}
+          errorMessage={deactivateError}
+          errorTitle="Unable to deactivate product"
+          onDismissSuccess={() => setSuccessMessage(null)}
+          onDismissError={() => setDeactivateError(null)}
+        />
         {!isRequestError && (
           <>
             <div className="relative mt-6 max-w-full overflow-x-auto overscroll-x-contain [scrollbar-width:thin]">

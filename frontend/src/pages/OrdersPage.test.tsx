@@ -256,5 +256,34 @@ describe("OrdersPage", () => {
     expect(
       screen.queryByRole("button", { name: "Edit Draft" }),
     ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Confirm Order" }));
+    await user.click(screen.getByRole("button", { name: "Confirm order" }));
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Order confirmed.",
+    );
+  });
+
+  it("announces order workflow mutation errors assertively", async () => {
+    installHandlers();
+    const user = userEvent.setup();
+    server.use(
+      http.post(`${API_URL}/orders/11/confirm`, () =>
+        HttpResponse.json(
+          { status: "error", message: "Insufficient stock." },
+          { status: 409 },
+        ),
+      ),
+    );
+    renderPage("WAREHOUSE_STAFF");
+    await screen.findByText("SO-001");
+    await user.click(screen.getByRole("button", { name: "View" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Confirm Order" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Confirm order" }));
+
+    const mutationError = await screen.findByRole("alert");
+    expect(mutationError).toHaveAttribute("aria-live", "assertive");
+    expect(mutationError).toHaveTextContent("Insufficient stock.");
   });
 });

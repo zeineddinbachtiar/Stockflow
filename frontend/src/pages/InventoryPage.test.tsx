@@ -152,7 +152,9 @@ describe("InventoryPage", () => {
         reason: null,
       }),
     );
-    expect(await screen.findByRole("status")).toHaveTextContent("successfully");
+    const successMessage = await screen.findByRole("status");
+    expect(successMessage).toHaveAttribute("aria-live", "polite");
+    expect(successMessage).toHaveTextContent("successfully");
   });
 
   it("keeps SALES_STAFF read-only", async () => {

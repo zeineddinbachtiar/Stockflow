@@ -205,6 +205,9 @@ describe("WarehousesPage", () => {
     expect(
       await screen.findByText("Surabaya Distribution Center"),
     ).toBeInTheDocument();
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Warehouse created successfully.",
+    );
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });

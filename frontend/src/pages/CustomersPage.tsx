@@ -14,6 +14,7 @@ import {
 
 import { useAuth } from "../context/useAuth";
 import useModalDialog from "../components/ui/useModalDialog";
+import MutationFeedback from "../components/ui/MutationFeedback";
 import CustomerFormDialog from "../features/customers/CustomerFormDialog";
 import {
   createCustomer,
@@ -146,21 +147,10 @@ export default function CustomersPage() {
         </div>
       </section>
 
-      {successMessage && (
-        <div
-          role="status"
-          className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700"
-        >
-          {successMessage}
-          <button
-            type="button"
-            onClick={() => setSuccessMessage(null)}
-            aria-label="Dismiss success message"
-          >
-            <X size={17} />
-          </button>
-        </div>
-      )}
+      <MutationFeedback
+        successMessage={successMessage}
+        onDismissSuccess={() => setSuccessMessage(null)}
+      />
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-100">
         <div>

@@ -108,9 +108,9 @@ describe("CustomersPage", () => {
     await user.click(screen.getByRole("button", { name: "Create Customer" }));
 
     await waitFor(() => expect(handlers.getMutationCount()).toBe(1));
-    expect(
-      await screen.findByText("Customer saved successfully."),
-    ).toBeInTheDocument();
+    const successMessage = await screen.findByRole("status");
+    expect(successMessage).toHaveAttribute("aria-live", "polite");
+    expect(successMessage).toHaveTextContent("Customer saved successfully.");
   });
 
   it("keeps WAREHOUSE_STAFF read-only", async () => {
