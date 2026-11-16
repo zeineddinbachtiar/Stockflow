@@ -157,4 +157,77 @@ describe("InventoryPage", () => {
       screen.queryByRole("button", { name: "Adjust" }),
     ).not.toBeInTheDocument();
   });
+
+  it("shows and retries a warehouse option query error", async () => {
+    const user = userEvent.setup();
+    let attempts = 0;
+    installInventoryHandlers();
+    server.use(
+      http.get(`${API_URL}/warehouses`, () => {
+        attempts += 1;
+        if (attempts === 1) {
+          return HttpResponse.json(
+            { message: "Warehouse service unavailable." },
+            { status: 503 },
+          );
+        }
+
+        return HttpResponse.json(
+          success({ warehouses: [warehouse], total: 1, limit: 100, offset: 0 }),
+        );
+      }),
+    );
+
+    renderWithProviders(<InventoryPage />);
+    expect(await screen.findByText("Business Laptop")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Unable to load warehouses: Warehouse service unavailable.",
+    );
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(
+      await screen.findByRole("option", { name: "WH-JKT" }),
+    ).toBeInTheDocument();
+    expect(attempts).toBe(2);
+  });
+
+  it("shows option errors and retry inside the stock operation form", async () => {
+    const user = userEvent.setup();
+    let attempts = 0;
+    installInventoryHandlers();
+    server.use(
+      http.get(`${API_URL}/products`, () => {
+        attempts += 1;
+        if (attempts === 1) {
+          return HttpResponse.json(
+            { message: "Product service unavailable." },
+            { status: 503 },
+          );
+        }
+
+        return HttpResponse.json(
+          success({ products: [product], total: 1, limit: 100, offset: 0 }),
+        );
+      }),
+    );
+
+    renderWithProviders(<InventoryPage />);
+    await screen.findByText("Business Laptop");
+    await user.click(screen.getByRole("button", { name: /Receive Stock/ }));
+
+    expect(screen.getByRole("dialog")).toHaveTextContent(
+      "Unable to load products: Product service unavailable.",
+    );
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Retry",
+      }),
+    );
+    expect(
+      await within(screen.getByRole("dialog")).findByRole("option", {
+        name: /LAP-001/,
+      }),
+    ).toBeInTheDocument();
+    expect(attempts).toBe(2);
+  });
 });

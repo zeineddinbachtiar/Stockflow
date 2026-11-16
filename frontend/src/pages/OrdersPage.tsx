@@ -16,6 +16,7 @@ import {
 import { useAuth } from "../context/useAuth";
 import useModalDialog from "../components/ui/useModalDialog";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
+import QueryStateMessage from "../components/ui/QueryStateMessage";
 import { getCustomers } from "../features/customers/customer.api";
 import { getProducts } from "../features/products/product.api";
 import { getWarehouses } from "../features/warehouses/warehouse.api";
@@ -303,7 +304,7 @@ export default function OrdersPage() {
             </label>
             <label className="text-xs font-semibold text-slate-500">
               Customer ID
-              {customersQuery.data ? (
+              {customersQuery.data && !customersQuery.isError ? (
                 <select
                   value={customerId}
                   onChange={(event) => {
@@ -319,6 +320,14 @@ export default function OrdersPage() {
                     </option>
                   ))}
                 </select>
+              ) : customersQuery.isError ? (
+                <select
+                  value={customerId}
+                  disabled
+                  className="mt-1 block min-w-44 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-700"
+                >
+                  <option value="">Customer options unavailable</option>
+                </select>
               ) : (
                 <input
                   value={customerId}
@@ -331,6 +340,34 @@ export default function OrdersPage() {
                   className="mt-1 block w-36 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-700"
                 />
               )}
+              {customersQuery.isError ? (
+                <QueryStateMessage
+                  resource="customers"
+                  isLoading={false}
+                  isError
+                  isEmpty={false}
+                  errorMessage={
+                    customersQuery.error instanceof Error
+                      ? customersQuery.error.message
+                      : undefined
+                  }
+                  onRetry={() => void customersQuery.refetch()}
+                />
+              ) : customersQuery.isLoading ? (
+                <QueryStateMessage
+                  resource="customers"
+                  isLoading
+                  isError={false}
+                  isEmpty={false}
+                />
+              ) : customersQuery.data?.customers.length === 0 ? (
+                <QueryStateMessage
+                  resource="customers"
+                  isLoading={false}
+                  isError={false}
+                  isEmpty
+                />
+              ) : null}
             </label>
             <label className="text-xs font-semibold text-slate-500">
               Warehouse
@@ -340,6 +377,7 @@ export default function OrdersPage() {
                   setWarehouseId(event.target.value);
                   setOffset(0);
                 }}
+                disabled={warehousesQuery.isPending || warehousesQuery.isError}
                 className="mt-1 block min-w-40 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-700"
               >
                 <option value="">All warehouses</option>
@@ -349,6 +387,18 @@ export default function OrdersPage() {
                   </option>
                 ))}
               </select>
+              <QueryStateMessage
+                resource="warehouses"
+                isLoading={warehousesQuery.isPending}
+                isError={warehousesQuery.isError}
+                isEmpty={warehousesQuery.data?.warehouses.length === 0}
+                errorMessage={
+                  warehousesQuery.error instanceof Error
+                    ? warehousesQuery.error.message
+                    : undefined
+                }
+                onRetry={() => void warehousesQuery.refetch()}
+              />
             </label>
             <button
               type="button"
@@ -726,6 +776,33 @@ export default function OrdersPage() {
           customers={customersQuery.data?.customers ?? []}
           warehouses={warehousesQuery.data?.warehouses ?? []}
           products={productsQuery.data?.products ?? []}
+          customersLoading={customersQuery.isLoading}
+          warehousesLoading={warehousesQuery.isPending}
+          productsLoading={productsQuery.isPending}
+          customersError={
+            customersQuery.isError
+              ? customersQuery.error instanceof Error
+                ? customersQuery.error.message
+                : "An unexpected customer error occurred."
+              : null
+          }
+          warehousesError={
+            warehousesQuery.isError
+              ? warehousesQuery.error instanceof Error
+                ? warehousesQuery.error.message
+                : "An unexpected warehouse error occurred."
+              : null
+          }
+          productsError={
+            productsQuery.isError
+              ? productsQuery.error instanceof Error
+                ? productsQuery.error.message
+                : "An unexpected product error occurred."
+              : null
+          }
+          onRetryCustomers={() => void customersQuery.refetch()}
+          onRetryWarehouses={() => void warehousesQuery.refetch()}
+          onRetryProducts={() => void productsQuery.refetch()}
           isSubmitting={saveMutation.isPending}
           submitError={operationError}
           onClose={() => {

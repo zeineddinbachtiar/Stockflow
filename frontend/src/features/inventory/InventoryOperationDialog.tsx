@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import type { FormEvent } from "react";
 import useModalDialog from "../../components/ui/useModalDialog";
+import QueryStateMessage from "../../components/ui/QueryStateMessage";
 import type { Product } from "../products/product.types";
 import type { Warehouse } from "../warehouses/warehouse.types";
 import type {
@@ -17,6 +18,12 @@ interface InventoryOperationDialogProps {
   inventory?: InventoryBalance;
   warehouses: Warehouse[];
   products: Product[];
+  warehousesLoading: boolean;
+  productsLoading: boolean;
+  warehousesError: string | null;
+  productsError: string | null;
+  onRetryWarehouses?: () => void;
+  onRetryProducts?: () => void;
   isSubmitting: boolean;
   submitError: string | null;
   onClose: () => void;
@@ -38,6 +45,12 @@ export default function InventoryOperationDialog({
   inventory,
   warehouses,
   products,
+  warehousesLoading,
+  productsLoading,
+  warehousesError,
+  productsError,
+  onRetryWarehouses,
+  onRetryProducts,
   isSubmitting,
   submitError,
   onClose,
@@ -56,6 +69,14 @@ export default function InventoryOperationDialog({
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const isReorder = mode === "reorder";
+  const optionsUnavailable =
+    !isReorder &&
+    (warehousesLoading ||
+      productsLoading ||
+      Boolean(warehousesError) ||
+      Boolean(productsError) ||
+      warehouses.length === 0 ||
+      products.length === 0);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -164,6 +185,7 @@ export default function InventoryOperationDialog({
                 <select
                   value={warehouseId}
                   onChange={(event) => setWarehouseId(event.target.value)}
+                  disabled={isSubmitting || optionsUnavailable}
                   className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
                 >
                   <option value="">Select warehouse</option>
@@ -173,6 +195,14 @@ export default function InventoryOperationDialog({
                     </option>
                   ))}
                 </select>
+                <QueryStateMessage
+                  resource="warehouses"
+                  isLoading={warehousesLoading}
+                  isError={Boolean(warehousesError)}
+                  isEmpty={warehouses.length === 0}
+                  errorMessage={warehousesError ?? undefined}
+                  onRetry={onRetryWarehouses}
+                />
               </label>
 
               <label className="block text-sm font-medium text-slate-700">
@@ -180,6 +210,7 @@ export default function InventoryOperationDialog({
                 <select
                   value={productId}
                   onChange={(event) => setProductId(event.target.value)}
+                  disabled={isSubmitting || optionsUnavailable}
                   className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
                 >
                   <option value="">Select product</option>
@@ -189,6 +220,14 @@ export default function InventoryOperationDialog({
                     </option>
                   ))}
                 </select>
+                <QueryStateMessage
+                  resource="products"
+                  isLoading={productsLoading}
+                  isError={Boolean(productsError)}
+                  isEmpty={products.length === 0}
+                  errorMessage={productsError ?? undefined}
+                  onRetry={onRetryProducts}
+                />
               </label>
             </>
           )}
@@ -246,7 +285,7 @@ export default function InventoryOperationDialog({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || optionsUnavailable}
               className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
               {isSubmitting ? "Saving..." : "Save"}

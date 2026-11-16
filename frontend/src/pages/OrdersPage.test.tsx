@@ -173,6 +173,56 @@ describe("OrdersPage", () => {
     expect(screen.getByText("Widget")).toBeInTheDocument();
   });
 
+  it("shows and retries customer option query errors", async () => {
+    const user = userEvent.setup();
+    let attempts = 0;
+    installHandlers();
+    server.use(
+      http.get(`${API_URL}/customers`, () => {
+        attempts += 1;
+        if (attempts === 1) {
+          return HttpResponse.json(
+            { message: "Customer options unavailable." },
+            { status: 503 },
+          );
+        }
+
+        return HttpResponse.json({
+          status: "success",
+          data: {
+            customers: [
+              {
+                id: "1",
+                customerCode: "CUST-001",
+                name: "Maju",
+                email: null,
+                phone: null,
+                address: null,
+                createdAt: "2026-01-01",
+                updatedAt: "2026-01-01",
+              },
+            ],
+            total: 1,
+            limit: 100,
+            offset: 0,
+          },
+        });
+      }),
+    );
+
+    renderPage();
+    await screen.findByText("SO-001");
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Unable to load customers: Customer options unavailable.",
+    );
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(
+      await screen.findByRole("option", { name: /CUST-001/ }),
+    ).toBeInTheDocument();
+    expect(attempts).toBe(2);
+  });
+
   it("allows warehouse staff to confirm but not edit draft orders", async () => {
     installHandlers();
     const user = userEvent.setup();

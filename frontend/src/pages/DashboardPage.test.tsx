@@ -260,6 +260,49 @@ describe("DashboardPage", () => {
     expect(screen.getByText("No orders yet")).toBeInTheDocument();
   });
 
+  it("keeps successful sections visible when one dashboard query fails", async () => {
+    installDashboardHandlers({ failFirstInventory: true });
+
+    renderDashboard();
+
+    expect(
+      await screen.findAllByText(
+        "Inventory service is temporarily unavailable.",
+      ),
+    ).not.toHaveLength(0);
+    expect(screen.getByText("42")).toBeInTheDocument();
+    expect(screen.getByText("SO-2026-0001")).toBeInTheDocument();
+    expect(screen.queryByText("No low-stock records")).not.toBeInTheDocument();
+    expect(screen.queryByText("No orders yet")).not.toBeInTheDocument();
+  });
+
+  it("shows section errors instead of empty states when every dashboard query fails", async () => {
+    const errorResponse = () =>
+      HttpResponse.json(
+        { message: "Dashboard dependency unavailable." },
+        { status: 503 },
+      );
+
+    server.use(
+      http.get(`${API_URL}/products`, errorResponse),
+      http.get(`${API_URL}/warehouses`, errorResponse),
+      http.get(`${API_URL}/inventory`, errorResponse),
+      http.get(`${API_URL}/orders`, errorResponse),
+    );
+
+    renderDashboard();
+
+    expect(await screen.findAllByText("Unavailable")).toHaveLength(4);
+    expect(
+      screen.getByText("Unable to load low-stock records"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Unable to load recent orders"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("No low-stock records")).not.toBeInTheDocument();
+    expect(screen.queryByText("No orders yet")).not.toBeInTheDocument();
+  });
+
   it("allows retry after dashboard data request fails", async () => {
     const user = userEvent.setup();
 
@@ -269,11 +312,15 @@ describe("DashboardPage", () => {
 
     renderDashboard();
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Inventory service is temporarily unavailable.",
-    );
+    expect(
+      await screen.findAllByText(
+        "Inventory service is temporarily unavailable.",
+      ),
+    ).not.toHaveLength(0);
 
-    await user.click(screen.getByRole("button", { name: "Retry" }));
+    await user.click(
+      screen.getByRole("button", { name: "Retry low-stock records" }),
+    );
 
     expect(await screen.findByText("Wireless Mouse")).toBeInTheDocument();
 

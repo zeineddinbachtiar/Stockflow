@@ -132,4 +132,52 @@ describe("StockMovementsPage", () => {
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
     expect(attempts).toBe(1);
   });
+
+  it("shows and retries warehouse filter option errors", async () => {
+    const user = userEvent.setup();
+    let attempts = 0;
+    installHandlers();
+    server.use(
+      http.get(`${API_URL}/warehouses`, () => {
+        attempts += 1;
+        if (attempts === 1) {
+          return HttpResponse.json(
+            { message: "Warehouse options unavailable." },
+            { status: 503 },
+          );
+        }
+
+        return HttpResponse.json(
+          success({
+            warehouses: [
+              {
+                id: "warehouse-001",
+                code: "WH-JKT",
+                name: "Jakarta Central Warehouse",
+                address: null,
+                isActive: true,
+                createdAt: "2026-01-01",
+                updatedAt: "2026-01-01",
+              },
+            ],
+            total: 1,
+            limit: 100,
+            offset: 0,
+          }),
+        );
+      }),
+    );
+
+    renderWithProviders(<StockMovementsPage />);
+    await screen.findByText("Business Laptop");
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Unable to load warehouses: Warehouse options unavailable.",
+    );
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(
+      await screen.findByRole("option", { name: "WH-JKT" }),
+    ).toBeInTheDocument();
+    expect(attempts).toBe(2);
+  });
 });

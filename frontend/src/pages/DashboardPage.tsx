@@ -13,7 +13,11 @@ import { NavLink } from "react-router";
 
 import { useAuth } from "../context/useAuth";
 import {
-  getDashboardData,
+  getDashboardDraftOrders,
+  getDashboardLowStock,
+  getDashboardProducts,
+  getDashboardRecentOrders,
+  getDashboardWarehouses,
   type DashboardOrderStatus,
 } from "../features/dashboard/dashboard.api";
 
@@ -24,6 +28,9 @@ interface MetricCardProps {
   icon: LucideIcon;
   iconStyle: string;
   isLoading: boolean;
+  isError: boolean;
+  errorMessage?: string;
+  onRetry: () => void;
 }
 
 function MetricCard({
@@ -33,6 +40,9 @@ function MetricCard({
   icon: Icon,
   iconStyle,
   isLoading,
+  isError,
+  errorMessage,
+  onRetry,
 }: MetricCardProps) {
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-100">
@@ -47,12 +57,28 @@ function MetricCard({
       <p className="mt-5 text-3xl font-bold tracking-tight text-slate-900">
         {isLoading ? (
           <span className="inline-block h-9 w-16 animate-pulse rounded-lg bg-slate-100" />
+        ) : isError ? (
+          <span className="text-xl text-red-700">Unavailable</span>
         ) : (
-          (value ?? 0).toLocaleString("id-ID")
+          (value?.toLocaleString("id-ID") ?? "0")
         )}
       </p>
 
       <p className="mt-2 text-xs text-slate-400">{description}</p>
+
+      {isError && (
+        <div role="alert" className="mt-3 text-xs text-red-700">
+          <p>{errorMessage ?? "Unable to load this metric."}</p>
+          <button
+            type="button"
+            onClick={onRetry}
+            aria-label={`Retry ${title.toLowerCase()}`}
+            className="mt-1 font-semibold underline"
+          >
+            Retry
+          </button>
+        </div>
+      )}
     </article>
   );
 }
@@ -94,41 +120,102 @@ function getOrderStatusStyle(status: DashboardOrderStatus): string {
 export default function DashboardPage() {
   const { accessToken, user } = useAuth();
 
-  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ["dashboard", user?.id],
-    queryFn: () => getDashboardData(accessToken!),
+  const productsQuery = useQuery({
+    queryKey: ["dashboard", "products", user?.id],
+    queryFn: () => getDashboardProducts(accessToken!),
     enabled: Boolean(accessToken),
     staleTime: 30_000,
   });
 
+  const warehousesQuery = useQuery({
+    queryKey: ["dashboard", "warehouses", user?.id],
+    queryFn: () => getDashboardWarehouses(accessToken!),
+    enabled: Boolean(accessToken),
+    staleTime: 30_000,
+  });
+
+  const lowStockQuery = useQuery({
+    queryKey: ["dashboard", "low-stock", user?.id],
+    queryFn: () => getDashboardLowStock(accessToken!),
+    enabled: Boolean(accessToken),
+    staleTime: 30_000,
+  });
+
+  const draftOrdersQuery = useQuery({
+    queryKey: ["dashboard", "draft-orders", user?.id],
+    queryFn: () => getDashboardDraftOrders(accessToken!),
+    enabled: Boolean(accessToken),
+    staleTime: 30_000,
+  });
+
+  const recentOrdersQuery = useQuery({
+    queryKey: ["dashboard", "recent-orders", user?.id],
+    queryFn: () => getDashboardRecentOrders(accessToken!),
+    enabled: Boolean(accessToken),
+    staleTime: 30_000,
+  });
+
+  const queries = [
+    productsQuery,
+    warehousesQuery,
+    lowStockQuery,
+    draftOrdersQuery,
+    recentOrdersQuery,
+  ];
+  const isFetching = queries.some((query) => query.isFetching);
+  const refreshDashboard = () => {
+    void Promise.all(queries.map((query) => query.refetch()));
+  };
+
+  const getErrorMessage = (query: { error: unknown }) =>
+    query.error instanceof Error
+      ? query.error.message
+      : "Please check the API connection and try again.";
+
   const metrics = [
     {
       title: "Active Products",
-      value: data?.totalProducts,
+      value: productsQuery.data?.total,
       description: "Products available in catalog",
       icon: Package,
       iconStyle: "bg-blue-50 text-blue-600",
+      isLoading: productsQuery.isPending,
+      isError: productsQuery.isError,
+      errorMessage: getErrorMessage(productsQuery),
+      onRetry: () => void productsQuery.refetch(),
     },
     {
       title: "Active Warehouses",
-      value: data?.totalWarehouses,
+      value: warehousesQuery.data?.total,
       description: "Registered active warehouses",
       icon: Warehouse,
       iconStyle: "bg-violet-50 text-violet-600",
+      isLoading: warehousesQuery.isPending,
+      isError: warehousesQuery.isError,
+      errorMessage: getErrorMessage(warehousesQuery),
+      onRetry: () => void warehousesQuery.refetch(),
     },
     {
       title: "Low Stock Records",
-      value: data?.lowStockTotal,
+      value: lowStockQuery.data?.total,
       description: "Product and warehouse combinations",
       icon: AlertTriangle,
       iconStyle: "bg-amber-50 text-amber-600",
+      isLoading: lowStockQuery.isPending,
+      isError: lowStockQuery.isError,
+      errorMessage: getErrorMessage(lowStockQuery),
+      onRetry: () => void lowStockQuery.refetch(),
     },
     {
       title: "Draft Orders",
-      value: data?.draftOrderTotal,
+      value: draftOrdersQuery.data?.total,
       description: "Orders awaiting confirmation",
       icon: ShoppingCart,
       iconStyle: "bg-emerald-50 text-emerald-600",
+      isLoading: draftOrdersQuery.isPending,
+      isError: draftOrdersQuery.isError,
+      errorMessage: getErrorMessage(draftOrdersQuery),
+      onRetry: () => void draftOrdersQuery.refetch(),
     },
   ];
 
@@ -150,7 +237,7 @@ export default function DashboardPage() {
 
           <button
             type="button"
-            onClick={() => void refetch()}
+            onClick={refreshDashboard}
             disabled={isFetching}
             className="inline-flex w-fit items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
           >
@@ -160,35 +247,9 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {isError && (
-        <section
-          role="alert"
-          className="flex flex-col justify-between gap-4 rounded-xl border border-red-200 bg-red-50 p-4 sm:flex-row sm:items-center"
-        >
-          <div>
-            <h2 className="text-sm font-semibold text-red-800">
-              Unable to load dashboard data
-            </h2>
-            <p className="mt-1 text-sm text-red-700">
-              {error instanceof Error
-                ? error.message
-                : "Please check the API connection and try again."}
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => void refetch()}
-            className="w-fit rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
-          >
-            Retry
-          </button>
-        </section>
-      )}
-
       <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
         {metrics.map((metric) => (
-          <MetricCard key={metric.title} {...metric} isLoading={isLoading} />
+          <MetricCard key={metric.title} {...metric} />
         ))}
       </section>
 
@@ -207,7 +268,7 @@ export default function DashboardPage() {
             <Boxes size={21} className="text-slate-400" />
           </div>
 
-          {isLoading ? (
+          {lowStockQuery.isPending ? (
             <div className="mt-6 space-y-4">
               {[1, 2, 3].map((item) => (
                 <div
@@ -216,7 +277,23 @@ export default function DashboardPage() {
                 />
               ))}
             </div>
-          ) : data?.lowStockItems.length ? (
+          ) : lowStockQuery.isError ? (
+            <div
+              role="alert"
+              className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+            >
+              <p className="font-semibold">Unable to load low-stock records</p>
+              <p className="mt-1">{getErrorMessage(lowStockQuery)}</p>
+              <button
+                type="button"
+                onClick={() => void lowStockQuery.refetch()}
+                aria-label="Retry low-stock records"
+                className="mt-2 font-semibold underline"
+              >
+                Retry
+              </button>
+            </div>
+          ) : lowStockQuery.data?.inventory.length ? (
             <div className="mt-6 overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
@@ -229,7 +306,7 @@ export default function DashboardPage() {
                 </thead>
 
                 <tbody>
-                  {data.lowStockItems.map((item) => (
+                  {lowStockQuery.data.inventory.map((item) => (
                     <tr
                       key={item.id}
                       className="border-b border-slate-50 last:border-0"
@@ -259,10 +336,11 @@ export default function DashboardPage() {
                 </tbody>
               </table>
 
-              {data.lowStockTotal > data.lowStockItems.length && (
+              {lowStockQuery.data.total >
+                lowStockQuery.data.inventory.length && (
                 <p className="mt-3 text-xs text-slate-400">
-                  Showing {data.lowStockItems.length} of {data.lowStockTotal}{" "}
-                  low-stock records.
+                  Showing {lowStockQuery.data.inventory.length} of{" "}
+                  {lowStockQuery.data.total} low-stock records.
                 </p>
               )}
             </div>
@@ -296,7 +374,7 @@ export default function DashboardPage() {
             Latest sales order activity.
           </p>
 
-          {isLoading ? (
+          {recentOrdersQuery.isPending ? (
             <div className="mt-6 space-y-4">
               {[1, 2, 3].map((item) => (
                 <div
@@ -305,9 +383,25 @@ export default function DashboardPage() {
                 />
               ))}
             </div>
-          ) : data?.recentOrders.length ? (
+          ) : recentOrdersQuery.isError ? (
+            <div
+              role="alert"
+              className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+            >
+              <p className="font-semibold">Unable to load recent orders</p>
+              <p className="mt-1">{getErrorMessage(recentOrdersQuery)}</p>
+              <button
+                type="button"
+                onClick={() => void recentOrdersQuery.refetch()}
+                aria-label="Retry recent orders"
+                className="mt-2 font-semibold underline"
+              >
+                Retry
+              </button>
+            </div>
+          ) : recentOrdersQuery.data?.orders.length ? (
             <div className="mt-5 space-y-4">
-              {data.recentOrders.map((order) => (
+              {recentOrdersQuery.data.orders.map((order) => (
                 <div
                   key={order.id}
                   className="border-b border-slate-100 pb-4 last:border-0 last:pb-0"

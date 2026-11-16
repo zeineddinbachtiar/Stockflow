@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { AlertCircle, Minus, Plus } from "lucide-react";
 import ModalDialog from "../../components/ui/ModalDialog";
+import QueryStateMessage from "../../components/ui/QueryStateMessage";
 
 import type { Customer } from "../customers/customer.types";
 import type { Product } from "../products/product.types";
@@ -18,6 +19,15 @@ interface OrderFormDialogProps {
   customers: Customer[];
   warehouses: Warehouse[];
   products: Product[];
+  customersLoading?: boolean;
+  warehousesLoading?: boolean;
+  productsLoading?: boolean;
+  customersError?: string | null;
+  warehousesError?: string | null;
+  productsError?: string | null;
+  onRetryCustomers?: () => void;
+  onRetryWarehouses?: () => void;
+  onRetryProducts?: () => void;
   isSubmitting: boolean;
   submitError: string | null;
   onClose: () => void;
@@ -57,6 +67,15 @@ export default function OrderFormDialog({
   customers,
   warehouses,
   products,
+  customersLoading = false,
+  warehousesLoading = false,
+  productsLoading = false,
+  customersError = null,
+  warehousesError = null,
+  productsError = null,
+  onRetryCustomers,
+  onRetryWarehouses,
+  onRetryProducts,
   isSubmitting,
   submitError,
   onClose,
@@ -66,6 +85,16 @@ export default function OrderFormDialog({
   const [warehouseId, setWarehouseId] = useState(order?.warehouseId ?? "");
   const [items, setItems] = useState<DraftItem[]>(() => toDraftItems(order));
   const [validationError, setValidationError] = useState<string | null>(null);
+  const optionsUnavailable =
+    customersLoading ||
+    warehousesLoading ||
+    productsLoading ||
+    Boolean(customersError) ||
+    Boolean(warehousesError) ||
+    Boolean(productsError) ||
+    customers.length === 0 ||
+    warehouses.length === 0 ||
+    products.length === 0;
 
   function updateItem(
     key: string,
@@ -170,7 +199,7 @@ export default function OrderFormDialog({
           <button
             type="submit"
             form="order-form"
-            disabled={isSubmitting}
+            disabled={isSubmitting || optionsUnavailable}
             className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
           >
             {isSubmitting
@@ -200,7 +229,7 @@ export default function OrderFormDialog({
               <select
                 value={customerId}
                 onChange={(event) => setCustomerId(event.target.value)}
-                disabled={isSubmitting}
+                disabled={isSubmitting || optionsUnavailable}
                 className={inputClass}
               >
                 <option value="">Select customer</option>
@@ -210,13 +239,21 @@ export default function OrderFormDialog({
                   </option>
                 ))}
               </select>
+              <QueryStateMessage
+                resource="customers"
+                isLoading={customersLoading}
+                isError={Boolean(customersError)}
+                isEmpty={customers.length === 0}
+                errorMessage={customersError ?? undefined}
+                onRetry={onRetryCustomers}
+              />
             </label>
             <label className="text-sm font-semibold text-slate-700">
               Warehouse
               <select
                 value={warehouseId}
                 onChange={(event) => setWarehouseId(event.target.value)}
-                disabled={isSubmitting}
+                disabled={isSubmitting || optionsUnavailable}
                 className={inputClass}
               >
                 <option value="">Select warehouse</option>
@@ -226,6 +263,14 @@ export default function OrderFormDialog({
                   </option>
                 ))}
               </select>
+              <QueryStateMessage
+                resource="warehouses"
+                isLoading={warehousesLoading}
+                isError={Boolean(warehousesError)}
+                isEmpty={warehouses.length === 0}
+                errorMessage={warehousesError ?? undefined}
+                onRetry={onRetryWarehouses}
+              />
             </label>
           </div>
 
@@ -261,7 +306,7 @@ export default function OrderFormDialog({
                       onChange={(event) =>
                         updateItem(item.key, "productId", event.target.value)
                       }
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || optionsUnavailable}
                       className={inputClass}
                     >
                       <option value="">Select product</option>
@@ -271,6 +316,14 @@ export default function OrderFormDialog({
                         </option>
                       ))}
                     </select>
+                    <QueryStateMessage
+                      resource="products"
+                      isLoading={productsLoading}
+                      isError={Boolean(productsError)}
+                      isEmpty={products.length === 0}
+                      errorMessage={productsError ?? undefined}
+                      onRetry={onRetryProducts}
+                    />
                   </label>
                   <label className="w-28 text-xs font-semibold text-slate-500">
                     Quantity

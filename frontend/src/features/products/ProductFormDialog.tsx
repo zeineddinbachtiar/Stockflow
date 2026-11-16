@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { AlertCircle } from "lucide-react";
 import ModalDialog from "../../components/ui/ModalDialog";
+import QueryStateMessage from "../../components/ui/QueryStateMessage";
 
 import type { Category, Product, ProductPayload } from "./product.types";
 
@@ -10,6 +11,7 @@ interface ProductFormDialogProps {
   categories: Category[];
   categoriesLoading: boolean;
   categoriesError: string | null;
+  onRetryCategories?: () => void;
   isSubmitting: boolean;
   submitError: string | null;
   onClose: () => void;
@@ -24,6 +26,7 @@ export default function ProductFormDialog({
   categories,
   categoriesLoading,
   categoriesError,
+  onRetryCategories,
   isSubmitting,
   submitError,
   onClose,
@@ -157,25 +160,14 @@ export default function ProductFormDialog({
               ))}
             </select>
 
-            {categoriesLoading && (
-              <p className="mt-1.5 text-xs text-slate-400">
-                Loading categories...
-              </p>
-            )}
-
-            {categoriesError && (
-              <p className="mt-1.5 text-xs text-red-600">
-                Unable to load categories: {categoriesError}
-              </p>
-            )}
-
-            {!categoriesLoading &&
-              !categoriesError &&
-              categories.length === 0 && (
-                <p className="mt-1.5 text-xs text-amber-600">
-                  An active category is required before adding a product.
-                </p>
-              )}
+            <QueryStateMessage
+              resource="categories"
+              isLoading={categoriesLoading}
+              isError={Boolean(categoriesError)}
+              isEmpty={categories.length === 0}
+              errorMessage={categoriesError ?? undefined}
+              onRetry={onRetryCategories}
+            />
           </div>
 
           <div>

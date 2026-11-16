@@ -682,6 +682,7 @@ export default function ProductsPage() {
                 : "Unknown category error."
               : null
           }
+          onRetryCategories={() => void categoryQuery.refetch()}
           isSubmitting={saveProductMutation.isPending}
           submitError={saveError}
           onClose={() => {

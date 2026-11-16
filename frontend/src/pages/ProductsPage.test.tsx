@@ -542,6 +542,41 @@ describe("ProductsPage", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("shows and retries a category option query error in the product form", async () => {
+    const user = userEvent.setup();
+    let attempts = 0;
+    installProductHandlers();
+    server.use(
+      http.get(`${API_URL}/categories`, () => {
+        attempts += 1;
+        if (attempts === 1) {
+          return HttpResponse.json(
+            { message: "Category service unavailable." },
+            { status: 503 },
+          );
+        }
+
+        return HttpResponse.json(
+          success({ categories: [category], total: 1, limit: 100, offset: 0 }),
+        );
+      }),
+    );
+
+    renderWithProviders(<ProductsPage />);
+    await screen.findByText("Business Laptop");
+    await user.click(screen.getByRole("button", { name: "Add Product" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Unable to load categories: Category service unavailable.",
+    );
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(
+      await screen.findByRole("option", { name: "Computers" }),
+    ).toBeInTheDocument();
+    expect(attempts).toBe(2);
+  });
+
   it("retries loading product details after an initial API failure", async () => {
     const user = userEvent.setup();
 

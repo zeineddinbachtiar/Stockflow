@@ -12,6 +12,7 @@ import {
 
 import { useAuth } from "../context/useAuth";
 import useModalDialog from "../components/ui/useModalDialog";
+import QueryStateMessage from "../components/ui/QueryStateMessage";
 import type {
   StockMovement,
   StockMovementType,
@@ -152,6 +153,7 @@ export default function StockMovementsPage() {
                   setWarehouseId(event.target.value);
                   setOffset(0);
                 }}
+                disabled={warehousesQuery.isPending || warehousesQuery.isError}
                 className="mt-1 block min-w-40 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-700"
               >
                 <option value="">All warehouses</option>
@@ -161,6 +163,18 @@ export default function StockMovementsPage() {
                   </option>
                 ))}
               </select>
+              <QueryStateMessage
+                resource="warehouses"
+                isLoading={warehousesQuery.isPending}
+                isError={warehousesQuery.isError}
+                isEmpty={warehousesQuery.data?.warehouses.length === 0}
+                errorMessage={
+                  warehousesQuery.error instanceof Error
+                    ? warehousesQuery.error.message
+                    : undefined
+                }
+                onRetry={() => void warehousesQuery.refetch()}
+              />
             </label>
             <label className="text-xs font-semibold text-slate-500">
               Product
@@ -170,6 +184,7 @@ export default function StockMovementsPage() {
                   setProductId(event.target.value);
                   setOffset(0);
                 }}
+                disabled={productsQuery.isPending || productsQuery.isError}
                 className="mt-1 block min-w-40 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-700"
               >
                 <option value="">All products</option>
@@ -179,6 +194,18 @@ export default function StockMovementsPage() {
                   </option>
                 ))}
               </select>
+              <QueryStateMessage
+                resource="products"
+                isLoading={productsQuery.isPending}
+                isError={productsQuery.isError}
+                isEmpty={productsQuery.data?.products.length === 0}
+                errorMessage={
+                  productsQuery.error instanceof Error
+                    ? productsQuery.error.message
+                    : undefined
+                }
+                onRetry={() => void productsQuery.refetch()}
+              />
             </label>
             <label className="text-xs font-semibold text-slate-500">
               Movement type

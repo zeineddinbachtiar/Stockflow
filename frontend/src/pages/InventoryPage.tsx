@@ -15,6 +15,7 @@ import {
 import { useAuth } from "../context/useAuth";
 import useModalDialog from "../components/ui/useModalDialog";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
+import QueryStateMessage from "../components/ui/QueryStateMessage";
 import {
   adjustStock,
   getInventory,
@@ -242,6 +243,7 @@ export default function InventoryPage() {
                   setWarehouseId(event.target.value);
                   setOffset(0);
                 }}
+                disabled={warehousesQuery.isPending || warehousesQuery.isError}
                 className="mt-1 block min-w-44 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-700"
               >
                 <option value="">All warehouses</option>
@@ -251,6 +253,18 @@ export default function InventoryPage() {
                   </option>
                 ))}
               </select>
+              <QueryStateMessage
+                resource="warehouses"
+                isLoading={warehousesQuery.isPending}
+                isError={warehousesQuery.isError}
+                isEmpty={warehousesQuery.data?.warehouses.length === 0}
+                errorMessage={
+                  warehousesQuery.error instanceof Error
+                    ? warehousesQuery.error.message
+                    : undefined
+                }
+                onRetry={() => void warehousesQuery.refetch()}
+              />
             </label>
             <label className="text-xs font-semibold text-slate-500">
               Product
@@ -260,6 +274,7 @@ export default function InventoryPage() {
                   setProductId(event.target.value);
                   setOffset(0);
                 }}
+                disabled={productsQuery.isPending || productsQuery.isError}
                 className="mt-1 block min-w-44 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-700"
               >
                 <option value="">All products</option>
@@ -269,6 +284,18 @@ export default function InventoryPage() {
                   </option>
                 ))}
               </select>
+              <QueryStateMessage
+                resource="products"
+                isLoading={productsQuery.isPending}
+                isError={productsQuery.isError}
+                isEmpty={productsQuery.data?.products.length === 0}
+                errorMessage={
+                  productsQuery.error instanceof Error
+                    ? productsQuery.error.message
+                    : undefined
+                }
+                onRetry={() => void productsQuery.refetch()}
+              />
             </label>
             <label className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700">
               <input
@@ -578,6 +605,24 @@ export default function InventoryPage() {
           inventory={selectedInventory ?? undefined}
           warehouses={warehousesQuery.data?.warehouses ?? []}
           products={productsQuery.data?.products ?? []}
+          warehousesLoading={warehousesQuery.isPending}
+          productsLoading={productsQuery.isPending}
+          warehousesError={
+            warehousesQuery.isError
+              ? warehousesQuery.error instanceof Error
+                ? warehousesQuery.error.message
+                : "An unexpected warehouse error occurred."
+              : null
+          }
+          productsError={
+            productsQuery.isError
+              ? productsQuery.error instanceof Error
+                ? productsQuery.error.message
+                : "An unexpected product error occurred."
+              : null
+          }
+          onRetryWarehouses={() => void warehousesQuery.refetch()}
+          onRetryProducts={() => void productsQuery.refetch()}
           isSubmitting={mutation.isPending}
           submitError={operationError}
           onClose={() => {

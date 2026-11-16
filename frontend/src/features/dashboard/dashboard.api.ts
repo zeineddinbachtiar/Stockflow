@@ -47,6 +47,66 @@ interface OrderListData extends PaginationMeta {
   orders: DashboardOrder[];
 }
 
+export async function getDashboardProducts(
+  accessToken: string,
+): Promise<ProductListData> {
+  const response = await apiRequest<ApiEnvelope<ProductListData>>(
+    "/products?limit=1",
+    {},
+    accessToken,
+  );
+
+  return response.data;
+}
+
+export async function getDashboardWarehouses(
+  accessToken: string,
+): Promise<WarehouseListData> {
+  const response = await apiRequest<ApiEnvelope<WarehouseListData>>(
+    "/warehouses?limit=1",
+    {},
+    accessToken,
+  );
+
+  return response.data;
+}
+
+export async function getDashboardLowStock(
+  accessToken: string,
+): Promise<InventoryListData> {
+  const response = await apiRequest<ApiEnvelope<InventoryListData>>(
+    "/inventory?lowStock=true&limit=5",
+    {},
+    accessToken,
+  );
+
+  return response.data;
+}
+
+export async function getDashboardDraftOrders(
+  accessToken: string,
+): Promise<OrderListData> {
+  const response = await apiRequest<ApiEnvelope<OrderListData>>(
+    "/orders?status=DRAFT&limit=1",
+    {},
+    accessToken,
+  );
+
+  return response.data;
+}
+
+export async function getDashboardRecentOrders(
+  accessToken: string,
+): Promise<OrderListData> {
+  const response = await apiRequest<ApiEnvelope<OrderListData>>(
+    "/orders?limit=5",
+    {},
+    accessToken,
+  );
+
+  return response.data;
+}
+
 export interface DashboardData {
   totalProducts: number;
   totalWarehouses: number;
