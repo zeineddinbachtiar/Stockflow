@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { FormEvent } from "react";
+import useModalDialog from "../../components/ui/useModalDialog";
 import type { Product } from "../products/product.types";
 import type { Warehouse } from "../warehouses/warehouse.types";
 import type {
@@ -42,6 +43,9 @@ export default function InventoryOperationDialog({
   onClose,
   onSubmit,
 }: InventoryOperationDialogProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useModalDialog(dialogRef, onClose);
+
   const [warehouseId, setWarehouseId] = useState(inventory?.warehouseId ?? "");
   const [productId, setProductId] = useState(inventory?.productId ?? "");
   const [quantity, setQuantity] = useState("");
@@ -117,9 +121,11 @@ export default function InventoryOperationDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="inventory-operation-title"
+        aria-describedby="inventory-operation-description"
         className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
       >
         <div className="flex items-start justify-between gap-4">
@@ -130,7 +136,10 @@ export default function InventoryOperationDialog({
             >
               {titles[mode]}
             </h2>
-            <p className="mt-1 text-sm text-slate-500">
+            <p
+              id="inventory-operation-description"
+              className="mt-1 text-sm text-slate-500"
+            >
               {isReorder
                 ? `Update ${inventory?.productName ?? "this inventory balance"}.`
                 : "Record the stock movement using the active warehouse and product."}

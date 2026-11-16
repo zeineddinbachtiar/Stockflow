@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { http, HttpResponse } from "msw";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -256,8 +256,6 @@ describe("ProductsPage", () => {
     const user = userEvent.setup();
     installProductHandlers();
 
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-
     renderWithProviders(<ProductsPage />);
 
     await screen.findByText("Business Laptop");
@@ -268,7 +266,9 @@ describe("ProductsPage", () => {
       }),
     );
 
-    expect(window.confirm).toHaveBeenCalled();
+    await user.click(
+      screen.getByRole("button", { name: "Deactivate product" }),
+    );
 
     await waitFor(() => {
       expect(screen.queryByText("Business Laptop")).not.toBeInTheDocument();
@@ -281,8 +281,6 @@ describe("ProductsPage", () => {
     const user = userEvent.setup();
     installProductHandlers();
 
-    vi.spyOn(window, "confirm").mockReturnValue(false);
-
     renderWithProviders(<ProductsPage />);
 
     await screen.findByText("Business Laptop");
@@ -292,6 +290,8 @@ describe("ProductsPage", () => {
         name: "Deactivate Business Laptop",
       }),
     );
+
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(await screen.findByText("Business Laptop")).toBeInTheDocument();
   });
@@ -452,8 +452,6 @@ describe("ProductsPage", () => {
 
     installProductHandlers();
 
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-
     server.use(
       http.patch(`${API_URL}/products/:id/deactivate`, () =>
         HttpResponse.json(
@@ -475,6 +473,10 @@ describe("ProductsPage", () => {
       screen.getByRole("button", {
         name: "Deactivate Business Laptop",
       }),
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Deactivate product" }),
     );
 
     const alert = await screen.findByRole("alert");

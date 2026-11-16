@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "../context/useAuth";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
 import {
   createWarehouse,
   deactivateWarehouse,
@@ -54,6 +55,8 @@ export default function WarehousesPage() {
 
   const [formError, setFormError] = useState<string | null>(null);
   const [deactivateError, setDeactivateError] = useState<string | null>(null);
+  const [warehouseToDeactivate, setWarehouseToDeactivate] =
+    useState<Warehouse | null>(null);
 
   const warehouseQuery = useQuery({
     queryKey: ["warehouses", PAGE_SIZE, offset],
@@ -350,16 +353,9 @@ export default function WarehousesPage() {
                                 <button
                                   type="button"
                                   disabled={deactivateMutation.isPending}
-                                  onClick={() => {
-                                    const confirmed = window.confirm(
-                                      `Deactivate warehouse "${warehouse.name}"? It will no longer be available for new inventory operations.`,
-                                    );
-
-                                    if (!confirmed) return;
-
-                                    setDeactivateError(null);
-                                    deactivateMutation.mutate(warehouse.id);
-                                  }}
+                                  onClick={() =>
+                                    setWarehouseToDeactivate(warehouse)
+                                  }
                                   aria-label={`Deactivate ${warehouse.name}`}
                                   className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
@@ -468,6 +464,23 @@ export default function WarehousesPage() {
             setFormError(null);
           }}
           onSubmit={(payload) => saveWarehouseMutation.mutate(payload)}
+        />
+      )}
+
+      {warehouseToDeactivate && (
+        <ConfirmDialog
+          title={`Deactivate ${warehouseToDeactivate.name}?`}
+          description="This warehouse will no longer be available for new inventory operations."
+          confirmLabel="Deactivate warehouse"
+          tone="danger"
+          isConfirming={deactivateMutation.isPending}
+          onCancel={() => setWarehouseToDeactivate(null)}
+          onConfirm={() => {
+            setDeactivateError(null);
+            deactivateMutation.mutate(warehouseToDeactivate.id, {
+              onSettled: () => setWarehouseToDeactivate(null),
+            });
+          }}
         />
       )}
     </div>

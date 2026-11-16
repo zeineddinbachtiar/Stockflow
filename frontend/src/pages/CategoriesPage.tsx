@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "../context/useAuth";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
 import {
   createCategory,
   deactivateCategory,
@@ -53,6 +54,8 @@ export default function CategoriesPage() {
 
   const [formError, setFormError] = useState<string | null>(null);
   const [deactivateError, setDeactivateError] = useState<string | null>(null);
+  const [categoryToDeactivate, setCategoryToDeactivate] =
+    useState<Category | null>(null);
 
   const categoryQuery = useQuery({
     queryKey: ["categories", PAGE_SIZE, offset],
@@ -343,16 +346,9 @@ export default function CategoriesPage() {
                                 <button
                                   type="button"
                                   disabled={deactivateMutation.isPending}
-                                  onClick={() => {
-                                    const confirmed = window.confirm(
-                                      `Deactivate category "${category.name}"? This category will no longer be available for new product assignments.`,
-                                    );
-
-                                    if (!confirmed) return;
-
-                                    setDeactivateError(null);
-                                    deactivateMutation.mutate(category.id);
-                                  }}
+                                  onClick={() =>
+                                    setCategoryToDeactivate(category)
+                                  }
                                   aria-label={`Deactivate ${category.name}`}
                                   className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
@@ -459,6 +455,23 @@ export default function CategoriesPage() {
             setFormError(null);
           }}
           onSubmit={(payload) => saveCategoryMutation.mutate(payload)}
+        />
+      )}
+
+      {categoryToDeactivate && (
+        <ConfirmDialog
+          title={`Deactivate ${categoryToDeactivate.name}?`}
+          description="This category will no longer be available for new product assignments."
+          confirmLabel="Deactivate category"
+          tone="danger"
+          isConfirming={deactivateMutation.isPending}
+          onCancel={() => setCategoryToDeactivate(null)}
+          onConfirm={() => {
+            setDeactivateError(null);
+            deactivateMutation.mutate(categoryToDeactivate.id, {
+              onSettled: () => setCategoryToDeactivate(null),
+            });
+          }}
         />
       )}
     </div>

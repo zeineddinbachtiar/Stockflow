@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "../context/useAuth";
+import useModalDialog from "../components/ui/useModalDialog";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
 import {
   adjustStock,
   getInventory,
@@ -63,8 +65,19 @@ export default function InventoryPage() {
   const [selectedInventory, setSelectedInventory] =
     useState<InventoryBalance | null>(null);
   const [operation, setOperation] = useState<InventoryOperation | null>(null);
+  const [pendingConfirmation, setPendingConfirmation] = useState<{
+    mode: "issue" | "adjustment";
+    payload: StockOperationPayload | StockAdjustmentPayload;
+  } | null>(null);
   const [operationError, setOperationError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const detailRef = useRef<HTMLDivElement>(null);
+  const closeDetail = useCallback(() => setSelectedInventory(null), []);
+  useModalDialog(
+    detailRef,
+    closeDetail,
+    Boolean(selectedInventory && !operation),
+  );
 
   const inventoryParams: InventoryQueryParams = {
     warehouseId: warehouseId || undefined,
@@ -471,8 +484,11 @@ export default function InventoryPage() {
       {selectedInventory && !operation && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/40 p-4">
           <div
+            ref={detailRef}
             role="dialog"
+            aria-modal="true"
             aria-labelledby="inventory-detail-title"
+            aria-describedby="inventory-detail-description"
             className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
           >
             <div className="flex items-start justify-between">
@@ -483,14 +499,17 @@ export default function InventoryPage() {
                 >
                   Inventory Detail
                 </h2>
-                <p className="mt-1 text-sm text-slate-500">
+                <p
+                  id="inventory-detail-description"
+                  className="mt-1 text-sm text-slate-500"
+                >
                   {selectedInventory.productName} at{" "}
                   {selectedInventory.warehouseName}
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedInventory(null)}
+                onClick={closeDetail}
                 aria-label="Close detail"
               >
                 <X size={18} />
@@ -567,7 +586,46 @@ export default function InventoryPage() {
               setOperationError(null);
             }
           }}
-          onSubmit={(payload) => mutation.mutate(payload)}
+          onSubmit={(payload) => {
+            if (operation === "issue" || operation === "adjustment") {
+              setPendingConfirmation({
+                mode: operation,
+                payload: payload as
+                  StockOperationPayload | StockAdjustmentPayload,
+              });
+              return;
+            }
+
+            mutation.mutate(payload);
+          }}
+        />
+      )}
+
+      {pendingConfirmation && (
+        <ConfirmDialog
+          title={
+            pendingConfirmation.mode === "issue"
+              ? "Issue stock?"
+              : "Apply stock adjustment?"
+          }
+          description={
+            pendingConfirmation.mode === "issue"
+              ? "This will reduce the selected inventory balance and create an ISSUE movement."
+              : "This will change the selected inventory balance and create an ADJUSTMENT movement."
+          }
+          confirmLabel={
+            pendingConfirmation.mode === "issue"
+              ? "Issue stock"
+              : "Apply adjustment"
+          }
+          tone="danger"
+          isConfirming={mutation.isPending}
+          onCancel={() => setPendingConfirmation(null)}
+          onConfirm={() => {
+            const { payload } = pendingConfirmation;
+            setPendingConfirmation(null);
+            mutation.mutate(payload);
+          }}
         />
       )}
     </div>

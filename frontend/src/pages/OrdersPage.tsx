@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "../context/useAuth";
+import useModalDialog from "../components/ui/useModalDialog";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
 import { getCustomers } from "../features/customers/customer.api";
 import { getProducts } from "../features/products/product.api";
 import { getWarehouses } from "../features/warehouses/warehouse.api";
@@ -78,8 +80,17 @@ export default function OrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [formMode, setFormMode] = useState<"create" | "edit" | null>(null);
   const [action, setAction] = useState<"confirm" | "cancel" | null>(null);
+  const [pendingWorkflow, setPendingWorkflow] = useState<
+    "confirm" | "cancel" | null
+  >(null);
   const [operationError, setOperationError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const detailRef = useRef<HTMLDivElement>(null);
+  const closeDetail = useCallback(() => {
+    setSelectedOrder(null);
+    setOperationError(null);
+  }, []);
+  useModalDialog(detailRef, closeDetail, Boolean(selectedOrder && !formMode));
 
   const params: OrderQueryParams = {
     limit: PAGE_SIZE,
@@ -212,13 +223,6 @@ export default function OrdersPage() {
   function openDetail(order: Order) {
     setOperationError(null);
     setSelectedOrder(order);
-  }
-
-  function closeDetail() {
-    if (!workflowMutation.isPending) {
-      setSelectedOrder(null);
-      setOperationError(null);
-    }
   }
 
   return (
@@ -526,8 +530,11 @@ export default function OrdersPage() {
       {selectedOrder && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/40 p-4">
           <div
+            ref={detailRef}
             role="dialog"
+            aria-modal="true"
             aria-labelledby="order-detail-title"
+            aria-describedby="order-detail-description"
             className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
           >
             <div className="flex items-start justify-between gap-4">
@@ -538,7 +545,10 @@ export default function OrdersPage() {
                 >
                   Order Detail
                 </h2>
-                <p className="mt-1 text-sm text-slate-500">
+                <p
+                  id="order-detail-description"
+                  className="mt-1 text-sm text-slate-500"
+                >
                   {selectedOrder.orderNumber}
                 </p>
               </div>
@@ -677,7 +687,7 @@ export default function OrdersPage() {
                     <button
                       type="button"
                       disabled={workflowMutation.isPending}
-                      onClick={() => workflowMutation.mutate("confirm")}
+                      onClick={() => setPendingWorkflow("confirm")}
                       className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
                     >
                       <Check size={15} />{" "}
@@ -688,7 +698,7 @@ export default function OrdersPage() {
                     <button
                       type="button"
                       disabled={workflowMutation.isPending}
-                      onClick={() => workflowMutation.mutate("cancel")}
+                      onClick={() => setPendingWorkflow("cancel")}
                       className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-600 disabled:opacity-50"
                     >
                       {action === "cancel" ? "Cancelling..." : "Cancel Order"}
@@ -725,6 +735,34 @@ export default function OrdersPage() {
             }
           }}
           onSubmit={(payload) => saveMutation.mutate(payload)}
+        />
+      )}
+
+      {pendingWorkflow && (
+        <ConfirmDialog
+          title={
+            pendingWorkflow === "confirm"
+              ? "Confirm this order?"
+              : "Cancel this order?"
+          }
+          description={
+            pendingWorkflow === "confirm"
+              ? "Confirmation will reduce inventory atomically. The draft cannot be confirmed if stock is insufficient."
+              : detail?.status === "CONFIRMED"
+                ? "Cancellation will restore the order quantities to inventory when the backend can safely process it."
+                : "This will permanently mark the draft order as cancelled."
+          }
+          confirmLabel={
+            pendingWorkflow === "confirm" ? "Confirm order" : "Cancel order"
+          }
+          tone={pendingWorkflow === "cancel" ? "danger" : "primary"}
+          isConfirming={workflowMutation.isPending}
+          onCancel={() => setPendingWorkflow(null)}
+          onConfirm={() => {
+            const nextAction = pendingWorkflow;
+            setPendingWorkflow(null);
+            workflowMutation.mutate(nextAction);
+          }}
         />
       )}
     </div>

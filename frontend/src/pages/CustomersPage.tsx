@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "../context/useAuth";
+import useModalDialog from "../components/ui/useModalDialog";
 import CustomerFormDialog from "../features/customers/CustomerFormDialog";
 import {
   createCustomer,
@@ -50,6 +51,9 @@ export default function CustomersPage() {
   );
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const detailRef = useRef<HTMLDivElement>(null);
+  const closeDetail = useCallback(() => setSelectedCustomer(null), []);
+  useModalDialog(detailRef, closeDetail, Boolean(selectedCustomer));
 
   const customersQuery = useQuery({
     queryKey: ["customers", PAGE_SIZE, offset],
@@ -353,8 +357,11 @@ export default function CustomersPage() {
       {selectedCustomer && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/40 p-4">
           <div
+            ref={detailRef}
             role="dialog"
+            aria-modal="true"
             aria-labelledby="customer-detail-title"
+            aria-describedby="customer-detail-description"
             className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
           >
             <div className="flex items-start justify-between">
@@ -365,13 +372,16 @@ export default function CustomersPage() {
                 >
                   Customer Detail
                 </h2>
-                <p className="mt-1 text-sm text-slate-500">
+                <p
+                  id="customer-detail-description"
+                  className="mt-1 text-sm text-slate-500"
+                >
                   {selectedCustomer.customerCode}
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedCustomer(null)}
+                onClick={closeDetail}
                 aria-label="Close detail"
               >
                 <X size={18} />

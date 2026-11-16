@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { http, HttpResponse } from "msw";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -226,8 +226,6 @@ describe("WarehousesPage", () => {
     const user = userEvent.setup();
 
     installWarehouseHandlers();
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-
     renderWithProviders(<WarehousesPage />);
 
     await screen.findByText("Jakarta Central Warehouse");
@@ -238,7 +236,9 @@ describe("WarehousesPage", () => {
       }),
     );
 
-    expect(window.confirm).toHaveBeenCalled();
+    await user.click(
+      screen.getByRole("button", { name: "Deactivate warehouse" }),
+    );
 
     await waitFor(() => {
       expect(
@@ -253,8 +253,6 @@ describe("WarehousesPage", () => {
     const user = userEvent.setup();
 
     installWarehouseHandlers();
-    vi.spyOn(window, "confirm").mockReturnValue(false);
-
     renderWithProviders(<WarehousesPage />);
 
     await screen.findByText("Jakarta Central Warehouse");
@@ -264,6 +262,8 @@ describe("WarehousesPage", () => {
         name: "Deactivate Jakarta Central Warehouse",
       }),
     );
+
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(screen.getByText("Jakarta Central Warehouse")).toBeInTheDocument();
   });
@@ -314,8 +314,6 @@ describe("WarehousesPage", () => {
     const user = userEvent.setup();
 
     installWarehouseHandlers();
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-
     server.use(
       http.patch(`${API_URL}/warehouses/:id/deactivate`, () =>
         HttpResponse.json(
@@ -333,6 +331,10 @@ describe("WarehousesPage", () => {
       screen.getByRole("button", {
         name: "Deactivate Jakarta Central Warehouse",
       }),
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Deactivate warehouse" }),
     );
 
     const alert = await screen.findByRole("alert");

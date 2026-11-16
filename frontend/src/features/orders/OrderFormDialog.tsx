@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
-import { AlertCircle, Minus, Plus, X } from "lucide-react";
+import { AlertCircle, Minus, Plus } from "lucide-react";
+import ModalDialog from "../../components/ui/ModalDialog";
 
 import type { Customer } from "../customers/customer.types";
 import type { Product } from "../products/product.types";
@@ -147,181 +148,164 @@ export default function OrderFormDialog({
     "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:bg-slate-50";
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/40 p-4">
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="order-form-title"
-        className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-xl"
-      >
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-          <div>
-            <h2
-              id="order-form-title"
-              className="text-lg font-bold text-slate-900"
-            >
-              {mode === "create" ? "Create Draft Order" : "Edit Draft Order"}
-            </h2>
-            <p className="mt-1 text-xs text-slate-500">
-              Product prices are calculated by the backend.
-            </p>
-          </div>
+    <ModalDialog
+      title={mode === "create" ? "Create Draft Order" : "Edit Draft Order"}
+      closeLabel="Close order form"
+      closeDisabled={isSubmitting}
+      description="Product prices are calculated by the backend."
+      onClose={() => {
+        if (!isSubmitting) onClose();
+      }}
+      maxWidth="max-w-3xl"
+      footer={
+        <>
           <button
             type="button"
-            aria-label="Close order form"
             disabled={isSubmitting}
             onClick={onClose}
+            className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700"
           >
-            <X size={20} />
+            Cancel
           </button>
-        </div>
+          <button
+            type="submit"
+            form="order-form"
+            disabled={isSubmitting}
+            className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            {isSubmitting
+              ? "Saving..."
+              : mode === "create"
+                ? "Create Draft"
+                : "Save Changes"}
+          </button>
+        </>
+      }
+    >
+      <form id="order-form" onSubmit={submit}>
+        <div className="space-y-5 p-6">
+          {(validationError || submitError) && (
+            <div
+              role="alert"
+              className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-700"
+            >
+              <AlertCircle size={18} className="mt-0.5 shrink-0" />
+              <span>{validationError ?? submitError}</span>
+            </div>
+          )}
 
-        <form onSubmit={submit}>
-          <div className="space-y-5 p-6">
-            {(validationError || submitError) && (
-              <div
-                role="alert"
-                className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-700"
+          <div className="grid gap-5 sm:grid-cols-2">
+            <label className="text-sm font-semibold text-slate-700">
+              Customer
+              <select
+                value={customerId}
+                onChange={(event) => setCustomerId(event.target.value)}
+                disabled={isSubmitting}
+                className={inputClass}
               >
-                <AlertCircle size={18} className="mt-0.5 shrink-0" />
-                <span>{validationError ?? submitError}</span>
-              </div>
-            )}
-
-            <div className="grid gap-5 sm:grid-cols-2">
-              <label className="text-sm font-semibold text-slate-700">
-                Customer
-                <select
-                  value={customerId}
-                  onChange={(event) => setCustomerId(event.target.value)}
-                  disabled={isSubmitting}
-                  className={inputClass}
-                >
-                  <option value="">Select customer</option>
-                  {customers.map((customer) => (
-                    <option key={customer.id} value={customer.id}>
-                      {customer.customerCode} — {customer.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-sm font-semibold text-slate-700">
-                Warehouse
-                <select
-                  value={warehouseId}
-                  onChange={(event) => setWarehouseId(event.target.value)}
-                  disabled={isSubmitting}
-                  className={inputClass}
-                >
-                  <option value="">Select warehouse</option>
-                  {warehouses.map((warehouse) => (
-                    <option key={warehouse.id} value={warehouse.id}>
-                      {warehouse.code} — {warehouse.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-slate-700">
-                  Order items
-                </h3>
-                <button
-                  type="button"
-                  disabled={isSubmitting || items.length >= 100}
-                  onClick={() =>
-                    setItems((current) => [
-                      ...current,
-                      { key: crypto.randomUUID(), productId: "", quantity: 1 },
-                    ])
-                  }
-                  className="inline-flex items-center gap-1 rounded-lg border border-blue-200 px-3 py-2 text-xs font-semibold text-blue-700 disabled:opacity-40"
-                >
-                  <Plus size={14} /> Add item
-                </button>
-              </div>
-              <div className="mt-3 space-y-3">
-                {items.map((item) => (
-                  <div
-                    key={item.key}
-                    className="flex items-end gap-3 rounded-xl border border-slate-100 p-3"
-                  >
-                    <label className="flex-1 text-xs font-semibold text-slate-500">
-                      Product
-                      <select
-                        value={item.productId}
-                        onChange={(event) =>
-                          updateItem(item.key, "productId", event.target.value)
-                        }
-                        disabled={isSubmitting}
-                        className={inputClass}
-                      >
-                        <option value="">Select product</option>
-                        {products.map((product) => (
-                          <option key={product.id} value={product.id}>
-                            {product.sku} — {product.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="w-28 text-xs font-semibold text-slate-500">
-                      Quantity
-                      <input
-                        type="number"
-                        min="1"
-                        max="2147483647"
-                        step="1"
-                        value={item.quantity}
-                        onChange={(event) =>
-                          updateItem(item.key, "quantity", event.target.value)
-                        }
-                        disabled={isSubmitting}
-                        className={inputClass}
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      aria-label="Remove order item"
-                      disabled={isSubmitting || items.length === 1}
-                      onClick={() =>
-                        setItems((current) =>
-                          current.filter((entry) => entry.key !== item.key),
-                        )
-                      }
-                      className="rounded-lg border border-slate-200 p-2.5 text-slate-500 disabled:opacity-40"
-                    >
-                      <Minus size={16} />
-                    </button>
-                  </div>
+                <option value="">Select customer</option>
+                {customers.map((customer) => (
+                  <option key={customer.id} value={customer.id}>
+                    {customer.customerCode} — {customer.name}
+                  </option>
                 ))}
-              </div>
+              </select>
+            </label>
+            <label className="text-sm font-semibold text-slate-700">
+              Warehouse
+              <select
+                value={warehouseId}
+                onChange={(event) => setWarehouseId(event.target.value)}
+                disabled={isSubmitting}
+                className={inputClass}
+              >
+                <option value="">Select warehouse</option>
+                {warehouses.map((warehouse) => (
+                  <option key={warehouse.id} value={warehouse.id}>
+                    {warehouse.code} — {warehouse.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-700">
+                Order items
+              </h3>
+              <button
+                type="button"
+                disabled={isSubmitting || items.length >= 100}
+                onClick={() =>
+                  setItems((current) => [
+                    ...current,
+                    { key: crypto.randomUUID(), productId: "", quantity: 1 },
+                  ])
+                }
+                className="inline-flex items-center gap-1 rounded-lg border border-blue-200 px-3 py-2 text-xs font-semibold text-blue-700 disabled:opacity-40"
+              >
+                <Plus size={14} /> Add item
+              </button>
+            </div>
+            <div className="mt-3 space-y-3">
+              {items.map((item) => (
+                <div
+                  key={item.key}
+                  className="flex items-end gap-3 rounded-xl border border-slate-100 p-3"
+                >
+                  <label className="flex-1 text-xs font-semibold text-slate-500">
+                    Product
+                    <select
+                      value={item.productId}
+                      onChange={(event) =>
+                        updateItem(item.key, "productId", event.target.value)
+                      }
+                      disabled={isSubmitting}
+                      className={inputClass}
+                    >
+                      <option value="">Select product</option>
+                      {products.map((product) => (
+                        <option key={product.id} value={product.id}>
+                          {product.sku} — {product.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="w-28 text-xs font-semibold text-slate-500">
+                    Quantity
+                    <input
+                      type="number"
+                      min="1"
+                      max="2147483647"
+                      step="1"
+                      value={item.quantity}
+                      onChange={(event) =>
+                        updateItem(item.key, "quantity", event.target.value)
+                      }
+                      disabled={isSubmitting}
+                      className={inputClass}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    aria-label="Remove order item"
+                    disabled={isSubmitting || items.length === 1}
+                    onClick={() =>
+                      setItems((current) =>
+                        current.filter((entry) => entry.key !== item.key),
+                      )
+                    }
+                    className="rounded-lg border border-slate-200 p-2.5 text-slate-500 disabled:opacity-40"
+                  >
+                    <Minus size={16} />
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
-          <div className="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
-            <button
-              type="button"
-              disabled={isSubmitting}
-              onClick={onClose}
-              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-            >
-              {isSubmitting
-                ? "Saving..."
-                : mode === "create"
-                  ? "Create Draft"
-                  : "Save Changes"}
-            </button>
-          </div>
-        </form>
-      </section>
-    </div>
+        </div>
+      </form>
+    </ModalDialog>
   );
 }

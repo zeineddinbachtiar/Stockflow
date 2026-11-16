@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "../context/useAuth";
+import useModalDialog from "../components/ui/useModalDialog";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
 import {
   createProduct,
   deactivateProduct,
@@ -65,6 +67,9 @@ function ProductDetailDialog({
   onClose: () => void;
   categories: Map<string, string>;
 }) {
+  const dialogRef = useRef<HTMLElement>(null);
+  useModalDialog(dialogRef, onClose);
+
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["product", productId],
     queryFn: () => getProductById(accessToken, productId),
@@ -78,9 +83,11 @@ function ProductDetailDialog({
       }}
     >
       <section
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="product-detail-title"
+        aria-describedby="product-detail-description"
         className="w-full max-w-xl rounded-2xl bg-white shadow-xl"
       >
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
@@ -91,7 +98,10 @@ function ProductDetailDialog({
             >
               Product Details
             </h2>
-            <p className="mt-1 text-xs text-slate-500">
+            <p
+              id="product-detail-description"
+              className="mt-1 text-xs text-slate-500"
+            >
               Product information and catalog details.
             </p>
           </div>
@@ -233,6 +243,8 @@ export default function ProductsPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const [deactivateError, setDeactivateError] = useState<string | null>(null);
+  const [productToDeactivate, setProductToDeactivate] =
+    useState<Product | null>(null);
 
   const saveProductMutation = useMutation({
     mutationFn: (payload: ProductPayload) => {
@@ -565,16 +577,7 @@ export default function ProductsPage() {
                               <button
                                 type="button"
                                 disabled={deactivateMutation.isPending}
-                                onClick={() => {
-                                  const confirmed = window.confirm(
-                                    `Deactivate product "${product.name}"? This product will become inactive.`,
-                                  );
-
-                                  if (!confirmed) return;
-
-                                  setDeactivateError(null);
-                                  deactivateMutation.mutate(product.id);
-                                }}
+                                onClick={() => setProductToDeactivate(product)}
                                 aria-label={`Deactivate ${product.name}`}
                                 className="inline-flex items-center gap-2 rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                               >
@@ -697,6 +700,23 @@ export default function ProductsPage() {
           accessToken={accessToken}
           categories={categories}
           onClose={() => setSelectedProductId(null)}
+        />
+      )}
+
+      {productToDeactivate && (
+        <ConfirmDialog
+          title={`Deactivate ${productToDeactivate.name}?`}
+          description="This product will become inactive and will no longer be available for new operations."
+          confirmLabel="Deactivate product"
+          tone="danger"
+          isConfirming={deactivateMutation.isPending}
+          onCancel={() => setProductToDeactivate(null)}
+          onConfirm={() => {
+            setDeactivateError(null);
+            deactivateMutation.mutate(productToDeactivate.id, {
+              onSettled: () => setProductToDeactivate(null),
+            });
+          }}
         />
       )}
     </div>

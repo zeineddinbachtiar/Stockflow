@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { useAuth } from "../context/useAuth";
+import useModalDialog from "../components/ui/useModalDialog";
 import type {
   StockMovement,
   StockMovementType,
@@ -70,6 +71,9 @@ export default function StockMovementsPage() {
   const [movementType, setMovementType] = useState<StockMovementType | "">("");
   const [selectedMovement, setSelectedMovement] =
     useState<StockMovement | null>(null);
+  const detailRef = useRef<HTMLDivElement>(null);
+  const closeDetail = useCallback(() => setSelectedMovement(null), []);
+  useModalDialog(detailRef, closeDetail, Boolean(selectedMovement));
 
   const queryParams = {
     warehouseId: warehouseId || undefined,
@@ -379,8 +383,11 @@ export default function StockMovementsPage() {
       {selectedMovement && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/40 p-4">
           <div
+            ref={detailRef}
             role="dialog"
+            aria-modal="true"
             aria-labelledby="stock-movement-detail-title"
+            aria-describedby="stock-movement-detail-description"
             className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-xl"
           >
             <div className="flex items-start justify-between gap-4">
@@ -391,13 +398,16 @@ export default function StockMovementsPage() {
                 >
                   Stock Movement Detail
                 </h2>
-                <p className="mt-1 text-sm text-slate-500">
+                <p
+                  id="stock-movement-detail-description"
+                  className="mt-1 text-sm text-slate-500"
+                >
                   Read-only audit information
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedMovement(null)}
+                onClick={closeDetail}
                 aria-label="Close detail"
               >
                 <X size={18} />

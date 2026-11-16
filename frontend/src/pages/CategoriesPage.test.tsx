@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { http, HttpResponse } from "msw";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -202,8 +202,6 @@ describe("CategoriesPage", () => {
     const user = userEvent.setup();
     installCategoryHandlers();
 
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-
     renderWithProviders(<CategoriesPage />);
 
     await screen.findByText("Computers");
@@ -214,7 +212,9 @@ describe("CategoriesPage", () => {
       }),
     );
 
-    expect(window.confirm).toHaveBeenCalled();
+    await user.click(
+      screen.getByRole("button", { name: "Deactivate category" }),
+    );
 
     await waitFor(() => {
       expect(screen.queryByText("Computers")).not.toBeInTheDocument();
@@ -227,8 +227,6 @@ describe("CategoriesPage", () => {
     const user = userEvent.setup();
     installCategoryHandlers();
 
-    vi.spyOn(window, "confirm").mockReturnValue(false);
-
     renderWithProviders(<CategoriesPage />);
 
     await screen.findByText("Computers");
@@ -238,6 +236,8 @@ describe("CategoriesPage", () => {
         name: "Deactivate Computers",
       }),
     );
+
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
 
     expect(await screen.findByText("Computers")).toBeInTheDocument();
   });
@@ -327,8 +327,6 @@ describe("CategoriesPage", () => {
 
     installCategoryHandlers();
 
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-
     server.use(
       http.patch(`${API_URL}/categories/:id/deactivate`, () =>
         HttpResponse.json(
@@ -350,6 +348,10 @@ describe("CategoriesPage", () => {
       screen.getByRole("button", {
         name: "Deactivate Computers",
       }),
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Deactivate category" }),
     );
 
     const alert = await screen.findByRole("alert");
@@ -426,8 +428,6 @@ describe("CategoriesPage", () => {
 
     installCategoryHandlers(records);
 
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-
     renderWithProviders(<CategoriesPage />);
 
     expect(await screen.findByText("Category 1")).toBeInTheDocument();
@@ -444,6 +444,10 @@ describe("CategoriesPage", () => {
       screen.getByRole("button", {
         name: "Deactivate Category 11",
       }),
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Deactivate category" }),
     );
 
     await waitFor(() => {
