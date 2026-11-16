@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 
@@ -9,6 +9,7 @@ import { useState } from "react";
 
 import { AuthProvider } from "./AuthContext";
 import { useAuth } from "./useAuth";
+import { apiRequest } from "../lib/api";
 
 import type { AuthResult, AuthSession, AuthUser } from "../types/auth.types";
 
@@ -34,13 +35,18 @@ const user: AuthUser = {
 
 const authResult: AuthResult = {
   accessToken: "test-signed-access-token",
+  refreshToken: "test-refresh-token",
   tokenType: "Bearer",
   expiresIn: 900,
   user,
 };
 
+const expiresAt = Date.now() + authResult.expiresIn * 1000;
+
 const storedSession: AuthSession = {
   accessToken: authResult.accessToken,
+  refreshToken: authResult.refreshToken,
+  expiresAt,
   user,
 };
 
@@ -54,6 +60,7 @@ function AuthProbe() {
   } = useAuth();
 
   const [error, setError] = useState("");
+  const [requestError, setRequestError] = useState("");
 
   async function handleLogin() {
     setError("");
@@ -62,6 +69,16 @@ function AuthProbe() {
       await login(credentials);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Authentication failed.");
+    }
+  }
+
+  async function handleProtectedRequest() {
+    setRequestError("");
+
+    try {
+      await apiRequest("/products", {}, accessToken ?? undefined);
+    } catch (err) {
+      setRequestError(err instanceof Error ? err.message : "Request failed.");
     }
   }
 
@@ -75,6 +92,8 @@ function AuthProbe() {
 
       <output data-testid="access-token">{accessToken ?? "none"}</output>
 
+      <output data-testid="request-error">{requestError}</output>
+
       {error && <div role="alert">{error}</div>}
 
       <button type="button" onClick={handleLogin}>
@@ -83,6 +102,10 @@ function AuthProbe() {
 
       <button type="button" onClick={logout}>
         Logout
+      </button>
+
+      <button type="button" onClick={handleProtectedRequest}>
+        Protected request
       </button>
     </div>
   );
@@ -104,6 +127,10 @@ function renderAuthProvider() {
 describe("AuthContext", () => {
   beforeEach(() => {
     sessionStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("starts unauthenticated when no session exists", () => {
@@ -173,6 +200,21 @@ describe("AuthContext", () => {
     },
   );
 
+  it.each([
+    { description: "a missing refresh token", remove: "refreshToken" },
+    { description: "a missing expiry", remove: "expiresAt" },
+  ])("rejects stored session containing $description", ({ remove }) => {
+    const invalidSession = { ...storedSession } as Record<string, unknown>;
+    delete invalidSession[remove];
+
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(invalidSession));
+
+    renderAuthProvider();
+
+    expect(screen.getByTestId("authenticated")).toHaveTextContent("false");
+    expect(sessionStorage.getItem(SESSION_KEY)).toBeNull();
+  });
+
   it("sends login credentials and persists a valid session", async () => {
     const receivedBodies: unknown[] = [];
 
@@ -210,7 +252,14 @@ describe("AuthContext", () => {
 
     expect(stored).not.toBeNull();
 
-    expect(JSON.parse(stored!) as AuthSession).toEqual(storedSession);
+    const persistedSession = JSON.parse(stored!) as AuthSession;
+
+    expect(persistedSession).toMatchObject({
+      accessToken: authResult.accessToken,
+      refreshToken: authResult.refreshToken,
+      user,
+    });
+    expect(persistedSession.expiresAt).toBeGreaterThan(Date.now());
   });
 
   it("rejects an invalid authentication response", async () => {
@@ -275,6 +324,19 @@ describe("AuthContext", () => {
   it("removes the current session when logging out", async () => {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(storedSession));
 
+    const receivedBodies: unknown[] = [];
+
+    server.use(
+      http.post(`${API_URL}/auth/logout`, async ({ request }) => {
+        receivedBodies.push(await request.json());
+
+        return HttpResponse.json({
+          status: "success",
+          message: "Logout successful.",
+        });
+      }),
+    );
+
     const userEventInstance = userEvent.setup();
 
     renderAuthProvider();
@@ -290,6 +352,145 @@ describe("AuthContext", () => {
     expect(screen.getByTestId("access-token")).toHaveTextContent("none");
 
     expect(sessionStorage.getItem(SESSION_KEY)).toBeNull();
+
+    await waitFor(() => {
+      expect(receivedBodies).toEqual([
+        { refreshToken: storedSession.refreshToken },
+      ]);
+    });
+  });
+
+  it("refreshes before expiry and persists rotated tokens", async () => {
+    const expiringSession: AuthSession = {
+      ...storedSession,
+      expiresAt: Date.now() + 120_000,
+    };
+
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(expiringSession));
+
+    server.use(
+      http.post(`${API_URL}/auth/refresh`, async ({ request }) => {
+        expect(await request.json()).toEqual({
+          refreshToken: expiringSession.refreshToken,
+        });
+
+        return HttpResponse.json({
+          status: "success",
+          data: {
+            ...authResult,
+            accessToken: "rotated-access-token",
+            refreshToken: "rotated-refresh-token",
+            expiresIn: 900,
+          },
+        });
+      }),
+    );
+
+    const timerCallbacks: Array<() => void | Promise<void>> = [];
+    const originalSetTimeout = globalThis.setTimeout;
+
+    vi.spyOn(globalThis, "setTimeout").mockImplementation(
+      (handler, timeout, ...args) => {
+        if (
+          typeof handler === "function" &&
+          typeof timeout === "number" &&
+          timeout >= 59_000 &&
+          timeout <= 61_000
+        ) {
+          timerCallbacks.push(() => handler(...args));
+          return 0 as unknown as ReturnType<typeof setTimeout>;
+        }
+
+        return originalSetTimeout(handler, timeout, ...args);
+      },
+    );
+
+    renderAuthProvider();
+
+    expect(timerCallbacks).toHaveLength(1);
+    await timerCallbacks[0]!();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("access-token")).toHaveTextContent(
+        "rotated-access-token",
+      );
+    });
+
+    const persistedSession = JSON.parse(
+      sessionStorage.getItem(SESSION_KEY)!,
+    ) as AuthSession;
+
+    expect(persistedSession.refreshToken).toBe("rotated-refresh-token");
+    expect(persistedSession.expiresAt).toBeGreaterThan(Date.now());
+  });
+
+  it("ends the session when the refresh token is rejected", async () => {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(storedSession));
+
+    server.use(
+      http.get(`${API_URL}/products`, () =>
+        HttpResponse.json(
+          {
+            status: "error",
+            code: "INVALID_ACCESS_TOKEN",
+          },
+          { status: 401 },
+        ),
+      ),
+      http.post(`${API_URL}/auth/refresh`, () =>
+        HttpResponse.json(
+          {
+            status: "error",
+            code: "INVALID_REFRESH_TOKEN",
+          },
+          { status: 401 },
+        ),
+      ),
+    );
+
+    const userEventInstance = userEvent.setup();
+    renderAuthProvider();
+
+    await userEventInstance.click(
+      screen.getByRole("button", { name: "Protected request" }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("authenticated")).toHaveTextContent("false");
+    });
+
+    expect(sessionStorage.getItem(SESSION_KEY)).toBeNull();
+  });
+
+  it("keeps the session when refresh fails because of a network error", async () => {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(storedSession));
+
+    server.use(
+      http.get(`${API_URL}/products`, () =>
+        HttpResponse.json(
+          {
+            status: "error",
+            code: "INVALID_ACCESS_TOKEN",
+          },
+          { status: 401 },
+        ),
+      ),
+      http.post(`${API_URL}/auth/refresh`, () => HttpResponse.error()),
+    );
+
+    const userEventInstance = userEvent.setup();
+    renderAuthProvider();
+
+    await userEventInstance.click(
+      screen.getByRole("button", { name: "Protected request" }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("request-error")).not.toHaveTextContent("");
+    });
+
+    expect(screen.getByTestId("authenticated")).toHaveTextContent("true");
+    expect(sessionStorage.getItem(SESSION_KEY)).not.toBeNull();
   });
 
   it("throws when useAuth is used outside AuthProvider", () => {

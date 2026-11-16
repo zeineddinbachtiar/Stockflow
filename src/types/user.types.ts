@@ -68,3 +68,14 @@ export interface AuthResult {
   expiresIn: number;
   user: PublicUser;
 }
+
+/**
+ * Authentication response.
+ */
+export interface AuthResult {
+  accessToken: string;
+  refreshToken: string;
+  tokenType: "Bearer";
+  expiresIn: number;
+  user: PublicUser;
+}

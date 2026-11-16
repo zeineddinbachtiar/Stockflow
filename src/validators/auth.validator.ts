@@ -51,8 +51,34 @@ export const loginSchema = z
   .strict();
 
 /**
+ * Refresh and logout request validation.
+ *
+ * Refresh tokens are generated from 64 random bytes and encoded
+ * using base64url, producing exactly 86 characters.
+ */
+const refreshTokenField = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]{86}$/, "Invalid refresh token format.");
+
+export const refreshSchema = z
+  .object({
+    refreshToken: refreshTokenField,
+  })
+  .strict();
+
+export const logoutSchema = z
+  .object({
+    refreshToken: refreshTokenField,
+  })
+  .strict();
+
+/**
  * Export inferred request types.
  */
 export type RegisterRequest = z.infer<typeof registerSchema>;
 
 export type LoginRequest = z.infer<typeof loginSchema>;
+
+export type RefreshRequest = z.infer<typeof refreshSchema>;
+
+export type LogoutRequest = z.infer<typeof logoutSchema>;

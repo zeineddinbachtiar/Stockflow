@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readdir, readFile } from "node:fs/promises";
 
 import dotenv from "dotenv";
 import pg from "pg";
@@ -18,6 +18,7 @@ const TEST_DATABASE_NAME = "stockflow_test_db";
 const REQUIRED_TABLES = [
   "schema_migrations",
   "users",
+  "auth_sessions",
   "categories",
   "products",
   "warehouses",
@@ -111,6 +112,7 @@ async function prepareTestDatabase() {
     }
 
     // Check whether the migration history table exists.
+    // Check whether the migration history table exists.
     const migrationTableResult = await client.query(
       "SELECT to_regclass('public.schema_migrations') IS NOT NULL AS exists",
     );
@@ -146,6 +148,59 @@ async function prepareTestDatabase() {
       await client.query(migrationSql);
 
       console.log("[TEST DB] Migration 001 applied.");
+    }
+
+    // Apply any migration that has not been recorded.
+    const migrationsDirectory = path.join(
+      projectRoot,
+      "database",
+      "migrations",
+    );
+
+    const migrationFiles = (await readdir(migrationsDirectory))
+      .filter((file) => /^\d{3}_.+\.sql$/.test(file))
+      .sort((first, second) => first.localeCompare(second));
+
+    for (const migrationFile of migrationFiles) {
+      const version = migrationFile.match(/^(\d{3})_/)?.[1];
+
+      if (!version) {
+        continue;
+      }
+
+      const appliedMigration = await client.query(
+        `SELECT 1
+         FROM schema_migrations
+         WHERE version = $1
+         LIMIT 1`,
+        [version],
+      );
+
+      if (appliedMigration.rowCount === 1) {
+        continue;
+      }
+
+      const migrationPath = path.join(migrationsDirectory, migrationFile);
+
+      const migrationSql = await readFile(migrationPath, "utf8");
+
+      console.log(`[TEST DB] Applying migration ${migrationFile}...`);
+
+      await client.query(migrationSql);
+
+      console.log(`[TEST DB] Migration ${version} applied.`);
+    }
+
+    // Verify that the initial migration is recorded.
+    const initialMigrationCheck = await client.query(
+      `SELECT version
+   FROM schema_migrations
+   WHERE version = $1`,
+      ["001"],
+    );
+
+    if (initialMigrationCheck.rowCount !== 1) {
+      throw new Error("Migration 001 is not recorded in schema_migrations.");
     }
 
     // Verify the initial migration was recorded.

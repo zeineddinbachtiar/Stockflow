@@ -13,6 +13,7 @@ export interface AuthUser {
 
 export interface AuthResult {
   accessToken: string;
+  refreshToken: string;
   tokenType: "Bearer";
   expiresIn: number;
   user: AuthUser;
@@ -26,5 +27,7 @@ export interface ApiEnvelope<T> {
 
 export interface AuthSession {
   accessToken: string;
+  refreshToken: string;
+  expiresAt: number;
   user: AuthUser;
 }

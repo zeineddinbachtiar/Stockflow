@@ -45,4 +45,12 @@ psql \
   --set=ON_ERROR_STOP=1 \
   --file=/migrations/001_create_stockflow_schema.sql
 
+echo "[POSTGRES INIT] Applying authentication session migration..."
+
+psql \
+  --username="$POSTGRES_APP_USER" \
+  --dbname="$POSTGRES_APP_DB" \
+  --set=ON_ERROR_STOP=1 \
+  --file=/migrations/002_create_auth_sessions.sql
+
 echo "[POSTGRES INIT] StockFlow database initialization completed."

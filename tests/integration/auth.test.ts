@@ -6,6 +6,7 @@ import request from "supertest";
 import app from "../../src/app";
 import { env } from "../../src/config/env";
 import { pool } from "../../src/config/database";
+import { hashRefreshToken } from "../../src/utils/refresh-token";
 
 interface AuthApiBody {
   status?: string;
@@ -15,6 +16,7 @@ interface AuthApiBody {
     accessToken?: unknown;
     tokenType?: string;
     expiresIn?: number;
+    refreshToken?: unknown;
     user?: {
       id?: string;
       fullName?: string;
@@ -35,12 +37,14 @@ interface AuthSession {
   userId: string;
   email: string;
   role: string;
+  refreshToken: string;
 }
 
 const runId = randomUUID();
 
 const createdTestEmails: string[] = [];
 const createdCategoryNames: string[] = [];
+const createdRefreshTokenHashes: string[] = [];
 
 function expectAuthSuccess(
   response: ApiResponse,
@@ -58,10 +62,16 @@ function expectAuthSuccess(
   assert.ok(user, "Authentication user data is missing.");
 
   const accessToken = data.accessToken;
+  const refreshToken = data.refreshToken;
   const userId = user.id;
   const email = user.email;
 
   assert.equal(typeof accessToken, "string");
+  assert.ok(
+    typeof refreshToken === "string" && refreshToken.length > 0,
+    "Refresh token must be returned.",
+  );
+
   assert.equal(data.tokenType, "Bearer");
   assert.equal(user.role, expectedRole);
   assert.equal(user.isActive, true);
@@ -69,8 +79,11 @@ function expectAuthSuccess(
   assert.ok(userId, "User ID must be returned.");
   assert.ok(email, "User email must be returned.");
 
+  createdRefreshTokenHashes.push(hashRefreshToken(refreshToken));
+
   return {
     accessToken: accessToken as string,
+    refreshToken,
     userId,
     email,
     role: expectedRole,
@@ -100,6 +113,14 @@ async function registerTestUser(label: string): Promise<AuthSession> {
 // Cleanup test data and close PostgreSQL connections.
 after(async () => {
   try {
+    if (createdRefreshTokenHashes.length > 0) {
+      await pool.query(
+        `DELETE FROM auth_sessions
+         WHERE refresh_token_hash = ANY($1::char(64)[])`,
+        [createdRefreshTokenHashes],
+      );
+    }
+
     if (createdCategoryNames.length > 0) {
       await pool.query("DELETE FROM categories WHERE name = ANY($1::text[])", [
         createdCategoryNames,

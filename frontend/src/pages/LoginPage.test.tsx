@@ -33,13 +33,18 @@ const testUser: AuthUser = {
 
 const authResult: AuthResult = {
   accessToken: "test-signed-access-token",
+  refreshToken: "test-refresh-token",
   tokenType: "Bearer",
   expiresIn: 900,
   user: testUser,
 };
 
+const expiresAt = Date.now() + authResult.expiresIn * 1000;
+
 const storedSession: AuthSession = {
   accessToken: authResult.accessToken,
+  refreshToken: authResult.refreshToken,
+  expiresAt,
   user: testUser,
 };
 
@@ -116,9 +121,16 @@ describe("LoginPage", () => {
 
     expect(receivedBody).toEqual(credentials);
 
-    expect(sessionStorage.getItem(SESSION_KEY)).toBe(
-      JSON.stringify(storedSession),
-    );
+    const persistedSession = JSON.parse(
+      sessionStorage.getItem(SESSION_KEY)!,
+    ) as AuthSession;
+
+    expect(persistedSession).toMatchObject({
+      accessToken: storedSession.accessToken,
+      refreshToken: storedSession.refreshToken,
+      user: storedSession.user,
+    });
+    expect(persistedSession.expiresAt).toBeGreaterThan(Date.now());
   });
 
   it("displays authentication errors when credentials are invalid", async () => {

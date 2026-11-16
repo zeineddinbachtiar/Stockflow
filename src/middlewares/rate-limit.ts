@@ -42,6 +42,15 @@ export const loginRateLimiter = createRateLimitMiddleware({
 });
 
 /**
+ * Refresh: maximum 30 requests per IP every 15 minutes.
+ */
+export const refreshRateLimiter = createRateLimitMiddleware({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  message: "Too many session refresh attempts. Please try again later.",
+});
+
+/**
  * Registration: maximum 5 requests per IP every hour.
  */
 export const registrationRateLimiter = createRateLimitMiddleware({

@@ -1,10 +1,17 @@
 import type { RequestHandler } from "express";
 
-import { registerUser, loginUser } from "../services/auth.service";
+import {
+  registerUser,
+  loginUser,
+  refreshUserSession,
+  logoutUser,
+} from "../services/auth.service";
 
 import type {
   RegisterRequest,
   LoginRequest,
+  RefreshRequest,
+  LogoutRequest,
 } from "../validators/auth.validator";
 
 /**
@@ -34,5 +41,34 @@ export const login: RequestHandler = async (req, res) => {
     status: "success",
     message: "Login successful.",
     data: result,
+  });
+};
+
+/**
+ * POST /api/v1/auth/refresh
+ */
+export const refresh: RequestHandler = async (req, res) => {
+  const input = req.body as RefreshRequest;
+
+  const result = await refreshUserSession(input.refreshToken);
+
+  res.status(200).json({
+    status: "success",
+    message: "Session refreshed successfully.",
+    data: result,
+  });
+};
+
+/**
+ * POST /api/v1/auth/logout
+ */
+export const logout: RequestHandler = async (req, res) => {
+  const input = req.body as LogoutRequest;
+
+  await logoutUser(input.refreshToken);
+
+  res.status(200).json({
+    status: "success",
+    message: "Logout successful.",
   });
 };

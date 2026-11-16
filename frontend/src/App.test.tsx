@@ -37,13 +37,18 @@ const loginUser: AuthUser = {
 
 const loginResult: AuthResult = {
   accessToken: "integration-test-access-token",
+  refreshToken: "integration-test-refresh-token",
   tokenType: "Bearer",
   expiresIn: 900,
   user: loginUser,
 };
 
+const loginExpiresAt = Date.now() + loginResult.expiresIn * 1000;
+
 const loginSession: AuthSession = {
   accessToken: loginResult.accessToken,
+  refreshToken: loginResult.refreshToken,
+  expiresAt: loginExpiresAt,
   user: loginUser,
 };
 
@@ -62,6 +67,8 @@ function seedAuthenticatedSession(role: UserRole) {
 
   const session: AuthSession = {
     accessToken: `test-token-${role.toLowerCase()}`,
+    refreshToken: `test-refresh-token-${role.toLowerCase()}`,
+    expiresAt: Date.now() + 900_000,
     user,
   };
 
@@ -313,9 +320,16 @@ describe("App routing integration", () => {
       }),
     ).toBeInTheDocument();
 
-    expect(sessionStorage.getItem(SESSION_KEY)).toBe(
-      JSON.stringify(loginSession),
-    );
+    const persistedSession = JSON.parse(
+      sessionStorage.getItem(SESSION_KEY)!,
+    ) as AuthSession;
+
+    expect(persistedSession).toMatchObject({
+      accessToken: loginSession.accessToken,
+      refreshToken: loginSession.refreshToken,
+      user: loginSession.user,
+    });
+    expect(persistedSession.expiresAt).toBeGreaterThan(Date.now());
   });
 
   it("navigates between protected pages using the application Sidebar", async () => {

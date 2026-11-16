@@ -3,13 +3,17 @@ import type { RequestHandler } from "express";
 import { AppError } from "../errors/app-error";
 
 import { findUserById } from "../repositories/user.repositories";
+import { isAuthSessionActive } from "../repositories/auth-session.repositories";
 import { verifyAccessToken } from "../utils/jwt";
 
 /**
  * Authenticate a request using its JWT access token.
  *
- * The current user role is retrieved from the database
- * on every authenticated request.
+ * Every authenticated request validates:
+ * 1. JWT signature and expiration.
+ * 2. Backend authentication session state.
+ * 3. Current user existence and active status.
+ * 4. Current user role from PostgreSQL.
  */
 export const authenticate: RequestHandler = async (req, _res, next) => {
   const authHeader = req.headers.authorization;
@@ -46,7 +50,20 @@ export const authenticate: RequestHandler = async (req, _res, next) => {
     );
   }
 
-  // Always use the latest user state from PostgreSQL.
+  const sessionIsActive = await isAuthSessionActive(
+    tokenPayload.sessionId,
+    tokenPayload.id,
+  );
+
+  if (!sessionIsActive) {
+    throw new AppError(
+      401,
+      "INVALID_ACCESS_TOKEN",
+      "Access token is invalid or expired.",
+    );
+  }
+
+  // Always use the latest user state and role from PostgreSQL.
   const user = await findUserById(tokenPayload.id);
 
   if (!user || !user.is_active) {

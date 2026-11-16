@@ -2,7 +2,11 @@ import bcrypt from "bcryptjs";
 import { AppError } from "../errors/app-error";
 import { hasPostgresErrorCode } from "../utils/postgres-errors";
 
-import { findUserByEmail, createUser } from "../repositories/user.repositories";
+import {
+  findUserByEmail,
+  findUserById,
+  createUser,
+} from "../repositories/user.repositories";
 
 import type {
   AuthResult,
@@ -11,6 +15,14 @@ import type {
   RegisterInput,
   UserRecord,
 } from "../types/user.types";
+
+import {
+  createAuthSession,
+  revokeAuthSession,
+  rotateAuthSession,
+} from "../repositories/auth-session.repositories";
+
+import { generateRefreshToken, hashRefreshToken } from "../utils/refresh-token";
 
 import { ACCESS_TOKEN_TTL_SECONDS, generateAccessToken } from "../utils/jwt";
 
@@ -34,17 +46,37 @@ function toPublicUser(user: UserRecord): PublicUser {
   };
 }
 
-// Build authentication response
-function createAuthResult(user: UserRecord): AuthResult {
+/**
+ * Build authentication response for an existing backend session.
+ */
+function createAuthResultForSession(
+  user: UserRecord,
+  sessionId: string,
+  refreshToken: string,
+): AuthResult {
   return {
     accessToken: generateAccessToken({
       id: user.id,
       role: user.role,
+      sessionId,
     }),
+    refreshToken,
     tokenType: "Bearer",
     expiresIn: ACCESS_TOKEN_TTL_SECONDS,
     user: toPublicUser(user),
   };
+}
+
+/**
+ * Create a new authentication session.
+ */
+async function createAuthResult(user: UserRecord): Promise<AuthResult> {
+  const refreshToken = generateRefreshToken();
+  const refreshTokenHash = hashRefreshToken(refreshToken);
+
+  const sessionId = await createAuthSession(user.id, refreshTokenHash);
+
+  return createAuthResultForSession(user, sessionId, refreshToken);
 }
 
 /**
@@ -159,4 +191,54 @@ export async function loginUser(input: LoginInput): Promise<AuthResult> {
   }
 
   return createAuthResult(user);
+}
+
+/**
+ * Refresh an authentication session using a one-time refresh token.
+ *
+ * The refresh token is rotated atomically before a new access token
+ * is issued. Reusing the previous refresh token is rejected.
+ */
+export async function refreshUserSession(
+  refreshToken: string,
+): Promise<AuthResult> {
+  const nextRefreshToken = generateRefreshToken();
+  const nextRefreshTokenHash = hashRefreshToken(nextRefreshToken);
+
+  const session = await rotateAuthSession(
+    hashRefreshToken(refreshToken),
+    nextRefreshTokenHash,
+  );
+
+  if (!session) {
+    throw new AppError(
+      401,
+      "INVALID_REFRESH_TOKEN",
+      "Refresh token is invalid, expired, or revoked.",
+    );
+  }
+
+  const user = await findUserById(session.user_id);
+
+  if (!user || !user.is_active) {
+    await revokeAuthSession(nextRefreshTokenHash);
+
+    throw new AppError(
+      401,
+      "INVALID_REFRESH_TOKEN",
+      "Refresh token is invalid, expired, or revoked.",
+    );
+  }
+
+  return createAuthResultForSession(user, session.id, nextRefreshToken);
+}
+
+/**
+ * Revoke an authentication session.
+ *
+ * Logout is intentionally idempotent. Unknown or already revoked
+ * tokens do not reveal whether a session previously existed.
+ */
+export async function logoutUser(refreshToken: string): Promise<void> {
+  await revokeAuthSession(hashRefreshToken(refreshToken));
 }
