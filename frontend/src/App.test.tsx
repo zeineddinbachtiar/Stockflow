@@ -137,6 +137,28 @@ function installDashboardHandlers() {
       ),
     ),
 
+    http.get(`${API_URL}/stock-movements`, () =>
+      HttpResponse.json(
+        success({
+          movements: [],
+          total: 0,
+          limit: 10,
+          offset: 0,
+        }),
+      ),
+    ),
+
+    http.get(`${API_URL}/customers`, () =>
+      HttpResponse.json(
+        success({
+          customers: [],
+          total: 0,
+          limit: 10,
+          offset: 0,
+        }),
+      ),
+    ),
+
     http.get(`${API_URL}/orders`, ({ request }) => {
       const url = new URL(request.url);
       const isDraftQuery = url.searchParams.has("status");
@@ -336,6 +358,7 @@ describe("App routing integration", () => {
     const user = userEvent.setup();
 
     seedAuthenticatedSession("ADMIN");
+    installDashboardHandlers();
 
     renderApp("/inventory");
 

@@ -9,7 +9,11 @@ import LoginPage from "./pages/LoginPage";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import ProductsPage from "./pages/ProductsPage";
 import CategoriesPage from "./pages/CategoriesPage";
+import CustomersPage from "./pages/CustomersPage";
+import InventoryPage from "./pages/InventoryPage";
+import StockMovementsPage from "./pages/StockMovementsPage";
 import WarehousesPage from "./pages/WarehousesPage";
+import OrdersPage from "./pages/OrdersPage";
 
 function App() {
   return (
@@ -27,24 +31,13 @@ function App() {
 
             <Route path="warehouses" element={<WarehousesPage />} />
 
-            <Route
-              path="inventory"
-              element={
-                <PlaceholderPage
-                  title="Inventory"
-                  description="Monitor stock balances across your warehouses."
-                />
-              }
-            />
+            <Route path="inventory" element={<InventoryPage />} />
 
             <Route
               path="stock-movements"
               element={
                 <RoleGuard allowedRoles={["ADMIN", "WAREHOUSE_STAFF"]}>
-                  <PlaceholderPage
-                    title="Stock Movements"
-                    description="Review receipts, issues, adjustments, and stock history."
-                  />
+                  <StockMovementsPage />
                 </RoleGuard>
               }
             />
@@ -53,23 +46,12 @@ function App() {
               path="customers"
               element={
                 <RoleGuard allowedRoles={["ADMIN", "SALES_STAFF"]}>
-                  <PlaceholderPage
-                    title="Customers"
-                    description="Manage customer profiles and contact information."
-                  />
+                  <CustomersPage />
                 </RoleGuard>
               }
             />
 
-            <Route
-              path="orders"
-              element={
-                <PlaceholderPage
-                  title="Orders"
-                  description="Create and manage sales orders and fulfillment workflows."
-                />
-              }
-            />
+            <Route path="orders" element={<OrdersPage />} />
 
             <Route
               path="*"

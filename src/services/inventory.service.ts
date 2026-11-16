@@ -77,8 +77,8 @@ export async function getInventoryById(id: string): Promise<PublicInventory> {
   if (!inventory) {
     throw new AppError(
       404,
-      "WAREHOUSE_NOT_FOUND",
-      "Active warehouse not found.",
+      "INVENTORY_NOT_FOUND",
+      "Inventory record not found.",
     );
   }
 

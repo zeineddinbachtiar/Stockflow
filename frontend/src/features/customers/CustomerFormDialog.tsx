@@ -1,0 +1,223 @@
+import { useState, type FormEvent } from "react";
+import { AlertCircle, X } from "lucide-react";
+
+import type { Customer, CustomerPayload } from "./customer.types";
+
+interface CustomerFormDialogProps {
+  mode: "create" | "edit";
+  customer?: Customer;
+  isSubmitting: boolean;
+  submitError: string | null;
+  onClose: () => void;
+  onSubmit: (payload: CustomerPayload) => void;
+}
+
+export default function CustomerFormDialog({
+  mode,
+  customer,
+  isSubmitting,
+  submitError,
+  onClose,
+  onSubmit,
+}: CustomerFormDialogProps) {
+  const [customerCode, setCustomerCode] = useState(
+    customer?.customerCode ?? "",
+  );
+  const [name, setName] = useState(customer?.name ?? "");
+  const [email, setEmail] = useState(customer?.email ?? "");
+  const [phone, setPhone] = useState(customer?.phone ?? "");
+  const [address, setAddress] = useState(customer?.address ?? "");
+  const [validationError, setValidationError] = useState<string | null>(null);
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setValidationError(null);
+
+    const normalizedCode = customerCode.trim();
+    const normalizedName = name.trim();
+    const normalizedEmail = email.trim();
+    const normalizedPhone = phone.trim();
+    const normalizedAddress = address.trim();
+
+    if (!normalizedCode) {
+      setValidationError("Customer code is required.");
+      return;
+    }
+    if (normalizedCode.length > 30) {
+      setValidationError("Customer code must not exceed 30 characters.");
+      return;
+    }
+    if (!normalizedName) {
+      setValidationError("Customer name is required.");
+      return;
+    }
+    if (normalizedName.length > 150) {
+      setValidationError("Customer name must not exceed 150 characters.");
+      return;
+    }
+    if (normalizedEmail.length > 150) {
+      setValidationError("Customer email must not exceed 150 characters.");
+      return;
+    }
+    if (normalizedEmail && !/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
+      setValidationError("Enter a valid customer email.");
+      return;
+    }
+    if (normalizedPhone.length > 30) {
+      setValidationError("Customer phone must not exceed 30 characters.");
+      return;
+    }
+    if (normalizedAddress.length > 5000) {
+      setValidationError("Customer address must not exceed 5000 characters.");
+      return;
+    }
+
+    onSubmit({
+      customerCode: normalizedCode,
+      name: normalizedName,
+      email: normalizedEmail || null,
+      phone: normalizedPhone || null,
+      address: normalizedAddress || null,
+    });
+  }
+
+  const inputClass =
+    "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:bg-slate-50";
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/40 p-4">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="customer-form-title"
+        className="w-full max-w-2xl rounded-2xl bg-white shadow-xl"
+      >
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+          <div>
+            <h2
+              id="customer-form-title"
+              className="text-lg font-bold text-slate-900"
+            >
+              {mode === "create" ? "Add Customer" : "Edit Customer"}
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">
+              {mode === "create"
+                ? "Create a customer record."
+                : "Update customer information."}
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="Close customer form"
+            disabled={isSubmitting}
+            onClick={onClose}
+            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 disabled:opacity-40"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="grid gap-5 p-6 sm:grid-cols-2">
+            {(validationError || submitError) && (
+              <div
+                role="alert"
+                className="sm:col-span-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-700"
+              >
+                <AlertCircle size={18} className="mt-0.5 shrink-0" />
+                <span>{validationError ?? submitError}</span>
+              </div>
+            )}
+            <label className="text-sm font-semibold text-slate-700">
+              Customer Code
+              <input
+                value={customerCode}
+                onChange={(event) => setCustomerCode(event.target.value)}
+                maxLength={30}
+                disabled={isSubmitting}
+                placeholder="e.g. CUST-001"
+                className={inputClass}
+              />
+            </label>
+            <label className="text-sm font-semibold text-slate-700">
+              Customer Name
+              <input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                maxLength={150}
+                disabled={isSubmitting}
+                placeholder="e.g. PT Maju Jaya"
+                className={inputClass}
+              />
+            </label>
+            <label className="text-sm font-semibold text-slate-700">
+              Email
+              <span className="ml-1 font-normal text-slate-400">
+                (Optional)
+              </span>
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                maxLength={150}
+                disabled={isSubmitting}
+                placeholder="customer@example.com"
+                className={inputClass}
+              />
+            </label>
+            <label className="text-sm font-semibold text-slate-700">
+              Phone
+              <span className="ml-1 font-normal text-slate-400">
+                (Optional)
+              </span>
+              <input
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+                maxLength={30}
+                disabled={isSubmitting}
+                placeholder="+62..."
+                className={inputClass}
+              />
+            </label>
+            <label className="text-sm font-semibold text-slate-700 sm:col-span-2">
+              Address
+              <span className="ml-1 font-normal text-slate-400">
+                (Optional)
+              </span>
+              <textarea
+                rows={3}
+                value={address}
+                onChange={(event) => setAddress(event.target.value)}
+                maxLength={5000}
+                disabled={isSubmitting}
+                placeholder="Customer address"
+                className={`${inputClass} resize-y`}
+              />
+            </label>
+          </div>
+          <div className="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+            <button
+              type="button"
+              disabled={isSubmitting}
+              onClick={onClose}
+              className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 disabled:opacity-40"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {isSubmitting
+                ? "Saving..."
+                : mode === "create"
+                  ? "Create Customer"
+                  : "Save Changes"}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}

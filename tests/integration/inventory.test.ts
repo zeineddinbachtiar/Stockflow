@@ -984,7 +984,7 @@ test("nonexistent inventory and movement records return HTTP 404", async () => {
     .get("/api/v1/inventory/9223372036854775807")
     .set("Authorization", `Bearer ${adminToken}`);
 
-  expectStatus(inventoryResponse, 404);
+  expectError(inventoryResponse, 404, "INVENTORY_NOT_FOUND");
 
   const movementResponse = await request(app)
     .get("/api/v1/stock-movements/9223372036854775807")
