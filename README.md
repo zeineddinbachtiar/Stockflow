@@ -170,6 +170,17 @@ docker compose config --quiet
 docker compose up --build -d
 ```
 
+For a new PostgreSQL volume, the initialization script applies every migration
+in version order. Existing volumes are not changed by Docker initialization.
+After adding a migration or upgrading an existing database, run the migration
+command explicitly:
+
+```bash
+docker compose --profile tools run --rm migrate
+```
+
+The API does not apply migrations automatically at startup.
+
 ### 5. Check container health
 
 ```bash
@@ -264,17 +275,23 @@ Create `.env` from `.env.example` and configure the local PostgreSQL connection,
 
 For local development, configure `DB_HOST` as `localhost` and `DB_PORT` as your PostgreSQL port.
 
-### 3. Prepare the database
+### 3. Prepare or upgrade the database
 
-Create the application role and development database using a PostgreSQL administrator account.
+Create the application role and development database using a PostgreSQL
+administrator account. The application database user should not be a
+superuser.
 
-The application database user should not be a superuser.
-
-Apply the schema migration:
+Apply all pending migrations explicitly:
 
 ```bash
-psql -h localhost -U stockflow_app -d stockflow_db -f database/migrations/001_create_stockflow_schema.sql
+npm run db:migrate
 ```
+
+The runner applies all migrations on an empty database, applies only version
+002 when version 001 is recorded, and makes no schema changes when version 002
+is already recorded. It does not erase existing data. A populated database
+without migration history is refused for manual inspection rather than guessed.
+The API never runs migrations automatically at startup.
 
 ### 4. Seed demo data
 
@@ -358,6 +375,7 @@ npm start
 | `npm run build`          | Compile TypeScript                                |
 | `npm start`              | Start compiled production application             |
 | `npm run seed`           | Seed demo data                                    |
+| `npm run db:migrate`     | Apply pending database migrations explicitly      |
 | `npm test`               | Bootstrap test database and run integration tests |
 | `npm run test:db:setup`  | Prepare isolated test database                    |
 | `npm run typecheck`      | Check application TypeScript                      |
@@ -414,7 +432,10 @@ docker compose down
 docker compose down -v
 ```
 
-Use it only when intentionally resetting the Docker database.
+This is not a migration or upgrade step. Never use it to apply schema changes;
+use `npm run db:migrate` locally or the explicit Compose migration service.
+Use `docker compose down -v` only when intentionally deleting the local
+development database and all data stored in its volume.
 
 Additional Docker instructions are available in [DOCKER.md](DOCKER.md).
 

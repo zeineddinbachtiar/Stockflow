@@ -60,6 +60,30 @@ Configure the three `SEED_*_PASSWORD` variables in `.env`, then run:
 docker compose --profile tools run --rm seed
 ```
 
+## Apply or Upgrade Database Migrations
+
+The initialization script discovers and applies all ordered migration files
+when PostgreSQL creates a fresh volume. It does not run again for an existing
+volume. Apply pending migrations to an existing database explicitly:
+
+```powershell
+docker compose --profile tools run --rm migrate
+```
+
+The equivalent local command is `npm run db:migrate`. The application API does
+not run migrations during startup. Each migration records its version and
+description in `schema_migrations` as its final operation; the runner verifies
+that record before committing the transaction. Preserve this convention in
+new migration files. Recorded versions are skipped, and concurrent runners
+are serialized with a PostgreSQL advisory lock. A database at version 001
+receives version 002; a database already at 002 is left unchanged. If
+application tables exist without migration history, the runner refuses to
+guess their version.
+
+Do not use `docker compose down -v` to apply migrations. That command deletes
+the PostgreSQL volume and its data; it is only for an intentional local
+database reset.
+
 ## API Endpoints
 
 - Liveness: http://localhost:3000/api/v1/health
@@ -75,9 +99,10 @@ Stop containers without deleting database data:
 docker compose down
 ```
 
-## Reset the Database
+## Reset the Database (Destructive)
 
-WARNING: This removes the PostgreSQL volume and all data stored in it.
+WARNING: This is not a migration procedure. It removes the PostgreSQL volume
+and all data stored in it.
 
 ```powershell
 docker compose down -v

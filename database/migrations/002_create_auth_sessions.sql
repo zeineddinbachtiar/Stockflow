@@ -1,8 +1,6 @@
 -- StockFlow: authentication session persistence
 -- PostgreSQL 18
 
-BEGIN;
-
 CREATE TABLE auth_sessions (
     id                  UUID PRIMARY KEY,
     user_id             BIGINT NOT NULL
@@ -37,5 +35,3 @@ VALUES (
     '002',
     'Add persistent authentication sessions and refresh token storage'
 );
-
-COMMIT;

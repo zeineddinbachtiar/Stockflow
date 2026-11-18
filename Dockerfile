@@ -47,6 +47,8 @@ COPY --from=build --chown=node:node \
   /app/dist ./dist
 
 COPY --chown=node:node package.json ./package.json
+COPY --chown=node:node scripts/migrate.mjs scripts/migration-runner.mjs ./scripts/
+COPY --chown=node:node database/migrations ./database/migrations
 
 USER node
 

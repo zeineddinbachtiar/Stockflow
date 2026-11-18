@@ -10,6 +10,7 @@
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "seed": "tsx src/scripts/seed.ts",
+    "db:migrate": "node scripts/migrate.mjs",
     "test:typecheck": "tsc --noEmit -p tsconfig.test.json",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

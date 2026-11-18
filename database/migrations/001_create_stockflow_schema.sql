@@ -2,8 +2,6 @@
 -- PostgreSQL 18
 -- Run once against the empty stockflow_db database.
 
-BEGIN;
-
 -- -----------------------------------------------------------------------------
 -- 0. Migration history
 -- -----------------------------------------------------------------------------
@@ -374,5 +372,3 @@ CREATE TRIGGER trg_stock_movements_append_only
 -- Record that this migration has been applied.
 INSERT INTO schema_migrations (version, description)
 VALUES ('001', 'Create initial StockFlow inventory and order management schema');
-
-COMMIT;
