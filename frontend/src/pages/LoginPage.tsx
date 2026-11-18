@@ -6,13 +6,31 @@ import { Navigate, useNavigate } from "react-router";
 import { useAuth } from "../context/useAuth";
 
 export default function LoginPage() {
-  const { isAuthenticated, login } = useAuth();
+  const {
+    isAuthenticated,
+    isInitializing,
+    sessionRecoveryError,
+    retrySessionRecovery,
+    login,
+  } = useAuth();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  if (isInitializing) {
+    return (
+      <main
+        role="status"
+        aria-live="polite"
+        className="flex min-h-screen items-center justify-center p-6 text-sm text-slate-600"
+      >
+        Restoring your session...
+      </main>
+    );
+  }
 
   if (isAuthenticated) {
     return <Navigate to="/" replace />;
@@ -64,6 +82,22 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            {sessionRecoveryError && (
+              <div
+                role="alert"
+                className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+              >
+                <p>{sessionRecoveryError}</p>
+                <button
+                  type="button"
+                  onClick={() => void retrySessionRecovery()}
+                  className="mt-2 font-semibold underline"
+                >
+                  Retry session recovery
+                </button>
+              </div>
+            )}
+
             <div>
               <label
                 htmlFor="email"

@@ -24,6 +24,9 @@ function renderRoleGuard(role: UserRole | null, allowedRoles: UserRole[]) {
     user,
     accessToken: user ? "test-token" : null,
     isAuthenticated: Boolean(user),
+    isInitializing: false,
+    sessionRecoveryError: null,
+    retrySessionRecovery: async () => undefined,
     login: async () => undefined,
     logout: () => undefined,
   };

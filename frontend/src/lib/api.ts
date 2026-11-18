@@ -147,6 +147,8 @@ export async function apiRequest<T>(
       if (error instanceof ApiError && error.status === 401) {
         handlers.onSessionExpired();
       }
+
+      throw error;
     }
   }
 

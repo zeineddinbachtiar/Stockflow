@@ -37,6 +37,9 @@ export function renderWithProviders(
     user,
     accessToken: TEST_TOKEN,
     isAuthenticated: true,
+    isInitializing: false,
+    sessionRecoveryError: null,
+    retrySessionRecovery: async () => undefined,
     login: async () => undefined,
     logout: () => undefined,
   };

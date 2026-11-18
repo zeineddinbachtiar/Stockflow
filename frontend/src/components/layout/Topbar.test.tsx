@@ -31,6 +31,9 @@ function renderTopbar(initialPath = "/products", role: UserRole = "ADMIN") {
     user,
     accessToken: "test-access-token",
     isAuthenticated: true,
+    isInitializing: false,
+    sessionRecoveryError: null,
+    retrySessionRecovery: async () => undefined,
     login: async () => undefined,
     logout,
   };

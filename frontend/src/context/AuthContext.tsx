@@ -56,9 +56,12 @@ function isValidSession(value: unknown): value is AuthSession {
     session.refreshToken.length > 0 &&
     typeof session.expiresAt === "number" &&
     Number.isFinite(session.expiresAt) &&
-    session.expiresAt > Date.now() &&
     isValidUser(session.user)
   );
+}
+
+function hasValidAccessToken(session: AuthSession): boolean {
+  return session.expiresAt > Date.now();
 }
 
 function clearStoredSession() {
@@ -101,9 +104,19 @@ function isValidAuthResult(result: AuthResult): boolean {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<AuthSession | null>(readStoredSession);
-  const sessionRef = useRef<AuthSession | null>(session);
+  const [storedSession] = useState(readStoredSession);
+  const [session, setSession] = useState<AuthSession | null>(() =>
+    storedSession && hasValidAccessToken(storedSession) ? storedSession : null,
+  );
+  const sessionRef = useRef<AuthSession | null>(session ?? storedSession);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recoveryPromiseRef = useRef<Promise<void> | null>(null);
+  const [isInitializing, setIsInitializing] = useState(
+    Boolean(storedSession && !hasValidAccessToken(storedSession)),
+  );
+  const [sessionRecoveryError, setSessionRecoveryError] = useState<
+    string | null
+  >(null);
 
   const updateSession = useCallback((nextSession: AuthSession | null) => {
     sessionRef.current = nextSession;
@@ -185,12 +198,77 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearSession();
   }, [clearSession]);
 
+  const recoverStoredSession = useCallback((): Promise<void> => {
+    if (recoveryPromiseRef.current) {
+      return recoveryPromiseRef.current;
+    }
+
+    const recoveryPromise = (async () => {
+      const currentSession = sessionRef.current;
+
+      if (!currentSession) {
+        setIsInitializing(false);
+        return;
+      }
+
+      setSessionRecoveryError(null);
+
+      if (hasValidAccessToken(currentSession)) {
+        updateSession(currentSession);
+        setIsInitializing(false);
+        return;
+      }
+
+      try {
+        await refreshAccessToken(currentSession.accessToken);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          clearSession();
+        } else {
+          setSessionRecoveryError(
+            error instanceof Error
+              ? error.message
+              : "Unable to restore your session. Please retry.",
+          );
+        }
+      } finally {
+        setIsInitializing(false);
+      }
+    })();
+
+    recoveryPromiseRef.current = recoveryPromise;
+
+    void recoveryPromise.then(
+      () => {
+        if (recoveryPromiseRef.current === recoveryPromise) {
+          recoveryPromiseRef.current = null;
+        }
+      },
+      () => {
+        if (recoveryPromiseRef.current === recoveryPromise) {
+          recoveryPromiseRef.current = null;
+        }
+      },
+    );
+
+    return recoveryPromise;
+  }, [clearSession, refreshAccessToken, updateSession]);
+
+  const retrySessionRecovery = useCallback(() => {
+    setIsInitializing(true);
+    return recoverStoredSession();
+  }, [recoverStoredSession]);
+
   useEffect(() => {
     return registerAuthSessionHandlers({
       refreshAccessToken,
       onSessionExpired,
     });
   }, [onSessionExpired, refreshAccessToken]);
+
+  useEffect(() => {
+    void recoverStoredSession();
+  }, [recoverStoredSession]);
 
   useEffect(() => {
     if (refreshTimerRef.current) {
@@ -244,6 +322,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const currentSession = sessionRef.current;
 
     clearSession();
+    setSessionRecoveryError(null);
 
     if (currentSession) {
       void apiRequest("/auth/logout", {
@@ -275,6 +354,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         expiresAt: Date.now() + result.expiresIn * 1000,
         user: result.user,
       });
+      setSessionRecoveryError(null);
+      setIsInitializing(false);
     },
     [updateSession],
   );
@@ -284,10 +365,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: session?.user ?? null,
       accessToken: session?.accessToken ?? null,
       isAuthenticated: Boolean(session),
+      isInitializing,
+      sessionRecoveryError,
+      retrySessionRecovery,
       login,
       logout,
     }),
-    [session, login, logout],
+    [
+      session,
+      isInitializing,
+      sessionRecoveryError,
+      retrySessionRecovery,
+      login,
+      logout,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

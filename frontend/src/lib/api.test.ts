@@ -152,12 +152,72 @@ describe("apiRequest authentication handling", () => {
         apiRequest("/products", {}, "expired-access-token"),
       ).rejects.toMatchObject({
         status: 401,
-        code: "INVALID_ACCESS_TOKEN",
+        code: "INVALID_REFRESH_TOKEN",
       });
 
       expect(refreshAccessToken).toHaveBeenCalledOnce();
       expect(onSessionExpired).toHaveBeenCalledOnce();
       expect(fetchMock).toHaveBeenCalledOnce();
+    } finally {
+      unregister();
+    }
+  });
+
+  it("preserves network errors from refresh instead of reporting the original 401", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ code: "INVALID_ACCESS_TOKEN" }, 401),
+    );
+
+    const refreshAccessToken = vi
+      .fn()
+      .mockRejectedValue(
+        new ApiError("Network unavailable.", 0, "NETWORK_ERROR"),
+      );
+    const onSessionExpired = vi.fn();
+    const unregister = registerAuthSessionHandlers({
+      refreshAccessToken,
+      onSessionExpired,
+    });
+
+    try {
+      await expect(
+        apiRequest("/products", {}, "expired-access-token"),
+      ).rejects.toMatchObject({
+        status: 0,
+        code: "NETWORK_ERROR",
+      });
+      expect(onSessionExpired).not.toHaveBeenCalled();
+    } finally {
+      unregister();
+    }
+  });
+
+  it("preserves server errors from refresh instead of reporting the original 401", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({ code: "INVALID_ACCESS_TOKEN" }, 401),
+    );
+
+    const refreshAccessToken = vi
+      .fn()
+      .mockRejectedValue(
+        new ApiError("Try again later.", 503, "AUTH_SERVICE_UNAVAILABLE"),
+      );
+    const onSessionExpired = vi.fn();
+    const unregister = registerAuthSessionHandlers({
+      refreshAccessToken,
+      onSessionExpired,
+    });
+
+    try {
+      await expect(
+        apiRequest("/products", {}, "expired-access-token"),
+      ).rejects.toMatchObject({
+        status: 503,
+        code: "AUTH_SERVICE_UNAVAILABLE",
+      });
+      expect(onSessionExpired).not.toHaveBeenCalled();
     } finally {
       unregister();
     }

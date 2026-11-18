@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
+import { StrictMode } from "react";
 
 import { server } from "../test/mocks/server";
 
@@ -55,6 +56,9 @@ function AuthProbe() {
     user: authenticatedUser,
     accessToken,
     isAuthenticated,
+    isInitializing,
+    sessionRecoveryError,
+    retrySessionRecovery,
     login,
     logout,
   } = useAuth();
@@ -85,6 +89,7 @@ function AuthProbe() {
   return (
     <div>
       <output data-testid="authenticated">{String(isAuthenticated)}</output>
+      <output data-testid="initializing">{String(isInitializing)}</output>
 
       <output data-testid="authenticated-email">
         {authenticatedUser?.email ?? "none"}
@@ -94,6 +99,8 @@ function AuthProbe() {
 
       <output data-testid="request-error">{requestError}</output>
 
+      {sessionRecoveryError && <div role="alert">{sessionRecoveryError}</div>}
+
       {error && <div role="alert">{error}</div>}
 
       <button type="button" onClick={handleLogin}>
@@ -102,6 +109,10 @@ function AuthProbe() {
 
       <button type="button" onClick={logout}>
         Logout
+      </button>
+
+      <button type="button" onClick={() => void retrySessionRecovery()}>
+        Retry session recovery
       </button>
 
       <button type="button" onClick={handleProtectedRequest}>
@@ -116,12 +127,14 @@ function UnprovidedAuthProbe() {
   return null;
 }
 
-function renderAuthProvider() {
-  return render(
+function renderAuthProvider(strict = false) {
+  const provider = (
     <AuthProvider>
       <AuthProbe />
-    </AuthProvider>,
+    </AuthProvider>
   );
+
+  return render(strict ? <StrictMode>{provider}</StrictMode> : provider);
 }
 
 describe("AuthContext", () => {
@@ -143,6 +156,13 @@ describe("AuthContext", () => {
 
   it("restores a valid session from sessionStorage", () => {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(storedSession));
+    const refreshHandler = vi.fn();
+    server.use(
+      http.post(`${API_URL}/auth/refresh`, () => {
+        refreshHandler();
+        return HttpResponse.json({ status: "success", data: authResult });
+      }),
+    );
 
     renderAuthProvider();
 
@@ -155,6 +175,160 @@ describe("AuthContext", () => {
     expect(screen.getByTestId("access-token")).toHaveTextContent(
       authResult.accessToken,
     );
+    expect(refreshHandler).not.toHaveBeenCalled();
+  });
+
+  it("refreshes an expired access token before restoring authentication", async () => {
+    const expiredSession = { ...storedSession, expiresAt: Date.now() - 1_000 };
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(expiredSession));
+
+    server.use(
+      http.post(`${API_URL}/auth/refresh`, async ({ request }) => {
+        expect(await request.json()).toEqual({
+          refreshToken: expiredSession.refreshToken,
+        });
+        return HttpResponse.json({
+          status: "success",
+          data: {
+            ...authResult,
+            accessToken: "startup-rotated-access",
+            refreshToken: "startup-rotated-refresh",
+            expiresIn: 1_800,
+          },
+        });
+      }),
+    );
+
+    renderAuthProvider();
+
+    expect(screen.getByTestId("authenticated")).toHaveTextContent("false");
+    expect(await screen.findByTestId("authenticated")).toHaveTextContent(
+      "true",
+    );
+    expect(screen.getByTestId("access-token")).toHaveTextContent(
+      "startup-rotated-access",
+    );
+
+    const persistedSession = JSON.parse(
+      sessionStorage.getItem(SESSION_KEY)!,
+    ) as AuthSession;
+    expect(persistedSession.refreshToken).toBe("startup-rotated-refresh");
+    expect(persistedSession.expiresAt).toBeGreaterThan(Date.now());
+  });
+
+  it("clears an expired session when startup refresh is rejected", async () => {
+    sessionStorage.setItem(
+      SESSION_KEY,
+      JSON.stringify({ ...storedSession, expiresAt: Date.now() - 1_000 }),
+    );
+    server.use(
+      http.post(`${API_URL}/auth/refresh`, () =>
+        HttpResponse.json(
+          {
+            status: "error",
+            code: "INVALID_REFRESH_TOKEN",
+            message: "Refresh token is invalid or expired.",
+          },
+          { status: 401 },
+        ),
+      ),
+    );
+
+    renderAuthProvider();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("initializing")).toHaveTextContent("false");
+      expect(screen.getByTestId("authenticated")).toHaveTextContent("false");
+    });
+    expect(sessionStorage.getItem(SESSION_KEY)).toBeNull();
+  });
+
+  it("keeps the session and allows retry after a startup network failure", async () => {
+    const expiredSession = { ...storedSession, expiresAt: Date.now() - 1_000 };
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(expiredSession));
+    let attempts = 0;
+    server.use(
+      http.post(`${API_URL}/auth/refresh`, () => {
+        attempts += 1;
+        if (attempts === 1) return HttpResponse.error();
+        return HttpResponse.json({
+          status: "success",
+          data: {
+            ...authResult,
+            accessToken: "retried-access-token",
+            refreshToken: "retried-refresh-token",
+          },
+        });
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderAuthProvider();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Cannot connect to StockFlow API",
+    );
+    expect(screen.getByTestId("authenticated")).toHaveTextContent("false");
+    expect(sessionStorage.getItem(SESSION_KEY)).not.toBeNull();
+
+    await user.click(
+      screen.getByRole("button", { name: "Retry session recovery" }),
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("authenticated")).toHaveTextContent("true");
+    });
+    expect(attempts).toBe(2);
+    expect(JSON.parse(sessionStorage.getItem(SESSION_KEY)!).refreshToken).toBe(
+      "retried-refresh-token",
+    );
+  });
+
+  it("keeps an expired session after a startup server error", async () => {
+    const expiredSession = { ...storedSession, expiresAt: Date.now() - 1_000 };
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(expiredSession));
+    server.use(
+      http.post(`${API_URL}/auth/refresh`, () =>
+        HttpResponse.json(
+          {
+            status: "error",
+            code: "SERVICE_UNAVAILABLE",
+            message: "Authentication service is unavailable.",
+          },
+          { status: 503 },
+        ),
+      ),
+    );
+
+    renderAuthProvider();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Authentication service is unavailable.",
+    );
+    expect(screen.getByTestId("authenticated")).toHaveTextContent("false");
+    expect(sessionStorage.getItem(SESSION_KEY)).not.toBeNull();
+  });
+
+  it("shares one startup refresh while effects are mounted in StrictMode", async () => {
+    const expiredSession = { ...storedSession, expiresAt: Date.now() - 1_000 };
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(expiredSession));
+    let attempts = 0;
+    server.use(
+      http.post(`${API_URL}/auth/refresh`, async () => {
+        attempts += 1;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return HttpResponse.json({
+          status: "success",
+          data: { ...authResult, accessToken: "strict-mode-access" },
+        });
+      }),
+    );
+
+    renderAuthProvider(true);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("authenticated")).toHaveTextContent("true");
+    });
+    expect(attempts).toBe(1);
   });
 
   it("removes malformed session data", () => {

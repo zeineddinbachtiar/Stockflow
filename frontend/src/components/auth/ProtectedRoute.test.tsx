@@ -17,11 +17,22 @@ const testUser: AuthUser = {
   createdAt: "2026-01-01T00:00:00.000Z",
 };
 
-function renderProtectedRoute(isAuthenticated: boolean) {
+function renderProtectedRoute(
+  isAuthenticated: boolean,
+  options: {
+    isInitializing?: boolean;
+    sessionRecoveryError?: string | null;
+    retrySessionRecovery?: () => Promise<void>;
+  } = {},
+) {
   const authValue: AuthContextValue = {
     user: isAuthenticated ? testUser : null,
     accessToken: isAuthenticated ? "test-token" : null,
     isAuthenticated,
+    isInitializing: options.isInitializing ?? false,
+    sessionRecoveryError: options.sessionRecoveryError ?? null,
+    retrySessionRecovery:
+      options.retrySessionRecovery ?? (async () => undefined),
     login: async () => undefined,
     logout: () => undefined,
   };
@@ -55,6 +66,31 @@ describe("ProtectedRoute", () => {
 
     expect(screen.getByText("Private content")).toBeInTheDocument();
 
+    expect(screen.queryByText("Login destination")).not.toBeInTheDocument();
+  });
+
+  it("does not render protected content while session recovery is in progress", () => {
+    renderProtectedRoute(false, { isInitializing: true });
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Restoring your session",
+    );
+    expect(screen.queryByText("Private content")).not.toBeInTheDocument();
+    expect(screen.queryByText("Login destination")).not.toBeInTheDocument();
+  });
+
+  it("offers a retry instead of discarding a session after a transient recovery error", () => {
+    renderProtectedRoute(false, {
+      sessionRecoveryError: "Cannot connect to StockFlow API.",
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Cannot connect to StockFlow API.",
+    );
+    expect(
+      screen.getByRole("button", { name: "Retry session recovery" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Private content")).not.toBeInTheDocument();
     expect(screen.queryByText("Login destination")).not.toBeInTheDocument();
   });
 });
