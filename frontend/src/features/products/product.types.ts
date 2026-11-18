@@ -12,6 +12,7 @@ export interface Product {
 }
 
 export interface ProductListParams {
+  categoryId?: string;
   status?: "active" | "inactive";
   search?: string;
   limit: number;

@@ -19,6 +19,10 @@ export async function getProducts(
     offset: String(params.offset),
   });
 
+  if (params.categoryId) {
+    query.set("categoryId", params.categoryId);
+  }
+
   if (params.status) {
     query.set("status", params.status);
   }

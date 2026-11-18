@@ -35,17 +35,19 @@ async function findProductsByStatus(
   isActive: boolean,
 ): Promise<PaginatedRecords<ProductRecord>> {
   const search = query.search ?? null;
+  const categoryId = query.categoryId ?? null;
 
   const countResult = await pool.query<{ total: string }>(
     `SELECT COUNT(*)::text AS total
      FROM products
      WHERE is_active = $1
+       AND ($2::bigint IS NULL OR category_id = $2::bigint)
        AND (
-         $2::text IS NULL
-         OR name ILIKE '%' || $2 || '%'
-         OR sku ILIKE '%' || $2 || '%'
+         $3::text IS NULL
+         OR name ILIKE '%' || $3 || '%'
+         OR sku ILIKE '%' || $3 || '%'
        )`,
-    [isActive, search],
+    [isActive, categoryId, search],
   );
 
   const result = await pool.query<ProductRecord>(
@@ -61,14 +63,15 @@ async function findProductsByStatus(
        updated_at
      FROM products
      WHERE is_active = $1
+       AND ($2::bigint IS NULL OR category_id = $2::bigint)
        AND (
-         $2::text IS NULL
-         OR name ILIKE '%' || $2 || '%'
-         OR sku ILIKE '%' || $2 || '%'
+         $3::text IS NULL
+         OR name ILIKE '%' || $3 || '%'
+         OR sku ILIKE '%' || $3 || '%'
        )
      ORDER BY name ASC, id ASC
-     LIMIT $3 OFFSET $4`,
-    [isActive, search, query.limit, query.offset],
+     LIMIT $4 OFFSET $5`,
+    [isActive, categoryId, search, query.limit, query.offset],
   );
 
   return {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { http, HttpResponse } from "msw";
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router";
 
 import { server } from "../test/mocks/server";
 import { renderWithProviders } from "../test/renderWithProviders";
@@ -111,13 +112,28 @@ function installCategoryHandlers(initial: Category[] = [category]) {
   );
 }
 
+function renderCategoriesPage(
+  role: "ADMIN" | "WAREHOUSE_STAFF" | "SALES_STAFF" = "ADMIN",
+) {
+  return renderWithProviders(
+    <MemoryRouter>
+      <CategoriesPage />
+    </MemoryRouter>,
+    role,
+  );
+}
+
 describe("CategoriesPage", () => {
   it("loads categories and displays ADMIN actions", async () => {
     installCategoryHandlers();
 
-    renderWithProviders(<CategoriesPage />);
+    renderCategoriesPage();
 
     expect(await screen.findByText("Computers")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Computers" })).toHaveAttribute(
+      "href",
+      "/categories/category-001",
+    );
     const categoriesTable = screen.getByRole("table");
     expect(categoriesTable.parentElement).toHaveClass(
       "overflow-x-auto",
@@ -152,7 +168,7 @@ describe("CategoriesPage", () => {
     async (role) => {
       installCategoryHandlers();
 
-      renderWithProviders(<CategoriesPage />, role);
+      renderCategoriesPage(role);
 
       expect(await screen.findByText("Computers")).toBeInTheDocument();
 
@@ -176,7 +192,7 @@ describe("CategoriesPage", () => {
     const user = userEvent.setup();
     installCategoryHandlers();
 
-    renderWithProviders(<CategoriesPage />);
+    renderCategoriesPage();
 
     await screen.findByText("Computers");
 
@@ -198,7 +214,7 @@ describe("CategoriesPage", () => {
     const user = userEvent.setup();
     installCategoryHandlers();
 
-    renderWithProviders(<CategoriesPage />);
+    renderCategoriesPage();
 
     await screen.findByText("Computers");
 
@@ -218,7 +234,7 @@ describe("CategoriesPage", () => {
     const user = userEvent.setup();
     installCategoryHandlers();
 
-    renderWithProviders(<CategoriesPage />);
+    renderCategoriesPage();
 
     await screen.findByText("Computers");
 
@@ -243,7 +259,7 @@ describe("CategoriesPage", () => {
     const user = userEvent.setup();
     installCategoryHandlers();
 
-    renderWithProviders(<CategoriesPage />);
+    renderCategoriesPage();
 
     await screen.findByText("Computers");
 
@@ -269,7 +285,7 @@ describe("CategoriesPage", () => {
 
     installCategoryHandlers(records);
 
-    renderWithProviders(<CategoriesPage />);
+    renderCategoriesPage();
 
     expect(await screen.findByText("Category 1")).toBeInTheDocument();
 
@@ -292,7 +308,7 @@ describe("CategoriesPage", () => {
       ),
     );
 
-    renderWithProviders(<CategoriesPage />);
+    renderCategoriesPage();
 
     expect(
       await screen.findByText("Unable to load categories"),
@@ -319,7 +335,7 @@ describe("CategoriesPage", () => {
       ),
     );
 
-    renderWithProviders(<CategoriesPage />);
+    renderCategoriesPage();
 
     await screen.findByText("Computers");
 
@@ -356,7 +372,7 @@ describe("CategoriesPage", () => {
       ),
     );
 
-    renderWithProviders(<CategoriesPage />);
+    renderCategoriesPage();
 
     await screen.findByText("Computers");
 
@@ -416,7 +432,7 @@ describe("CategoriesPage", () => {
       }),
     );
 
-    renderWithProviders(<CategoriesPage />);
+    renderCategoriesPage();
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Category service is temporarily unavailable.",
@@ -444,7 +460,7 @@ describe("CategoriesPage", () => {
 
     installCategoryHandlers(records);
 
-    renderWithProviders(<CategoriesPage />);
+    renderCategoriesPage();
 
     expect(await screen.findByText("Category 1")).toBeInTheDocument();
 

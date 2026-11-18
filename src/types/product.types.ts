@@ -1,6 +1,7 @@
 import type { PaginationQuery } from "./common.types";
 
 export interface ProductListQuery extends PaginationQuery {
+  categoryId?: string;
   search?: string;
   status?: "active" | "inactive";
 }

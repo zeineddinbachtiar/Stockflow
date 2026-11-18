@@ -48,6 +48,7 @@ describe("Product API", () => {
         receivedAuthorization = request.headers.get("Authorization");
         receivedSearch = url.searchParams.get("search");
 
+        expect(url.searchParams.get("categoryId")).toBe("category-001");
         expect(url.searchParams.get("limit")).toBe("10");
         expect(url.searchParams.get("offset")).toBe("0");
 
@@ -63,6 +64,7 @@ describe("Product API", () => {
     );
 
     const result = await getProducts(TOKEN, {
+      categoryId: "category-001",
       search: " LAP-001 ",
       limit: 10,
       offset: 0,

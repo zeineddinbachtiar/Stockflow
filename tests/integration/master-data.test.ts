@@ -746,6 +746,122 @@ test("product list supports case-insensitive search by name and SKU", async () =
   assert.equal(emptySearchBody.data.products.length, 0);
 });
 
+test("product list filters category before search, count, and pagination", async () => {
+  const category = await createCategoryFixture();
+  const otherCategory = await createCategoryFixture();
+  const uniquePart = runId.slice(0, 8);
+
+  async function createProductFixture(
+    categoryId: string,
+    suffix: string,
+    name: string,
+  ): Promise<ProductResource> {
+    const response = await request(app)
+      .post("/api/v1/products")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        categoryId,
+        sku: `CAT-${uniquePart}-${suffix}`,
+        name,
+        unitPrice: "100",
+      });
+
+    expectStatus(response, 201);
+
+    const product = getResource<ProductResource>(response, "product");
+    createdProductIds.push(product.id);
+    return product;
+  }
+
+  const alpha = await createProductFixture(
+    category.id,
+    "A",
+    `Category Filter ${uniquePart} Alpha`,
+  );
+  const beta = await createProductFixture(
+    category.id,
+    "B",
+    `Category Filter ${uniquePart} Beta`,
+  );
+  await createProductFixture(
+    otherCategory.id,
+    "C",
+    `Category Filter ${uniquePart} Gamma`,
+  );
+
+  const firstPageResponse = await request(app)
+    .get("/api/v1/products")
+    .query({
+      categoryId: category.id,
+      search: uniquePart.toLowerCase(),
+      limit: 1,
+      offset: 0,
+    })
+    .set("Authorization", `Bearer ${adminToken}`);
+
+  expectStatus(firstPageResponse, 200);
+
+  const firstPage = firstPageResponse.body.data as {
+    products: ProductResource[];
+    total: number;
+  };
+  assert.equal(firstPage.total, 2);
+  assert.deepEqual(
+    firstPage.products.map((product) => product.id),
+    [alpha.id],
+  );
+
+  const secondPageResponse = await request(app)
+    .get("/api/v1/products")
+    .query({
+      categoryId: category.id,
+      search: uniquePart.toLowerCase(),
+      limit: 1,
+      offset: 1,
+    })
+    .set("Authorization", `Bearer ${adminToken}`);
+
+  expectStatus(secondPageResponse, 200);
+
+  const secondPage = secondPageResponse.body.data as {
+    products: ProductResource[];
+    total: number;
+  };
+  assert.equal(secondPage.total, 2);
+  assert.deepEqual(
+    secondPage.products.map((product) => product.id),
+    [beta.id],
+  );
+  assert.ok(
+    [...firstPage.products, ...secondPage.products].every(
+      (product) => product.categoryId === category.id,
+    ),
+  );
+});
+
+test("product list returns an empty result for a valid nonexistent category ID", async () => {
+  const missingCategoryId = "9223372036854775807";
+  const categoryExists = await pool.query<{ category_exists: boolean }>(
+    "SELECT EXISTS (SELECT 1 FROM categories WHERE id = $1::bigint) AS category_exists",
+    [missingCategoryId],
+  );
+  assert.equal(categoryExists.rows[0]?.category_exists, false);
+
+  const response = await request(app)
+    .get("/api/v1/products")
+    .query({ categoryId: missingCategoryId })
+    .set("Authorization", `Bearer ${adminToken}`);
+
+  expectStatus(response, 200);
+
+  const result = response.body.data as {
+    products: ProductResource[];
+    total: number;
+  };
+  assert.deepEqual(result.products, []);
+  assert.equal(result.total, 0);
+});
+
 test("product list applies default pagination and rejects invalid parameters", async () => {
   const defaultResponse = await request(app)
     .get("/api/v1/products")
@@ -778,6 +894,11 @@ test("product list applies default pagination and rejects invalid parameters", a
     "offset=1.5",
     "offset=1000001",
     `search=${"a".repeat(101)}`,
+    "categoryId=-1",
+    "categoryId=0",
+    "categoryId=abc",
+    "categoryId=1.5",
+    "categoryId=9223372036854775808",
   ];
 
   for (const query of invalidQueries) {

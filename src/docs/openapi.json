@@ -510,6 +510,18 @@
             "$ref": "#/components/parameters/Offset"
           },
           {
+            "name": "categoryId",
+            "in": "query",
+            "required": false,
+            "description": "Filter products by a category ID from 1 through 9223372036854775807 (positive PostgreSQL BIGINT).",
+            "schema": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "maxLength": 19,
+              "example": "1"
+            }
+          },
+          {
             "name": "search",
             "in": "query",
             "required": false,

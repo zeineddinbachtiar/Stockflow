@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router";
 import {
   AlertCircle,
   Ban,
@@ -289,9 +290,12 @@ export default function CategoriesPage() {
                               <Tags size={19} />
                             </div>
 
-                            <p className="font-semibold text-slate-800">
+                            <Link
+                              to={`/categories/${encodeURIComponent(category.id)}`}
+                              className="font-semibold text-blue-700 hover:text-blue-900 hover:underline"
+                            >
                               {category.name}
-                            </p>
+                            </Link>
                           </div>
                         </td>
 

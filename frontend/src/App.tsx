@@ -9,6 +9,7 @@ import LoginPage from "./pages/LoginPage";
 import PlaceholderPage from "./pages/PlaceholderPage";
 import ProductsPage from "./pages/ProductsPage";
 import CategoriesPage from "./pages/CategoriesPage";
+import CategoryDetailPage from "./pages/CategoryDetailPage";
 import CustomersPage from "./pages/CustomersPage";
 import InventoryPage from "./pages/InventoryPage";
 import StockMovementsPage from "./pages/StockMovementsPage";
@@ -28,6 +29,8 @@ function App() {
             <Route path="products" element={<ProductsPage />} />
 
             <Route path="categories" element={<CategoriesPage />} />
+
+            <Route path="categories/:id" element={<CategoryDetailPage />} />
 
             <Route path="warehouses" element={<WarehousesPage />} />
 

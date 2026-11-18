@@ -34,6 +34,23 @@ interface AuthOpenApiDocument {
   };
 }
 
+interface ProductListOpenApiDocument {
+  paths: Record<
+    string,
+    {
+      get?: {
+        parameters?: Array<{
+          name: string;
+          in: string;
+          required?: boolean;
+          description?: string;
+          schema?: Record<string, unknown>;
+        }>;
+      };
+    }
+  >;
+}
+
 test("OpenAPI endpoint exposes the complete API specification", async () => {
   const response = await request(app).get("/api/v1/openapi.json");
 
@@ -60,6 +77,23 @@ test("OpenAPI endpoint exposes the complete API specification", async () => {
     response.body.components.securitySchemes.bearerAuth.scheme,
     "bearer",
   );
+});
+
+test("OpenAPI documents product category filtering", async () => {
+  const response = await request(app).get("/api/v1/openapi.json");
+  const openApi = response.body as ProductListOpenApiDocument;
+  const parameters = openApi.paths["/products"]?.get?.parameters ?? [];
+  const categoryId = parameters.find(
+    (parameter) => parameter.name === "categoryId",
+  );
+
+  assert.ok(categoryId);
+  assert.equal(categoryId.in, "query");
+  assert.equal(categoryId.required, false);
+  assert.equal(categoryId.schema?.type, "string");
+  assert.equal(categoryId.schema?.pattern, "^[1-9][0-9]*$");
+  assert.equal(categoryId.schema?.maxLength, 19);
+  assert.match(String(categoryId.description), /1 through 9223372036854775807/);
 });
 
 test("OpenAPI documents authentication session requests and responses accurately", async () => {
