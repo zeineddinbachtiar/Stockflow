@@ -432,6 +432,17 @@
               "type": "string",
               "maxLength": 100
             }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Product lifecycle status to list. Defaults to active; inactive products are visible only to ADMIN.",
+            "schema": {
+              "type": "string",
+              "enum": ["active", "inactive"],
+              "default": "active"
+            }
           }
         ],
         "responses": {
@@ -450,6 +461,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
           },
           "500": {
             "$ref": "#/components/responses/InternalServerError"
@@ -603,6 +617,46 @@
         "operationId": "deactivateProduct",
         "summary": "Deactivate a product",
         "description": "**Allowed roles:** ADMIN.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Id"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/products/{id}/reactivate": {
+      "patch": {
+        "tags": ["Products"],
+        "operationId": "reactivateProduct",
+        "summary": "Reactivate a product",
+        "description": "**Allowed roles:** ADMIN. Reactivation makes the product available for new inventory operations and orders.",
         "parameters": [
           {
             "$ref": "#/components/parameters/Id"

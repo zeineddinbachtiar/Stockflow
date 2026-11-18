@@ -58,10 +58,11 @@ function installProductHandlers(initial: Product[] = [product]) {
       const limit = Number(url.searchParams.get("limit") ?? 10);
       const offset = Number(url.searchParams.get("offset") ?? 0);
       const search = url.searchParams.get("search")?.toLowerCase() ?? "";
+      const status = url.searchParams.get("status") ?? "active";
 
       const filtered = records.filter(
         (item) =>
-          item.isActive &&
+          item.isActive === (status === "active") &&
           (!search ||
             item.name.toLowerCase().includes(search) ||
             item.sku.toLowerCase().includes(search)),
@@ -142,6 +143,26 @@ function installProductHandlers(initial: Product[] = [product]) {
       const updated = {
         ...records[index]!,
         isActive: false,
+      };
+
+      records[index] = updated;
+
+      return HttpResponse.json(success({ product: updated }));
+    }),
+
+    http.patch(`${API_URL}/products/:id/reactivate`, ({ params }) => {
+      const index = records.findIndex((item) => item.id === params.id);
+
+      if (index === -1) {
+        return HttpResponse.json(
+          { message: "Product not found." },
+          { status: 404 },
+        );
+      }
+
+      const updated = {
+        ...records[index]!,
+        isActive: true,
       };
 
       records[index] = updated;
@@ -311,6 +332,60 @@ describe("ProductsPage", () => {
 
     expect(await screen.findByText("Business Laptop")).toBeInTheDocument();
   });
+
+  it("lets ADMIN browse inactive products and reactivate after confirmation", async () => {
+    const user = userEvent.setup();
+    const inactiveProduct = { ...product, isActive: false };
+    installProductHandlers([inactiveProduct]);
+
+    renderWithProviders(<ProductsPage />);
+
+    await user.click(await screen.findByRole("button", { name: "Inactive" }));
+
+    expect(await screen.findByText("Business Laptop")).toBeInTheDocument();
+    expect(
+      screen.getByText("Inactive", { selector: "span" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Reactivate Business Laptop" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Edit Business Laptop" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Deactivate Business Laptop" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Reactivate Business Laptop" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Reactivate product" }),
+    );
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Product reactivated successfully.",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Active" }));
+    expect(await screen.findByText("Business Laptop")).toBeInTheDocument();
+  });
+
+  it.each(["WAREHOUSE_STAFF", "SALES_STAFF"] as const)(
+    "%s cannot browse or reactivate inactive products",
+    async (role) => {
+      installProductHandlers([{ ...product, isActive: false }]);
+
+      renderWithProviders(<ProductsPage />, role);
+
+      expect(
+        screen.queryByRole("button", { name: "Inactive" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /Reactivate/ }),
+      ).not.toBeInTheDocument();
+    },
+  );
 
   it("opens product details", async () => {
     const user = userEvent.setup();

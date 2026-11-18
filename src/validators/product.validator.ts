@@ -70,6 +70,7 @@ const unitPriceSchema = z
 
 export const productListQuerySchema = paginationQuerySchema
   .extend({
+    status: z.enum(["active", "inactive"]).optional(),
     search: z
       .string()
       .trim()

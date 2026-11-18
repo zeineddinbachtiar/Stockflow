@@ -19,6 +19,10 @@ export async function getProducts(
     offset: String(params.offset),
   });
 
+  if (params.status) {
+    query.set("status", params.status);
+  }
+
   if (params.search?.trim()) {
     query.set("search", params.search.trim());
   }
@@ -97,6 +101,21 @@ export async function deactivateProduct(
 ): Promise<Product> {
   const response = await apiRequest<ApiEnvelope<{ product: Product }>>(
     `/products/${encodeURIComponent(id)}/deactivate`,
+    {
+      method: "PATCH",
+    },
+    accessToken,
+  );
+
+  return response.data.product;
+}
+
+export async function reactivateProduct(
+  accessToken: string,
+  id: string,
+): Promise<Product> {
+  const response = await apiRequest<ApiEnvelope<{ product: Product }>>(
+    `/products/${encodeURIComponent(id)}/reactivate`,
     {
       method: "PATCH",
     },

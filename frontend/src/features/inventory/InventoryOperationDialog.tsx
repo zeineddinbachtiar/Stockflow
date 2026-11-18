@@ -1,6 +1,6 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import type { FormEvent } from "react";
-import useModalDialog from "../../components/ui/useModalDialog";
+import ModalDialog from "../../components/ui/ModalDialog";
 import QueryStateMessage from "../../components/ui/QueryStateMessage";
 import type { Product } from "../products/product.types";
 import type { Warehouse } from "../warehouses/warehouse.types";
@@ -56,9 +56,6 @@ export default function InventoryOperationDialog({
   onClose,
   onSubmit,
 }: InventoryOperationDialogProps) {
-  const dialogRef = useRef<HTMLDivElement>(null);
-  useModalDialog(dialogRef, onClose);
-
   const [warehouseId, setWarehouseId] = useState(inventory?.warehouseId ?? "");
   const [productId, setProductId] = useState(inventory?.productId ?? "");
   const [quantity, setQuantity] = useState("");
@@ -69,14 +66,16 @@ export default function InventoryOperationDialog({
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const isReorder = mode === "reorder";
+  const isInactiveClearance =
+    Boolean(inventory && !inventory.productIsActive) &&
+    (mode === "issue" || mode === "adjustment");
   const optionsUnavailable =
     !isReorder &&
     (warehousesLoading ||
-      productsLoading ||
       Boolean(warehousesError) ||
-      Boolean(productsError) ||
       warehouses.length === 0 ||
-      products.length === 0);
+      (!isInactiveClearance &&
+        (productsLoading || Boolean(productsError) || products.length === 0)));
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -117,6 +116,13 @@ export default function InventoryOperationDialog({
         return;
       }
 
+      if (isInactiveClearance && delta > 0) {
+        setValidationError(
+          "Inactive products only allow negative stock adjustments.",
+        );
+        return;
+      }
+
       if (!reason.trim()) {
         setValidationError("A reason is required for an adjustment.");
         return;
@@ -140,86 +146,106 @@ export default function InventoryOperationDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="inventory-operation-title"
-        aria-describedby="inventory-operation-description"
-        className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
-      >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2
-              id="inventory-operation-title"
-              className="text-xl font-bold text-slate-900"
-            >
-              {titles[mode]}
-            </h2>
-            <p
-              id="inventory-operation-description"
-              className="mt-1 text-sm text-slate-500"
-            >
-              {isReorder
-                ? `Update ${inventory?.productName ?? "this inventory balance"}.`
-                : "Record the stock movement using the active warehouse and product."}
-            </p>
-          </div>
+    <ModalDialog
+      title={titles[mode]}
+      closeLabel="Close inventory operation"
+      closeDisabled={isSubmitting}
+      description={
+        isInactiveClearance
+          ? `Clear remaining stock for inactive product ${inventory?.productSku} — ${inventory?.productName}.`
+          : isReorder
+            ? `Update ${inventory?.productName ?? "this inventory balance"}.`
+            : "Record the stock movement using the active warehouse and product."
+      }
+      onClose={onClose}
+      maxWidth="max-w-lg"
+      footer={
+        <>
           <button
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="text-slate-400 hover:text-slate-700"
-            aria-label="Close dialog"
+            className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-40"
           >
-            ×
+            Cancel
           </button>
-        </div>
+          <button
+            type="submit"
+            form="inventory-operation-form"
+            disabled={isSubmitting || optionsUnavailable}
+            className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isSubmitting ? "Saving..." : "Save"}
+          </button>
+        </>
+      }
+    >
+      <form
+        id="inventory-operation-form"
+        onSubmit={submit}
+        className="space-y-4"
+      >
+        {!isReorder && (
+          <>
+            <label className="block text-sm font-semibold text-slate-700">
+              Warehouse
+              <select
+                value={warehouseId}
+                onChange={(event) => setWarehouseId(event.target.value)}
+                disabled={
+                  isSubmitting || optionsUnavailable || isInactiveClearance
+                }
+                className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:bg-slate-50"
+              >
+                <option value="">Select warehouse</option>
+                {warehouses.map((warehouse) => (
+                  <option key={warehouse.id} value={warehouse.id}>
+                    {warehouse.code} — {warehouse.name}
+                  </option>
+                ))}
+              </select>
+              <QueryStateMessage
+                resource="warehouses"
+                isLoading={warehousesLoading}
+                isError={Boolean(warehousesError)}
+                isEmpty={warehouses.length === 0}
+                errorMessage={warehousesError ?? undefined}
+                onRetry={onRetryWarehouses}
+              />
+            </label>
 
-        <form onSubmit={submit} className="mt-6 space-y-4">
-          {!isReorder && (
-            <>
-              <label className="block text-sm font-medium text-slate-700">
-                Warehouse
-                <select
-                  value={warehouseId}
-                  onChange={(event) => setWarehouseId(event.target.value)}
-                  disabled={isSubmitting || optionsUnavailable}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                >
-                  <option value="">Select warehouse</option>
-                  {warehouses.map((warehouse) => (
-                    <option key={warehouse.id} value={warehouse.id}>
-                      {warehouse.code} — {warehouse.name}
+            <label className="block text-sm font-semibold text-slate-700">
+              Product
+              <select
+                value={productId}
+                onChange={(event) => setProductId(event.target.value)}
+                disabled={
+                  isSubmitting || optionsUnavailable || isInactiveClearance
+                }
+                className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:bg-slate-50"
+              >
+                <option value="">Select product</option>
+                {products.map((product) => (
+                  <option key={product.id} value={product.id}>
+                    {product.sku} — {product.name}
+                  </option>
+                ))}
+                {isInactiveClearance &&
+                  inventory &&
+                  !products.some(
+                    (product) => product.id === inventory.productId,
+                  ) && (
+                    <option value={inventory.productId}>
+                      {inventory.productSku} — {inventory.productName}{" "}
+                      (Inactive)
                     </option>
-                  ))}
-                </select>
-                <QueryStateMessage
-                  resource="warehouses"
-                  isLoading={warehousesLoading}
-                  isError={Boolean(warehousesError)}
-                  isEmpty={warehouses.length === 0}
-                  errorMessage={warehousesError ?? undefined}
-                  onRetry={onRetryWarehouses}
-                />
-              </label>
-
-              <label className="block text-sm font-medium text-slate-700">
-                Product
-                <select
-                  value={productId}
-                  onChange={(event) => setProductId(event.target.value)}
-                  disabled={isSubmitting || optionsUnavailable}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                >
-                  <option value="">Select product</option>
-                  {products.map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.sku} — {product.name}
-                    </option>
-                  ))}
-                </select>
+                  )}
+              </select>
+              {isInactiveClearance ? (
+                <p className="mt-1.5 text-xs font-medium text-amber-700">
+                  Inactive product — only stock clearance is allowed.
+                </p>
+              ) : (
                 <QueryStateMessage
                   resource="products"
                   isLoading={productsLoading}
@@ -228,72 +254,55 @@ export default function InventoryOperationDialog({
                   errorMessage={productsError ?? undefined}
                   onRetry={onRetryProducts}
                 />
-              </label>
-            </>
-          )}
+              )}
+            </label>
+          </>
+        )}
 
-          <label className="block text-sm font-medium text-slate-700">
-            {isReorder
-              ? "Reorder level"
-              : mode === "adjustment"
-                ? "Quantity delta"
-                : "Quantity"}
-            <input
-              type="number"
-              min={mode === "adjustment" ? undefined : 0}
-              step="1"
-              value={isReorder ? reorderLevel : quantity}
-              onChange={(event) =>
-                isReorder
-                  ? setReorderLevel(event.target.value)
-                  : setQuantity(event.target.value)
-              }
-              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+        <label className="block text-sm font-semibold text-slate-700">
+          {isReorder
+            ? "Reorder level"
+            : mode === "adjustment"
+              ? "Quantity delta"
+              : "Quantity"}
+          <input
+            type="number"
+            min={mode === "adjustment" ? undefined : 0}
+            max={isInactiveClearance && mode === "adjustment" ? 0 : undefined}
+            step="1"
+            value={isReorder ? reorderLevel : quantity}
+            onChange={(event) =>
+              isReorder
+                ? setReorderLevel(event.target.value)
+                : setQuantity(event.target.value)
+            }
+            className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:bg-slate-50"
+          />
+        </label>
+
+        {!isReorder && (
+          <label className="block text-sm font-semibold text-slate-700">
+            Reason {mode === "adjustment" ? "(required)" : "(optional)"}
+            <textarea
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              rows={3}
+              maxLength={2000}
+              className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:bg-slate-50"
             />
           </label>
+        )}
 
-          {!isReorder && (
-            <label className="block text-sm font-medium text-slate-700">
-              Reason {mode === "adjustment" ? "(required)" : "(optional)"}
-              <textarea
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-                rows={3}
-                maxLength={2000}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-              />
-            </label>
-          )}
-
-          {(validationError || submitError) && (
-            <p
-              role="alert"
-              aria-live="assertive"
-              className="rounded-lg bg-red-50 p-3 text-sm text-red-700"
-            >
-              {validationError ?? submitError}
-            </p>
-          )}
-
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting || optionsUnavailable}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-            >
-              {isSubmitting ? "Saving..." : "Save"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        {(validationError || submitError) && (
+          <p
+            role="alert"
+            aria-live="assertive"
+            className="rounded-lg bg-red-50 p-3 text-sm text-red-700"
+          >
+            {validationError ?? submitError}
+          </p>
+        )}
+      </form>
+    </ModalDialog>
   );
 }

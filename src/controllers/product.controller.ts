@@ -7,6 +7,7 @@ import {
   deactivateExistingProduct,
   getAllProducts,
   getProductById,
+  reactivateExistingProduct,
   updateExistingProduct,
 } from "../services/product.service";
 
@@ -43,6 +44,14 @@ export const listProducts: RequestHandler = async (req, res) => {
         field: issue.path.map(String).join("."),
         message: issue.message,
       })),
+    );
+  }
+
+  if (parsed.data.status === "inactive" && req.user?.role !== "ADMIN") {
+    throw new AppError(
+      403,
+      "FORBIDDEN",
+      "Only ADMIN can list inactive products.",
     );
   }
 
@@ -116,6 +125,23 @@ export const deactivateProductController: RequestHandler = async (req, res) => {
   res.status(200).json({
     status: "success",
     message: "Product deactivated successfully.",
+    data: {
+      product,
+    },
+  });
+};
+
+/**
+ * PATCH /api/v1/products/:id/reactivate
+ */
+export const reactivateProductController: RequestHandler = async (req, res) => {
+  const productId = getProductId(req.params.id);
+
+  const product = await reactivateExistingProduct(productId);
+
+  res.status(200).json({
+    status: "success",
+    message: "Product reactivated successfully.",
     data: {
       product,
     },

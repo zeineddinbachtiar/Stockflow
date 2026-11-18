@@ -6,9 +6,10 @@ import {
   findAllInventory,
   findInventoryById,
   findInventoryByIdWithClient,
-  lockActiveProduct,
+  lockProduct,
   lockActiveWarehouse,
   lockInventoryBalance,
+  lockProductForInventory,
   updateInventoryQuantity,
   updateInventoryReorderLevel,
 } from "../repositories/inventory.repositories";
@@ -114,14 +115,28 @@ async function executeStockMovement(
     }
 
     // Step 2: Lock and validate the active product.
-    const productIsActive = await lockActiveProduct(client, productId);
+    const product = await lockProduct(client, productId);
 
-    if (!productIsActive) {
-      throw new AppError(404, "PRODUCT_NOT_FOUND", "Active product not found.");
+    if (!product) {
+      throw new AppError(404, "PRODUCT_NOT_FOUND", "Product not found.");
     }
 
-    // Step 3: Ensure the inventory row exists.
-    await ensureInventoryRow(client, warehouseId, productId);
+    const isStockClearance =
+      movementType === "ISSUE" ||
+      (movementType === "ADJUSTMENT" && quantityDelta < 0);
+
+    if (!product.is_active && !isStockClearance) {
+      throw new AppError(
+        409,
+        "PRODUCT_INACTIVE",
+        "Inactive products only allow stock clearance.",
+      );
+    }
+
+    // Inactive products can only be cleared from an existing warehouse balance.
+    if (product.is_active) {
+      await ensureInventoryRow(client, warehouseId, productId);
+    }
 
     // Step 4: Lock the inventory balance.
     const currentInventory = await lockInventoryBalance(
@@ -134,7 +149,7 @@ async function executeStockMovement(
       throw new AppError(
         404,
         "INVENTORY_NOT_FOUND",
-        "Inventory record could not be created.",
+        "Inventory record not found.",
       );
     }
 
@@ -280,25 +295,60 @@ export async function updateReorderLevel(
   id: string,
   reorderLevel: number,
 ): Promise<PublicInventory> {
-  const updated = await updateInventoryReorderLevel(id, reorderLevel);
+  const client = await pool.connect();
 
-  if (!updated) {
-    throw new AppError(
-      404,
-      "INVENTORY_NOT_FOUND",
-      "Inventory record not found.",
-    );
+  try {
+    await client.query("BEGIN");
+
+    const product = await lockProductForInventory(client, id);
+
+    if (!product) {
+      throw new AppError(
+        404,
+        "INVENTORY_NOT_FOUND",
+        "Inventory record not found.",
+      );
+    }
+
+    if (!product.is_active) {
+      throw new AppError(
+        409,
+        "PRODUCT_INACTIVE",
+        "Inactive products cannot have their reorder level changed.",
+      );
+    }
+
+    const updated = await updateInventoryReorderLevel(client, id, reorderLevel);
+
+    if (!updated) {
+      throw new AppError(
+        404,
+        "INVENTORY_NOT_FOUND",
+        "Inventory record not found.",
+      );
+    }
+
+    const inventory = await findInventoryByIdWithClient(client, updated.id);
+
+    if (!inventory) {
+      throw new AppError(
+        404,
+        "INVENTORY_NOT_FOUND",
+        "Inventory record not found.",
+      );
+    }
+
+    await client.query("COMMIT");
+    return toPublicInventory(inventory);
+  } catch (error: unknown) {
+    try {
+      await client.query("ROLLBACK");
+    } catch {
+      // Preserve the original error if rollback also fails.
+    }
+
+    throw error;
+  } finally {
+    client.release();
   }
-
-  const inventory = await findInventoryById(updated.id);
-
-  if (!inventory) {
-    throw new AppError(
-      404,
-      "INVENTORY_NOT_FOUND",
-      "Inventory record not found.",
-    );
-  }
-
-  return toPublicInventory(inventory);
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { http, HttpResponse } from "msw";
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { server } from "../test/mocks/server";
@@ -54,9 +54,14 @@ const inventory: InventoryBalance = {
 
 const success = <T,>(data: T) => ({ status: "success" as const, data });
 
-function installInventoryHandlers() {
-  let current = { ...inventory };
+function installInventoryHandlers(
+  initialInventory: InventoryBalance = inventory,
+  availableProducts: Product[] = [product],
+) {
+  let current = { ...initialInventory };
   let receiptPayload: unknown;
+  let issuePayload: unknown;
+  let adjustmentPayload: unknown;
 
   server.use(
     http.get(`${API_URL}/inventory`, () =>
@@ -74,12 +79,39 @@ function installInventoryHandlers() {
     ),
     http.get(`${API_URL}/products`, () =>
       HttpResponse.json(
-        success({ products: [product], total: 1, limit: 100, offset: 0 }),
+        success({
+          products: availableProducts,
+          total: availableProducts.length,
+          limit: 100,
+          offset: 0,
+        }),
       ),
     ),
     http.post(`${API_URL}/inventory/receipts`, async ({ request }) => {
       receiptPayload = await request.json();
       current = { ...current, quantityOnHand: current.quantityOnHand + 4 };
+      return HttpResponse.json(success({ inventory: current, movement: {} }), {
+        status: 201,
+      });
+    }),
+    http.post(`${API_URL}/inventory/issues`, async ({ request }) => {
+      issuePayload = await request.json();
+      const payload = issuePayload as { quantity: number };
+      current = {
+        ...current,
+        quantityOnHand: current.quantityOnHand - payload.quantity,
+      };
+      return HttpResponse.json(success({ inventory: current, movement: {} }), {
+        status: 201,
+      });
+    }),
+    http.post(`${API_URL}/inventory/adjustments`, async ({ request }) => {
+      adjustmentPayload = await request.json();
+      const payload = adjustmentPayload as { quantityDelta: number };
+      current = {
+        ...current,
+        quantityOnHand: current.quantityOnHand + payload.quantityDelta,
+      };
       return HttpResponse.json(success({ inventory: current, movement: {} }), {
         status: 201,
       });
@@ -94,7 +126,11 @@ function installInventoryHandlers() {
     ),
   );
 
-  return { getReceiptPayload: () => receiptPayload };
+  return {
+    getReceiptPayload: () => receiptPayload,
+    getIssuePayload: () => issuePayload,
+    getAdjustmentPayload: () => adjustmentPayload,
+  };
 }
 
 describe("InventoryPage", () => {
@@ -170,6 +206,126 @@ describe("InventoryPage", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Adjust" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows inactive balances and allows issue clearance from the inventory row", async () => {
+    const user = userEvent.setup();
+    const inactiveInventory: InventoryBalance = {
+      ...inventory,
+      productId: "product-inactive",
+      productSku: "OLD-001",
+      productName: "Retired Laptop",
+      productIsActive: false,
+      quantityOnHand: 5,
+    };
+    const handlers = installInventoryHandlers(inactiveInventory);
+
+    renderWithProviders(<InventoryPage />);
+
+    expect(await screen.findByText("Retired Laptop")).toBeInTheDocument();
+    expect(
+      screen.getByText("Inactive", { selector: "span" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Issue" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Adjust" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: "Update reorder level for Retired Laptop",
+      }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Issue" }));
+    const dialog = screen.getByRole("dialog");
+    const selects = dialog.querySelectorAll("select");
+    expect(selects[1]).toHaveValue(inactiveInventory.productId);
+    expect(selects[1]).toBeDisabled();
+    expect(dialog).toHaveTextContent(
+      "Inactive product — only stock clearance is allowed.",
+    );
+    expect(dialog).toHaveTextContent("OLD-001 — Retired Laptop (Inactive)");
+
+    await user.type(dialog.querySelector("input[type=number]")!, "2");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await user.click(screen.getByRole("button", { name: "Issue stock" }));
+
+    await waitFor(() =>
+      expect(handlers.getIssuePayload()).toMatchObject({
+        productId: inactiveInventory.productId,
+        warehouseId: inactiveInventory.warehouseId,
+        quantity: 2,
+      }),
+    );
+  });
+
+  it("allows negative adjustment but blocks positive adjustment for inactive products", async () => {
+    const user = userEvent.setup();
+    const inactiveInventory: InventoryBalance = {
+      ...inventory,
+      productId: "product-inactive",
+      productSku: "OLD-001",
+      productName: "Retired Laptop",
+      productIsActive: false,
+      quantityOnHand: 5,
+    };
+    const handlers = installInventoryHandlers(inactiveInventory);
+
+    renderWithProviders(<InventoryPage />);
+    await screen.findByText("Retired Laptop");
+
+    await user.click(screen.getByRole("button", { name: "Adjust" }));
+    let dialog = screen.getByRole("dialog");
+    let quantityInput = dialog.querySelector("input[type=number]")!;
+    expect(quantityInput).toHaveAttribute("max", "0");
+    await user.type(quantityInput, "-2");
+    await user.type(dialog.querySelector("textarea")!, "Clearance");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await user.click(screen.getByRole("button", { name: "Apply adjustment" }));
+
+    await waitFor(() =>
+      expect(handlers.getAdjustmentPayload()).toMatchObject({
+        productId: inactiveInventory.productId,
+        warehouseId: inactiveInventory.warehouseId,
+        quantityDelta: -2,
+        reason: "Clearance",
+      }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Adjust" }));
+    dialog = screen.getByRole("dialog");
+    quantityInput = dialog.querySelector("input[type=number]")!;
+    fireEvent.change(quantityInput, { target: { value: "2" } });
+    fireEvent.submit(dialog.querySelector("form")!);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Inactive products only allow negative stock adjustments.",
+    );
+    expect(
+      screen.queryByRole("button", { name: "Apply adjustment" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not offer inactive products as receipt options", async () => {
+    const user = userEvent.setup();
+    const inactiveInventory: InventoryBalance = {
+      ...inventory,
+      productId: "product-inactive",
+      productSku: "OLD-001",
+      productName: "Retired Laptop",
+      productIsActive: false,
+    };
+    installInventoryHandlers(inactiveInventory);
+
+    renderWithProviders(<InventoryPage />);
+    await screen.findByText("Retired Laptop");
+
+    await user.click(screen.getByRole("button", { name: /Receive Stock/ }));
+    const dialog = screen.getByRole("dialog");
+    expect(
+      within(dialog).getByRole("option", { name: /LAP-001/ }),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("option", { name: /OLD-001|Retired Laptop/ }),
     ).not.toBeInTheDocument();
   });
 

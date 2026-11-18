@@ -8,6 +8,7 @@ import {
   getCategories,
   getProductById,
   getProducts,
+  reactivateProduct,
   updateProduct,
 } from "./product.api";
 import type { Product } from "./product.types";
@@ -192,5 +193,25 @@ describe("Product API", () => {
     const result = await deactivateProduct(TOKEN, product.id);
 
     expect(result.isActive).toBe(false);
+  });
+
+  it("reactivates a product", async () => {
+    server.use(
+      http.patch(`${API_URL}/products/:id/reactivate`, ({ params }) => {
+        expect(params.id).toBe(product.id);
+        return HttpResponse.json(
+          envelope({
+            product: {
+              ...product,
+              isActive: true,
+            },
+          }),
+        );
+      }),
+    );
+
+    await expect(reactivateProduct(TOKEN, product.id)).resolves.toMatchObject({
+      isActive: true,
+    });
   });
 });

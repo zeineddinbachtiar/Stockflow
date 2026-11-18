@@ -1,9 +1,12 @@
+import { pool } from "../config/database";
 import {
   createProduct,
-  deactivateProduct,
   findAllActiveProducts,
+  findAllInactiveProducts,
   findProductById,
   findProductBySku,
+  lockProductForLifecycle,
+  setProductActiveState,
   updateProduct,
 } from "../repositories/product.repositories";
 
@@ -61,7 +64,10 @@ export async function getAllProducts(query: ProductListQuery): Promise<{
   limit: number;
   offset: number;
 }> {
-  const result = await findAllActiveProducts(query);
+  const result =
+    query.status === "inactive"
+      ? await findAllInactiveProducts(query)
+      : await findAllActiveProducts(query);
 
   return {
     products: result.items.map(toPublicProduct),
@@ -210,17 +216,59 @@ export async function updateExistingProduct(
 export async function deactivateExistingProduct(
   id: string,
 ): Promise<PublicProduct> {
-  const currentProduct = await findProductById(id);
+  return updateProductActiveState(id, false);
+}
 
-  if (!currentProduct || !currentProduct.is_active) {
-    throw new AppError(404, "PRODUCT_NOT_FOUND", "Product not found.");
+/**
+ * Reactivate a previously deactivated product.
+ */
+export async function reactivateExistingProduct(
+  id: string,
+): Promise<PublicProduct> {
+  return updateProductActiveState(id, true);
+}
+
+async function updateProductActiveState(
+  id: string,
+  isActive: boolean,
+): Promise<PublicProduct> {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const currentProduct = await lockProductForLifecycle(client, id);
+
+    if (!currentProduct) {
+      throw new AppError(404, "PRODUCT_NOT_FOUND", "Product not found.");
+    }
+
+    if (currentProduct.is_active === isActive) {
+      if (!isActive) {
+        throw new AppError(404, "PRODUCT_NOT_FOUND", "Product not found.");
+      }
+
+      await client.query("COMMIT");
+      return toPublicProduct(currentProduct);
+    }
+
+    const updatedProduct = await setProductActiveState(client, id, isActive);
+
+    if (!updatedProduct) {
+      throw new AppError(404, "PRODUCT_NOT_FOUND", "Product not found.");
+    }
+
+    await client.query("COMMIT");
+    return toPublicProduct(updatedProduct);
+  } catch (error: unknown) {
+    try {
+      await client.query("ROLLBACK");
+    } catch {
+      // Preserve the original error if rollback also fails.
+    }
+
+    throw error;
+  } finally {
+    client.release();
   }
-
-  const deactivatedProduct = await deactivateProduct(id);
-
-  if (!deactivatedProduct) {
-    throw new AppError(404, "PRODUCT_NOT_FOUND", "Product not found.");
-  }
-
-  return toPublicProduct(deactivatedProduct);
 }

@@ -145,20 +145,19 @@ export async function lockActiveWarehouse(
  * This prevents concurrent deactivation while a stock operation
  * is in progress.
  */
-export async function lockActiveProduct(
+export async function lockProduct(
   client: PoolClient,
   productId: string,
-): Promise<boolean> {
-  const result = await client.query<{ id: string }>(
-    `SELECT id
+): Promise<{ is_active: boolean } | null> {
+  const result = await client.query<{ is_active: boolean }>(
+    `SELECT is_active
      FROM products
      WHERE id = $1
-       AND is_active = TRUE
      FOR SHARE`,
     [productId],
   );
 
-  return result.rows.length > 0;
+  return result.rows[0] ?? null;
 }
 
 /**
@@ -239,10 +238,11 @@ export async function updateInventoryQuantity(
  * Update inventory reorder level.
  */
 export async function updateInventoryReorderLevel(
+  client: PoolClient,
   id: string,
   reorderLevel: number,
 ): Promise<InventoryBalanceRecord | null> {
-  const result = await pool.query<InventoryBalanceRecord>(
+  const result = await client.query<InventoryBalanceRecord>(
     `UPDATE inventory
      SET reorder_level = $1
      WHERE id = $2
@@ -254,6 +254,22 @@ export async function updateInventoryReorderLevel(
        reorder_level,
        updated_at`,
     [reorderLevel, id],
+  );
+
+  return result.rows[0] ?? null;
+}
+
+export async function lockProductForInventory(
+  client: PoolClient,
+  inventoryId: string,
+): Promise<{ is_active: boolean } | null> {
+  const result = await client.query<{ is_active: boolean }>(
+    `SELECT p.is_active
+     FROM inventory i
+     JOIN products p ON p.id = i.product_id
+     WHERE i.id = $1
+     FOR SHARE OF p`,
+    [inventoryId],
   );
 
   return result.rows[0] ?? null;

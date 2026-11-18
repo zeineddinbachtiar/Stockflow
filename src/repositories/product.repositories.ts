@@ -1,4 +1,5 @@
 import { pool } from "../config/database";
+import type { PoolClient } from "pg";
 
 import type {
   ProductRecord,
@@ -20,18 +21,31 @@ import type { PaginatedRecords } from "../types/common.types";
 export async function findAllActiveProducts(
   query: ProductListQuery,
 ): Promise<PaginatedRecords<ProductRecord>> {
+  return findProductsByStatus(query, true);
+}
+
+export async function findAllInactiveProducts(
+  query: ProductListQuery,
+): Promise<PaginatedRecords<ProductRecord>> {
+  return findProductsByStatus(query, false);
+}
+
+async function findProductsByStatus(
+  query: ProductListQuery,
+  isActive: boolean,
+): Promise<PaginatedRecords<ProductRecord>> {
   const search = query.search ?? null;
 
   const countResult = await pool.query<{ total: string }>(
     `SELECT COUNT(*)::text AS total
      FROM products
-     WHERE is_active = TRUE
+     WHERE is_active = $1
        AND (
-         $1::text IS NULL
-         OR name ILIKE '%' || $1 || '%'
-         OR sku ILIKE '%' || $1 || '%'
+         $2::text IS NULL
+         OR name ILIKE '%' || $2 || '%'
+         OR sku ILIKE '%' || $2 || '%'
        )`,
-    [search],
+    [isActive, search],
   );
 
   const result = await pool.query<ProductRecord>(
@@ -46,15 +60,15 @@ export async function findAllActiveProducts(
        created_at,
        updated_at
      FROM products
-     WHERE is_active = TRUE
+     WHERE is_active = $1
        AND (
-         $1::text IS NULL
-         OR name ILIKE '%' || $1 || '%'
-         OR sku ILIKE '%' || $1 || '%'
+         $2::text IS NULL
+         OR name ILIKE '%' || $2 || '%'
+         OR sku ILIKE '%' || $2 || '%'
        )
      ORDER BY name ASC, id ASC
-     LIMIT $2 OFFSET $3`,
-    [search, query.limit, query.offset],
+     LIMIT $3 OFFSET $4`,
+    [isActive, search, query.limit, query.offset],
   );
 
   return {
@@ -218,12 +232,40 @@ export async function updateProduct(
 /**
  * Deactivate a product without physically deleting it.
  */
-export async function deactivateProduct(
+export async function lockProductForLifecycle(
+  client: PoolClient,
   id: string,
 ): Promise<ProductRecord | null> {
-  const result = await pool.query<ProductRecord>(
+  const result = await client.query<ProductRecord>(
+    `SELECT
+       id,
+       category_id,
+       sku,
+       name,
+       description,
+       unit_price,
+       is_active,
+       created_at,
+       updated_at
+     FROM products
+     WHERE id = $1
+     FOR UPDATE`,
+    [id],
+  );
+
+  return result.rows[0] ?? null;
+}
+
+export async function setProductActiveState(
+  client: PoolClient,
+  id: string,
+  isActive: boolean,
+): Promise<ProductRecord | null> {
+  const result = await client.query<ProductRecord>(
     `UPDATE products
-     SET is_active = FALSE
+     SET
+       is_active = $2,
+       updated_at = NOW()
      WHERE id = $1
      RETURNING
        id,
@@ -235,7 +277,7 @@ export async function deactivateProduct(
        is_active,
        created_at,
        updated_at`,
-    [id],
+    [id, isActive],
   );
 
   return result.rows[0] ?? null;

@@ -12,6 +12,7 @@ import {
   Pencil,
   Plus,
   Ban,
+  RotateCcw,
 } from "lucide-react";
 
 import { useAuth } from "../context/useAuth";
@@ -24,6 +25,7 @@ import {
   getCategories,
   getProductById,
   getProducts,
+  reactivateProduct,
   updateProduct,
 } from "../features/products/product.api";
 import ProductFormDialog from "../features/products/ProductFormDialog";
@@ -247,6 +249,12 @@ export default function ProductsPage() {
   const [deactivateError, setDeactivateError] = useState<string | null>(null);
   const [productToDeactivate, setProductToDeactivate] =
     useState<Product | null>(null);
+  const [reactivateError, setReactivateError] = useState<string | null>(null);
+  const [productToReactivate, setProductToReactivate] =
+    useState<Product | null>(null);
+  const [productStatus, setProductStatus] = useState<"active" | "inactive">(
+    "active",
+  );
 
   const saveProductMutation = useMutation({
     mutationFn: (payload: ProductPayload) => {
@@ -320,6 +328,36 @@ export default function ProductsPage() {
     },
   });
 
+  const reactivateMutation = useMutation({
+    mutationFn: (productId: string) => {
+      if (!accessToken) {
+        throw new Error("Your session is unavailable. Please log in again.");
+      }
+
+      return reactivateProduct(accessToken, productId);
+    },
+
+    onMutate: () => {
+      setReactivateError(null);
+      setSuccessMessage(null);
+    },
+
+    onSuccess: async (product) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["products"] }),
+        queryClient.invalidateQueries({
+          queryKey: ["product", product.id],
+        }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
+      setSuccessMessage("Product reactivated successfully.");
+    },
+
+    onError: (error: Error) => {
+      setReactivateError(error.message);
+    },
+  });
+
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [offset, setOffset] = useState(0);
@@ -338,9 +376,10 @@ export default function ProductsPage() {
   }, [searchInput]);
 
   const productQuery = useQuery({
-    queryKey: ["products", search, offset],
+    queryKey: ["products", productStatus, search, offset],
     queryFn: () =>
       getProducts(accessToken!, {
+        status: productStatus,
         search,
         limit: PAGE_SIZE,
         offset,
@@ -405,7 +444,9 @@ export default function ProductsPage() {
           )}
 
           <div className="rounded-xl border border-slate-200 bg-white px-4 py-2.5">
-            <p className="text-xs text-slate-400">Total active products</p>
+            <p className="text-xs text-slate-400">
+              Total {productStatus} products
+            </p>
             <p className="mt-1 text-lg font-bold text-slate-900">
               {isInitialLoading ? "—" : total.toLocaleString("id-ID")}
             </p>
@@ -440,6 +481,32 @@ export default function ProductsPage() {
           </div>
         </div>
 
+        {isAdmin && (
+          <div
+            className="mt-4 flex flex-wrap gap-2"
+            aria-label="Product status filter"
+          >
+            {(["active", "inactive"] as const).map((status) => (
+              <button
+                key={status}
+                type="button"
+                aria-pressed={productStatus === status}
+                onClick={() => {
+                  setProductStatus(status);
+                  setOffset(0);
+                }}
+                className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                  productStatus === status
+                    ? "bg-blue-600 text-white"
+                    : "border border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {status === "active" ? "Active" : "Inactive"}
+              </button>
+            ))}
+          </div>
+        )}
+
         {isRequestError && (
           <div
             role="alert"
@@ -470,10 +537,17 @@ export default function ProductsPage() {
 
         <MutationFeedback
           successMessage={successMessage}
-          errorMessage={deactivateError}
-          errorTitle="Unable to deactivate product"
+          errorMessage={deactivateError ?? reactivateError}
+          errorTitle={
+            deactivateError
+              ? "Unable to deactivate product"
+              : "Unable to reactivate product"
+          }
           onDismissSuccess={() => setSuccessMessage(null)}
-          onDismissError={() => setDeactivateError(null)}
+          onDismissError={() => {
+            setDeactivateError(null);
+            setReactivateError(null);
+          }}
         />
         {!isRequestError && (
           <>
@@ -553,17 +627,19 @@ export default function ProductsPage() {
                           className="sticky right-0 z-10 bg-white px-3 py-4 shadow-[-4px_0_8px_-6px_rgba(15,23,42,0.35)] group-hover:bg-slate-50/70"
                         >
                           <div className="flex justify-end gap-2">
-                            <button
-                              type="button"
-                              onClick={() => openProduct(product)}
-                              aria-label={`View ${product.name} details`}
-                              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-                            >
-                              <Eye size={15} />
-                              View
-                            </button>
+                            {product.isActive && (
+                              <button
+                                type="button"
+                                onClick={() => openProduct(product)}
+                                aria-label={`View ${product.name} details`}
+                                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                              >
+                                <Eye size={15} />
+                                View
+                              </button>
+                            )}
 
-                            {isAdmin && (
+                            {isAdmin && product.isActive && (
                               <button
                                 type="button"
                                 onClick={() => {
@@ -591,6 +667,21 @@ export default function ProductsPage() {
                                 deactivateMutation.variables === product.id
                                   ? "Deactivating..."
                                   : "Deactivate"}
+                              </button>
+                            )}
+                            {isAdmin && !product.isActive && (
+                              <button
+                                type="button"
+                                disabled={reactivateMutation.isPending}
+                                onClick={() => setProductToReactivate(product)}
+                                aria-label={`Reactivate ${product.name}`}
+                                className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                <RotateCcw size={15} />
+                                {reactivateMutation.isPending &&
+                                reactivateMutation.variables === product.id
+                                  ? "Reactivating..."
+                                  : "Reactivate"}
                               </button>
                             )}
                           </div>
@@ -721,6 +812,21 @@ export default function ProductsPage() {
             setDeactivateError(null);
             deactivateMutation.mutate(productToDeactivate.id, {
               onSettled: () => setProductToDeactivate(null),
+            });
+          }}
+        />
+      )}
+      {productToReactivate && (
+        <ConfirmDialog
+          title={`Reactivate ${productToReactivate.name}?`}
+          description="This product will be available again for inventory operations and new orders."
+          confirmLabel="Reactivate product"
+          isConfirming={reactivateMutation.isPending}
+          onCancel={() => setProductToReactivate(null)}
+          onConfirm={() => {
+            setReactivateError(null);
+            reactivateMutation.mutate(productToReactivate.id, {
+              onSettled: () => setProductToReactivate(null),
             });
           }}
         />

@@ -6,6 +6,7 @@ import {
   createProductController,
   updateProductController,
   deactivateProductController,
+  reactivateProductController,
 } from "../controllers/product.controller";
 
 import { authenticate } from "../middlewares/authenticate";
@@ -48,6 +49,14 @@ router.patch(
   authenticate,
   authorize("ADMIN"),
   deactivateProductController,
+);
+
+// Only ADMIN can reactivate products.
+router.patch(
+  "/:id/reactivate",
+  authenticate,
+  authorize("ADMIN"),
+  reactivateProductController,
 );
 
 export default router;

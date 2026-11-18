@@ -379,6 +379,11 @@ export default function InventoryPage() {
                           <p className="mt-0.5 text-xs text-slate-500">
                             {item.productSku}
                           </p>
+                          {!item.productIsActive && (
+                            <span className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+                              Inactive
+                            </span>
+                          )}
                         </td>
                         <td
                           data-label="On hand"
@@ -429,14 +434,18 @@ export default function InventoryPage() {
                                 >
                                   Adjust
                                 </button>
-                                <button
-                                  type="button"
-                                  aria-label={`Update reorder level for ${item.productName}`}
-                                  onClick={() => openOperation("reorder", item)}
-                                  className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50"
-                                >
-                                  <Settings2 size={15} />
-                                </button>
+                                {item.productIsActive && (
+                                  <button
+                                    type="button"
+                                    aria-label={`Update reorder level for ${item.productName}`}
+                                    onClick={() =>
+                                      openOperation("reorder", item)
+                                    }
+                                    className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50"
+                                  >
+                                    <Settings2 size={15} />
+                                  </button>
+                                )}
                               </>
                             )}
                           </div>
