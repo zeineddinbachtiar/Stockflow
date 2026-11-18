@@ -101,6 +101,8 @@ export default function InventoryOperationDialog({
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSubmitting) return;
+
     setValidationError(null);
 
     if (isReorder) {

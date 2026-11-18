@@ -62,6 +62,7 @@ function installInventoryHandlers(
   let receiptPayload: unknown;
   let issuePayload: unknown;
   let adjustmentPayload: unknown;
+  let reorderPayload: unknown;
 
   server.use(
     http.get(`${API_URL}/inventory`, () =>
@@ -89,7 +90,11 @@ function installInventoryHandlers(
     ),
     http.post(`${API_URL}/inventory/receipts`, async ({ request }) => {
       receiptPayload = await request.json();
-      current = { ...current, quantityOnHand: current.quantityOnHand + 4 };
+      const payload = receiptPayload as { quantity: number };
+      current = {
+        ...current,
+        quantityOnHand: current.quantityOnHand + payload.quantity,
+      };
       return HttpResponse.json(success({ inventory: current, movement: {} }), {
         status: 201,
       });
@@ -119,7 +124,8 @@ function installInventoryHandlers(
     http.patch(
       `${API_URL}/inventory/:id/reorder-level`,
       async ({ request }) => {
-        const payload = (await request.json()) as { reorderLevel: number };
+        reorderPayload = await request.json();
+        const payload = reorderPayload as { reorderLevel: number };
         current = { ...current, reorderLevel: payload.reorderLevel };
         return HttpResponse.json(success({ inventory: current }));
       },
@@ -130,7 +136,27 @@ function installInventoryHandlers(
     getReceiptPayload: () => receiptPayload,
     getIssuePayload: () => issuePayload,
     getAdjustmentPayload: () => adjustmentPayload,
+    getReorderPayload: () => reorderPayload,
   };
+}
+
+async function fillStockOperation(
+  user: ReturnType<typeof userEvent.setup>,
+  dialog: HTMLElement,
+  quantity: string,
+  reason?: string,
+) {
+  const selects = dialog.querySelectorAll("select");
+  await user.selectOptions(selects[0]!, warehouse.id);
+  await user.selectOptions(selects[1]!, product.id);
+
+  const quantityInput = dialog.querySelector('input[type="number"]')!;
+  await user.clear(quantityInput);
+  await user.type(quantityInput, quantity);
+
+  if (reason !== undefined) {
+    await user.type(dialog.querySelector("textarea")!, reason);
+  }
 }
 
 describe("InventoryPage", () => {
@@ -191,6 +217,57 @@ describe("InventoryPage", () => {
     const successMessage = await screen.findByRole("status");
     expect(successMessage).toHaveAttribute("aria-live", "polite");
     expect(successMessage).toHaveTextContent("successfully");
+    expect(await screen.findByText("16")).toBeInTheDocument();
+  });
+
+  it("allows WAREHOUSE_STAFF to perform stock operations", async () => {
+    const user = userEvent.setup();
+    const handlers = installInventoryHandlers();
+    renderWithProviders(<InventoryPage />, "WAREHOUSE_STAFF");
+
+    await screen.findByText("Business Laptop");
+    expect(
+      screen.getByRole("button", { name: /Receive Stock/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Issue" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Adjust" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Update reorder level for Business Laptop",
+      }),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Receive Stock/ }));
+    const dialog = screen.getByRole("dialog");
+    await fillStockOperation(user, dialog, "1");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(handlers.getReceiptPayload()).toMatchObject({
+        productId: product.id,
+        warehouseId: warehouse.id,
+        quantity: 1,
+      }),
+    );
+    expect(await screen.findByText("13")).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Update reorder level for Business Laptop",
+      }),
+    );
+    const reorderDialog = screen.getByRole("dialog");
+    const reorderInput = within(reorderDialog).getByLabelText("Reorder level");
+    await user.clear(reorderInput);
+    await user.type(reorderInput, "7");
+    await user.click(
+      within(reorderDialog).getByRole("button", { name: "Save" }),
+    );
+
+    await waitFor(() =>
+      expect(handlers.getReorderPayload()).toEqual({ reorderLevel: 7 }),
+    );
+    expect(await screen.findByText("7")).toBeInTheDocument();
   });
 
   it("keeps SALES_STAFF read-only", async () => {
@@ -207,6 +284,288 @@ describe("InventoryPage", () => {
     expect(
       screen.queryByRole("button", { name: "Adjust" }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: "Update reorder level for Business Laptop",
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("issues active stock and refreshes the displayed balance", async () => {
+    const user = userEvent.setup();
+    const handlers = installInventoryHandlers();
+    renderWithProviders(<InventoryPage />);
+
+    await screen.findByText("Business Laptop");
+    await user.click(screen.getByRole("button", { name: "Issue" }));
+    const dialog = screen.getByRole("dialog");
+    await fillStockOperation(user, dialog, "2");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Issue stock" }),
+    );
+
+    await waitFor(() =>
+      expect(handlers.getIssuePayload()).toMatchObject({
+        productId: product.id,
+        warehouseId: warehouse.id,
+        quantity: 2,
+      }),
+    );
+    expect(await screen.findByText("10")).toBeInTheDocument();
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Inventory updated successfully.",
+    );
+  });
+
+  it("applies positive and negative adjustments and refreshes the balance", async () => {
+    const user = userEvent.setup();
+    const handlers = installInventoryHandlers();
+    renderWithProviders(<InventoryPage />);
+
+    await screen.findByText("Business Laptop");
+    await user.click(screen.getByRole("button", { name: "Adjust" }));
+    let dialog = screen.getByRole("dialog");
+    await fillStockOperation(user, dialog, "3", "Count increase");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Apply adjustment" }),
+    );
+
+    await waitFor(() =>
+      expect(handlers.getAdjustmentPayload()).toMatchObject({
+        productId: product.id,
+        warehouseId: warehouse.id,
+        quantityDelta: 3,
+        reason: "Count increase",
+      }),
+    );
+    expect(await screen.findByText("15")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Adjust" }));
+    dialog = screen.getByRole("dialog");
+    await fillStockOperation(user, dialog, "-2", "Count decrease");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Apply adjustment" }),
+    );
+
+    await waitFor(() =>
+      expect(handlers.getAdjustmentPayload()).toMatchObject({
+        productId: product.id,
+        warehouseId: warehouse.id,
+        quantityDelta: -2,
+        reason: "Count decrease",
+      }),
+    );
+    expect(await screen.findByText("13")).toBeInTheDocument();
+  });
+
+  it("updates the reorder level and refreshes the displayed value", async () => {
+    const user = userEvent.setup();
+    const handlers = installInventoryHandlers();
+    renderWithProviders(<InventoryPage />);
+
+    await screen.findByText("Business Laptop");
+    await user.click(
+      screen.getByRole("button", {
+        name: "Update reorder level for Business Laptop",
+      }),
+    );
+    const dialog = screen.getByRole("dialog");
+    const reorderInput = within(dialog).getByLabelText("Reorder level");
+    await user.clear(reorderInput);
+    await user.type(reorderInput, "8");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(handlers.getReorderPayload()).toEqual({ reorderLevel: 8 }),
+    );
+    expect(await screen.findByText("8")).toBeInTheDocument();
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Inventory updated successfully.",
+    );
+  });
+
+  it("shows a receipt API error without changing the balance", async () => {
+    const user = userEvent.setup();
+    installInventoryHandlers();
+    server.use(
+      http.post(`${API_URL}/inventory/receipts`, () =>
+        HttpResponse.json(
+          { message: "Receipt could not be recorded." },
+          { status: 503 },
+        ),
+      ),
+    );
+
+    renderWithProviders(<InventoryPage />);
+    await screen.findByText("Business Laptop");
+    await user.click(screen.getByRole("button", { name: /Receive Stock/ }));
+    const dialog = screen.getByRole("dialog");
+    await fillStockOperation(user, dialog, "2");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "Receipt could not be recorded.",
+    );
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("12")).toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("shows an insufficient-stock issue error and preserves the balance", async () => {
+    const user = userEvent.setup();
+    installInventoryHandlers();
+    server.use(
+      http.post(`${API_URL}/inventory/issues`, () =>
+        HttpResponse.json(
+          {
+            code: "INSUFFICIENT_STOCK",
+            message: "Insufficient stock. Available quantity: 12.",
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderWithProviders(<InventoryPage />);
+    await screen.findByText("Business Laptop");
+    await user.click(screen.getByRole("button", { name: "Issue" }));
+    let dialog = screen.getByRole("dialog");
+    await fillStockOperation(user, dialog, "13");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Issue stock" }),
+    );
+
+    dialog = screen.getByRole("dialog");
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "Insufficient stock. Available quantity: 12.",
+    );
+    expect(screen.getByText("12")).toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("shows an insufficient-stock adjustment error and preserves the balance", async () => {
+    const user = userEvent.setup();
+    installInventoryHandlers();
+    server.use(
+      http.post(`${API_URL}/inventory/adjustments`, () =>
+        HttpResponse.json(
+          {
+            code: "INSUFFICIENT_STOCK",
+            message: "Insufficient stock. Available quantity: 12.",
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    renderWithProviders(<InventoryPage />);
+    await screen.findByText("Business Laptop");
+    await user.click(screen.getByRole("button", { name: "Adjust" }));
+    let dialog = screen.getByRole("dialog");
+    await fillStockOperation(user, dialog, "-13", "Cycle count");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Apply adjustment" }),
+    );
+
+    dialog = screen.getByRole("dialog");
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "Insufficient stock. Available quantity: 12.",
+    );
+    expect(screen.getByText("12")).toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("shows reorder-level API errors and retains the prior value", async () => {
+    const user = userEvent.setup();
+    installInventoryHandlers();
+    server.use(
+      http.patch(`${API_URL}/inventory/:id/reorder-level`, () =>
+        HttpResponse.json(
+          { message: "Reorder level could not be updated." },
+          { status: 503 },
+        ),
+      ),
+    );
+
+    renderWithProviders(<InventoryPage />);
+    await screen.findByText("Business Laptop");
+    await user.click(
+      screen.getByRole("button", {
+        name: "Update reorder level for Business Laptop",
+      }),
+    );
+    const dialog = screen.getByRole("dialog");
+    const reorderInput = within(dialog).getByLabelText("Reorder level");
+    await user.clear(reorderInput);
+    await user.type(reorderInput, "8");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "Reorder level could not be updated.",
+    );
+    expect(screen.getByText("5")).toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("prevents duplicate submission and closing while a receipt is pending", async () => {
+    const user = userEvent.setup();
+    installInventoryHandlers();
+    let requests = 0;
+    let releaseResponse = () => {};
+    const responseGate = new Promise<void>((resolve) => {
+      releaseResponse = resolve;
+    });
+    server.use(
+      http.post(`${API_URL}/inventory/receipts`, async () => {
+        requests += 1;
+        await responseGate;
+        return HttpResponse.json(
+          success({
+            inventory: { ...inventory, quantityOnHand: 14 },
+            movement: {},
+          }),
+          { status: 201 },
+        );
+      }),
+    );
+
+    renderWithProviders(<InventoryPage />);
+    await screen.findByText("Business Laptop");
+    await user.click(screen.getByRole("button", { name: /Receive Stock/ }));
+    const dialog = screen.getByRole("dialog");
+    await fillStockOperation(user, dialog, "2");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    try {
+      await waitFor(() => {
+        expect(requests).toBe(1);
+        expect(
+          within(dialog).getByRole("button", { name: "Saving..." }),
+        ).toBeDisabled();
+        expect(
+          within(dialog).getByRole("button", {
+            name: "Close inventory operation",
+          }),
+        ).toBeDisabled();
+      });
+
+      fireEvent.submit(dialog.querySelector("form")!);
+      expect(requests).toBe(1);
+
+      fireEvent.keyDown(dialog, { key: "Escape" });
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+    } finally {
+      releaseResponse();
+    }
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Inventory updated successfully.",
+    );
   });
 
   it("shows inactive balances and allows issue clearance from the inventory row", async () => {
@@ -221,7 +580,7 @@ describe("InventoryPage", () => {
     };
     const handlers = installInventoryHandlers(inactiveInventory);
 
-    renderWithProviders(<InventoryPage />);
+    renderWithProviders(<InventoryPage />, "WAREHOUSE_STAFF");
 
     expect(await screen.findByText("Retired Laptop")).toBeInTheDocument();
     expect(
@@ -270,7 +629,7 @@ describe("InventoryPage", () => {
     };
     const handlers = installInventoryHandlers(inactiveInventory);
 
-    renderWithProviders(<InventoryPage />);
+    renderWithProviders(<InventoryPage />, "WAREHOUSE_STAFF");
     await screen.findByText("Retired Laptop");
 
     await user.click(screen.getByRole("button", { name: "Adjust" }));
