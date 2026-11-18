@@ -462,6 +462,56 @@ describe("ProductsPage", () => {
     expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
   });
 
+  it("loads and allows selecting categories beyond the first 100 options", async () => {
+    const user = userEvent.setup();
+    const firstPage = Array.from({ length: 100 }, (_, index) => ({
+      ...category,
+      id: `category-${index + 1}`,
+      name: `Category ${index + 1}`,
+    }));
+    const finalCategory = {
+      ...category,
+      id: "category-101",
+      name: "Category 101",
+    };
+
+    installProductHandlers();
+    server.use(
+      http.get(`${API_URL}/categories`, ({ request }) => {
+        const url = new URL(request.url);
+        const offset = Number(url.searchParams.get("offset") ?? 0);
+
+        return HttpResponse.json(
+          success({
+            categories: offset === 0 ? firstPage : [finalCategory],
+            total: 101,
+            limit: 100,
+            offset,
+          }),
+        );
+      }),
+    );
+
+    renderWithProviders(<ProductsPage />);
+    await screen.findByText("Business Laptop");
+    await user.click(screen.getByRole("button", { name: "Add Product" }));
+
+    const categorySelect = screen.getByLabelText("Category");
+    expect(
+      await screen.findByRole("option", { name: "Category 100" }),
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Load more categories" }),
+    );
+    expect(
+      await screen.findByRole("option", { name: "Category 101" }),
+    ).toBeInTheDocument();
+
+    await user.selectOptions(categorySelect, finalCategory.id);
+    expect(categorySelect).toHaveValue("category-101");
+  });
+
   it("displays an API error when products cannot load", async () => {
     server.use(
       http.get(`${API_URL}/products`, () =>

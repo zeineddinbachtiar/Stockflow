@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { AlertCircle } from "lucide-react";
 import ModalDialog from "../../components/ui/ModalDialog";
 import QueryStateMessage from "../../components/ui/QueryStateMessage";
+import LoadMoreOptions from "../../components/ui/LoadMoreOptions";
 
 import type { Category, Product, ProductPayload } from "./product.types";
 
@@ -12,6 +13,10 @@ interface ProductFormDialogProps {
   categoriesLoading: boolean;
   categoriesError: string | null;
   onRetryCategories?: () => void;
+  hasMoreCategories?: boolean;
+  loadingMoreCategories?: boolean;
+  categoriesPageError?: string | null;
+  onLoadMoreCategories?: () => void;
   isSubmitting: boolean;
   submitError: string | null;
   onClose: () => void;
@@ -27,6 +32,10 @@ export default function ProductFormDialog({
   categoriesLoading,
   categoriesError,
   onRetryCategories,
+  hasMoreCategories = false,
+  loadingMoreCategories = false,
+  categoriesPageError = null,
+  onLoadMoreCategories,
   isSubmitting,
   submitError,
   onClose,
@@ -159,6 +168,14 @@ export default function ProductFormDialog({
                   {category.name}
                 </option>
               ))}
+              {product &&
+                !categories.some(
+                  (category) => category.id === product.categoryId,
+                ) && (
+                  <option value={product.categoryId}>
+                    Current category ({product.categoryId})
+                  </option>
+                )}
             </select>
 
             <QueryStateMessage
@@ -168,6 +185,13 @@ export default function ProductFormDialog({
               isEmpty={categories.length === 0}
               errorMessage={categoriesError ?? undefined}
               onRetry={onRetryCategories}
+            />
+            <LoadMoreOptions
+              resource="categories"
+              hasMore={hasMoreCategories}
+              isLoading={loadingMoreCategories}
+              error={categoriesPageError}
+              onLoadMore={() => onLoadMoreCategories?.()}
             />
           </div>
 

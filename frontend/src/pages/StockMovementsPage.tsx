@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
   Activity,
   AlertCircle,
@@ -13,10 +13,12 @@ import {
 import { useAuth } from "../context/useAuth";
 import useModalDialog from "../components/ui/useModalDialog";
 import QueryStateMessage from "../components/ui/QueryStateMessage";
+import LoadMoreOptions from "../components/ui/LoadMoreOptions";
 import type {
   StockMovement,
   StockMovementType,
 } from "../features/inventory/inventory.types";
+import type { Product } from "../features/products/product.types";
 import { getProducts } from "../features/products/product.api";
 import {
   getStockMovementById,
@@ -25,6 +27,7 @@ import {
 import { getWarehouses } from "../features/warehouses/warehouse.api";
 
 const PAGE_SIZE = 10;
+const OPTION_PAGE_SIZE = 100;
 
 const movementTypes: Array<{ value: StockMovementType; label: string }> = [
   { value: "RECEIPT", label: "Receipt" },
@@ -69,12 +72,23 @@ export default function StockMovementsPage() {
   const [offset, setOffset] = useState(0);
   const [warehouseId, setWarehouseId] = useState("");
   const [productId, setProductId] = useState("");
+  const [selectedProductFilter, setSelectedProductFilter] =
+    useState<Product | null>(null);
+  const [productSearchInput, setProductSearchInput] = useState("");
+  const [productOptionSearch, setProductOptionSearch] = useState("");
   const [movementType, setMovementType] = useState<StockMovementType | "">("");
   const [selectedMovement, setSelectedMovement] =
     useState<StockMovement | null>(null);
   const detailRef = useRef<HTMLDivElement>(null);
   const closeDetail = useCallback(() => setSelectedMovement(null), []);
   useModalDialog(detailRef, closeDetail, Boolean(selectedMovement));
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setProductOptionSearch(productSearchInput.trim());
+    }, 350);
+
+    return () => window.clearTimeout(timeout);
+  }, [productSearchInput]);
 
   const queryParams = {
     warehouseId: warehouseId || undefined,
@@ -91,16 +105,32 @@ export default function StockMovementsPage() {
     placeholderData: (previousData) => previousData,
   });
 
-  const warehousesQuery = useQuery({
+  const warehousesQuery = useInfiniteQuery({
     queryKey: ["warehouses", "stock-movement-options"],
-    queryFn: () => getWarehouses(accessToken!, 100, 0),
+    queryFn: ({ pageParam }) =>
+      getWarehouses(accessToken!, OPTION_PAGE_SIZE, pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) =>
+      lastPage.offset + lastPage.limit < lastPage.total
+        ? lastPage.offset + lastPage.limit
+        : undefined,
     enabled: Boolean(accessToken),
     staleTime: 60_000,
   });
 
-  const productsQuery = useQuery({
-    queryKey: ["products", "stock-movement-options"],
-    queryFn: () => getProducts(accessToken!, { limit: 100, offset: 0 }),
+  const productsQuery = useInfiniteQuery({
+    queryKey: ["products", "stock-movement-options", productOptionSearch],
+    queryFn: ({ pageParam }) =>
+      getProducts(accessToken!, {
+        limit: OPTION_PAGE_SIZE,
+        offset: pageParam,
+        search: productOptionSearch || undefined,
+      }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) =>
+      lastPage.offset + lastPage.limit < lastPage.total
+        ? lastPage.offset + lastPage.limit
+        : undefined,
     enabled: Boolean(accessToken),
     staleTime: 60_000,
   });
@@ -112,6 +142,10 @@ export default function StockMovementsPage() {
   });
 
   const movements = movementsQuery.data?.movements ?? [];
+  const warehouses =
+    warehousesQuery.data?.pages.flatMap((page) => page.warehouses) ?? [];
+  const products =
+    productsQuery.data?.pages.flatMap((page) => page.products) ?? [];
   const total = movementsQuery.data?.total ?? 0;
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -120,6 +154,9 @@ export default function StockMovementsPage() {
   function resetFilters() {
     setWarehouseId("");
     setProductId("");
+    setSelectedProductFilter(null);
+    setProductSearchInput("");
+    setProductOptionSearch("");
     setMovementType("");
     setOffset(0);
   }
@@ -153,11 +190,14 @@ export default function StockMovementsPage() {
                   setWarehouseId(event.target.value);
                   setOffset(0);
                 }}
-                disabled={warehousesQuery.isPending || warehousesQuery.isError}
+                disabled={
+                  warehousesQuery.isPending ||
+                  (warehousesQuery.isError && warehouses.length === 0)
+                }
                 className="mt-1 block min-w-40 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-700"
               >
                 <option value="">All warehouses</option>
-                {warehousesQuery.data?.warehouses.map((warehouse) => (
+                {warehouses.map((warehouse) => (
                   <option key={warehouse.id} value={warehouse.id}>
                     {warehouse.code}
                   </option>
@@ -166,8 +206,8 @@ export default function StockMovementsPage() {
               <QueryStateMessage
                 resource="warehouses"
                 isLoading={warehousesQuery.isPending}
-                isError={warehousesQuery.isError}
-                isEmpty={warehousesQuery.data?.warehouses.length === 0}
+                isError={warehousesQuery.isError && warehouses.length === 0}
+                isEmpty={warehouses.length === 0}
                 errorMessage={
                   warehousesQuery.error instanceof Error
                     ? warehousesQuery.error.message
@@ -175,30 +215,67 @@ export default function StockMovementsPage() {
                 }
                 onRetry={() => void warehousesQuery.refetch()}
               />
+              <LoadMoreOptions
+                resource="warehouses"
+                hasMore={Boolean(warehousesQuery.hasNextPage)}
+                isLoading={warehousesQuery.isFetchingNextPage}
+                error={
+                  warehousesQuery.isFetchNextPageError
+                    ? warehousesQuery.error instanceof Error
+                      ? warehousesQuery.error.message
+                      : "An unexpected error occurred."
+                    : null
+                }
+                onLoadMore={() => void warehousesQuery.fetchNextPage()}
+              />
             </label>
-            <label className="text-xs font-semibold text-slate-500">
-              Product
+            <div className="text-xs font-semibold text-slate-500">
+              <label htmlFor="stock-movement-product-filter">Product</label>
+              <input
+                type="search"
+                aria-label="Search products"
+                value={productSearchInput}
+                onChange={(event) => setProductSearchInput(event.target.value)}
+                placeholder="Search by SKU or product name"
+                className="mt-1 block w-full min-w-40 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-700"
+              />
               <select
+                id="stock-movement-product-filter"
                 value={productId}
                 onChange={(event) => {
                   setProductId(event.target.value);
+                  setSelectedProductFilter(
+                    products.find(
+                      (product) => product.id === event.target.value,
+                    ) ?? null,
+                  );
                   setOffset(0);
                 }}
-                disabled={productsQuery.isPending || productsQuery.isError}
+                disabled={
+                  productsQuery.isPending ||
+                  (productsQuery.isError && products.length === 0)
+                }
                 className="mt-1 block min-w-40 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-700"
               >
                 <option value="">All products</option>
-                {productsQuery.data?.products.map((product) => (
+                {products.map((product) => (
                   <option key={product.id} value={product.id}>
                     {product.sku}
                   </option>
                 ))}
+                {selectedProductFilter &&
+                  selectedProductFilter.id === productId &&
+                  !products.some((product) => product.id === productId) && (
+                    <option value={productId}>
+                      {selectedProductFilter.sku}
+                    </option>
+                  )}
               </select>
               <QueryStateMessage
                 resource="products"
                 isLoading={productsQuery.isPending}
-                isError={productsQuery.isError}
-                isEmpty={productsQuery.data?.products.length === 0}
+                isError={productsQuery.isError && products.length === 0}
+                isEmpty={products.length === 0}
                 errorMessage={
                   productsQuery.error instanceof Error
                     ? productsQuery.error.message
@@ -206,7 +283,20 @@ export default function StockMovementsPage() {
                 }
                 onRetry={() => void productsQuery.refetch()}
               />
-            </label>
+              <LoadMoreOptions
+                resource="products"
+                hasMore={Boolean(productsQuery.hasNextPage)}
+                isLoading={productsQuery.isFetchingNextPage}
+                error={
+                  productsQuery.isFetchNextPageError
+                    ? productsQuery.error instanceof Error
+                      ? productsQuery.error.message
+                      : "An unexpected error occurred."
+                    : null
+                }
+                onLoadMore={() => void productsQuery.fetchNextPage()}
+              />
+            </div>
             <label className="text-xs font-semibold text-slate-500">
               Movement type
               <select

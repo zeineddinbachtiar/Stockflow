@@ -2,7 +2,6 @@ import { apiRequest } from "../../lib/api";
 import type { ApiEnvelope } from "../../types/auth.types";
 
 import type {
-  Category,
   Product,
   ProductListData,
   ProductListParams,
@@ -51,19 +50,6 @@ export async function getProductById(
   );
 
   return response.data.product;
-}
-
-export async function getCategories(accessToken: string): Promise<Category[]> {
-  const response = await apiRequest<
-    ApiEnvelope<{
-      categories: Category[];
-      total: number;
-      limit: number;
-      offset: number;
-    }>
-  >("/categories?limit=100&offset=0", {}, accessToken);
-
-  return response.data.categories;
 }
 
 export async function createProduct(

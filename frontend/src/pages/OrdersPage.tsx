@@ -1,5 +1,10 @@
-import { useCallback, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   AlertCircle,
   Check,
@@ -17,6 +22,7 @@ import { useAuth } from "../context/useAuth";
 import useModalDialog from "../components/ui/useModalDialog";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import MutationFeedback from "../components/ui/MutationFeedback";
+import LoadMoreOptions from "../components/ui/LoadMoreOptions";
 import QueryStateMessage from "../components/ui/QueryStateMessage";
 import { getCustomers } from "../features/customers/customer.api";
 import { getProducts } from "../features/products/product.api";
@@ -39,6 +45,7 @@ import type {
 } from "../features/orders/order.types";
 
 const PAGE_SIZE = 10;
+const OPTION_PAGE_SIZE = 100;
 
 function formatDate(value: string | null): string {
   if (!value) return "—";
@@ -79,6 +86,8 @@ export default function OrdersPage() {
   const [status, setStatus] = useState<OrderStatus | "">("");
   const [customerId, setCustomerId] = useState("");
   const [warehouseId, setWarehouseId] = useState("");
+  const [productSearchInput, setProductSearchInput] = useState("");
+  const [productOptionSearch, setProductOptionSearch] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [formMode, setFormMode] = useState<"create" | "edit" | null>(null);
   const [action, setAction] = useState<"confirm" | "cancel" | null>(null);
@@ -87,6 +96,14 @@ export default function OrdersPage() {
   >(null);
   const [operationError, setOperationError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setProductOptionSearch(productSearchInput.trim());
+    }, 350);
+
+    return () => window.clearTimeout(timeout);
+  }, [productSearchInput]);
+
   const detailRef = useRef<HTMLDivElement>(null);
   const closeDetail = useCallback(() => {
     setSelectedOrder(null);
@@ -115,28 +132,57 @@ export default function OrdersPage() {
     enabled: Boolean(accessToken && selectedOrder),
   });
 
-  const warehousesQuery = useQuery({
+  const warehousesQuery = useInfiniteQuery({
     queryKey: ["warehouses", "order-options"],
-    queryFn: () => getWarehouses(accessToken!, 100, 0),
+    queryFn: ({ pageParam }) =>
+      getWarehouses(accessToken!, OPTION_PAGE_SIZE, pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) =>
+      lastPage.offset + lastPage.limit < lastPage.total
+        ? lastPage.offset + lastPage.limit
+        : undefined,
     enabled: Boolean(accessToken),
     staleTime: 60_000,
   });
 
-  const customersQuery = useQuery({
+  const customersQuery = useInfiniteQuery({
     queryKey: ["customers", "order-options"],
-    queryFn: () => getCustomers(accessToken!, 100, 0),
+    queryFn: ({ pageParam }) =>
+      getCustomers(accessToken!, OPTION_PAGE_SIZE, pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) =>
+      lastPage.offset + lastPage.limit < lastPage.total
+        ? lastPage.offset + lastPage.limit
+        : undefined,
     enabled: Boolean(
       accessToken && (canCreate || user?.role === "SALES_STAFF"),
     ),
     staleTime: 60_000,
   });
 
-  const productsQuery = useQuery({
-    queryKey: ["products", "order-options"],
-    queryFn: () => getProducts(accessToken!, { limit: 100, offset: 0 }),
+  const productsQuery = useInfiniteQuery({
+    queryKey: ["products", "order-options", productOptionSearch],
+    queryFn: ({ pageParam }) =>
+      getProducts(accessToken!, {
+        limit: OPTION_PAGE_SIZE,
+        offset: pageParam,
+        search: productOptionSearch || undefined,
+      }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) =>
+      lastPage.offset + lastPage.limit < lastPage.total
+        ? lastPage.offset + lastPage.limit
+        : undefined,
     enabled: Boolean(accessToken && canCreate),
     staleTime: 60_000,
   });
+
+  const warehouses =
+    warehousesQuery.data?.pages.flatMap((page) => page.warehouses) ?? [];
+  const customers =
+    customersQuery.data?.pages.flatMap((page) => page.customers) ?? [];
+  const products =
+    productsQuery.data?.pages.flatMap((page) => page.products) ?? [];
 
   const saveMutation = useMutation({
     mutationFn: (payload: CreateOrderPayload | UpdateOrderPayload) => {
@@ -160,6 +206,8 @@ export default function OrdersPage() {
       await queryClient.invalidateQueries({ queryKey: ["order-detail"] });
       setFormMode(null);
       setSelectedOrder(null);
+      setProductSearchInput("");
+      setProductOptionSearch("");
       setSuccessMessage("Draft order saved successfully.");
     },
     onError: (error: Error) => setOperationError(error.message),
@@ -288,7 +336,7 @@ export default function OrdersPage() {
             </label>
             <label className="text-xs font-semibold text-slate-500">
               Customer ID
-              {customersQuery.data && !customersQuery.isError ? (
+              {customers.length > 0 || !customersQuery.isError ? (
                 <select
                   value={customerId}
                   onChange={(event) => {
@@ -298,7 +346,7 @@ export default function OrdersPage() {
                   className="mt-1 block min-w-44 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-700"
                 >
                   <option value="">All customers</option>
-                  {customersQuery.data.customers.map((customer) => (
+                  {customers.map((customer) => (
                     <option key={customer.id} value={customer.id}>
                       {customer.customerCode} — {customer.name}
                     </option>
@@ -324,7 +372,7 @@ export default function OrdersPage() {
                   className="mt-1 block w-36 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-700"
                 />
               )}
-              {customersQuery.isError ? (
+              {customersQuery.isError && customers.length === 0 ? (
                 <QueryStateMessage
                   resource="customers"
                   isLoading={false}
@@ -344,7 +392,7 @@ export default function OrdersPage() {
                   isError={false}
                   isEmpty={false}
                 />
-              ) : customersQuery.data?.customers.length === 0 ? (
+              ) : customers.length === 0 ? (
                 <QueryStateMessage
                   resource="customers"
                   isLoading={false}
@@ -352,6 +400,19 @@ export default function OrdersPage() {
                   isEmpty
                 />
               ) : null}
+              <LoadMoreOptions
+                resource="customers"
+                hasMore={Boolean(customersQuery.hasNextPage)}
+                isLoading={customersQuery.isFetchingNextPage}
+                error={
+                  customersQuery.isFetchNextPageError
+                    ? customersQuery.error instanceof Error
+                      ? customersQuery.error.message
+                      : "An unexpected error occurred."
+                    : null
+                }
+                onLoadMore={() => void customersQuery.fetchNextPage()}
+              />
             </label>
             <label className="text-xs font-semibold text-slate-500">
               Warehouse
@@ -361,11 +422,14 @@ export default function OrdersPage() {
                   setWarehouseId(event.target.value);
                   setOffset(0);
                 }}
-                disabled={warehousesQuery.isPending || warehousesQuery.isError}
+                disabled={
+                  warehousesQuery.isPending ||
+                  (warehousesQuery.isError && warehouses.length === 0)
+                }
                 className="mt-1 block min-w-40 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-700"
               >
                 <option value="">All warehouses</option>
-                {warehousesQuery.data?.warehouses.map((warehouse) => (
+                {warehouses.map((warehouse) => (
                   <option key={warehouse.id} value={warehouse.id}>
                     {warehouse.code}
                   </option>
@@ -374,14 +438,27 @@ export default function OrdersPage() {
               <QueryStateMessage
                 resource="warehouses"
                 isLoading={warehousesQuery.isPending}
-                isError={warehousesQuery.isError}
-                isEmpty={warehousesQuery.data?.warehouses.length === 0}
+                isError={warehousesQuery.isError && warehouses.length === 0}
+                isEmpty={warehouses.length === 0}
                 errorMessage={
                   warehousesQuery.error instanceof Error
                     ? warehousesQuery.error.message
                     : undefined
                 }
                 onRetry={() => void warehousesQuery.refetch()}
+              />
+              <LoadMoreOptions
+                resource="warehouses"
+                hasMore={Boolean(warehousesQuery.hasNextPage)}
+                isLoading={warehousesQuery.isFetchingNextPage}
+                error={
+                  warehousesQuery.isFetchNextPageError
+                    ? warehousesQuery.error instanceof Error
+                      ? warehousesQuery.error.message
+                      : "An unexpected error occurred."
+                    : null
+                }
+                onLoadMore={() => void warehousesQuery.fetchNextPage()}
               />
             </label>
             <button
@@ -781,28 +858,28 @@ export default function OrdersPage() {
         <OrderFormDialog
           mode={formMode}
           order={formMode === "edit" ? detail : undefined}
-          customers={customersQuery.data?.customers ?? []}
-          warehouses={warehousesQuery.data?.warehouses ?? []}
-          products={productsQuery.data?.products ?? []}
+          customers={customers}
+          warehouses={warehouses}
+          products={products}
           customersLoading={customersQuery.isLoading}
           warehousesLoading={warehousesQuery.isPending}
           productsLoading={productsQuery.isPending}
           customersError={
-            customersQuery.isError
+            customersQuery.isError && customers.length === 0
               ? customersQuery.error instanceof Error
                 ? customersQuery.error.message
                 : "An unexpected customer error occurred."
               : null
           }
           warehousesError={
-            warehousesQuery.isError
+            warehousesQuery.isError && warehouses.length === 0
               ? warehousesQuery.error instanceof Error
                 ? warehousesQuery.error.message
                 : "An unexpected warehouse error occurred."
               : null
           }
           productsError={
-            productsQuery.isError
+            productsQuery.isError && products.length === 0
               ? productsQuery.error instanceof Error
                 ? productsQuery.error.message
                 : "An unexpected product error occurred."
@@ -811,12 +888,46 @@ export default function OrdersPage() {
           onRetryCustomers={() => void customersQuery.refetch()}
           onRetryWarehouses={() => void warehousesQuery.refetch()}
           onRetryProducts={() => void productsQuery.refetch()}
+          hasMoreCustomers={Boolean(customersQuery.hasNextPage)}
+          loadingMoreCustomers={customersQuery.isFetchingNextPage}
+          customersPageError={
+            customersQuery.isFetchNextPageError
+              ? customersQuery.error instanceof Error
+                ? customersQuery.error.message
+                : "An unexpected error occurred."
+              : null
+          }
+          onLoadMoreCustomers={() => void customersQuery.fetchNextPage()}
+          hasMoreWarehouses={Boolean(warehousesQuery.hasNextPage)}
+          loadingMoreWarehouses={warehousesQuery.isFetchingNextPage}
+          warehousesPageError={
+            warehousesQuery.isFetchNextPageError
+              ? warehousesQuery.error instanceof Error
+                ? warehousesQuery.error.message
+                : "An unexpected error occurred."
+              : null
+          }
+          onLoadMoreWarehouses={() => void warehousesQuery.fetchNextPage()}
+          hasMoreProducts={Boolean(productsQuery.hasNextPage)}
+          loadingMoreProducts={productsQuery.isFetchingNextPage}
+          productsPageError={
+            productsQuery.isFetchNextPageError
+              ? productsQuery.error instanceof Error
+                ? productsQuery.error.message
+                : "An unexpected error occurred."
+              : null
+          }
+          onLoadMoreProducts={() => void productsQuery.fetchNextPage()}
+          productSearch={productSearchInput}
+          onProductSearchChange={setProductSearchInput}
           isSubmitting={saveMutation.isPending}
           submitError={operationError}
           onClose={() => {
             if (!saveMutation.isPending) {
               setFormMode(null);
               setOperationError(null);
+              setProductSearchInput("");
+              setProductOptionSearch("");
             }
           }}
           onSubmit={(payload) => saveMutation.mutate(payload)}

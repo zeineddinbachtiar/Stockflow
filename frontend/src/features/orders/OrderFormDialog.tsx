@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { AlertCircle, Minus, Plus } from "lucide-react";
 import ModalDialog from "../../components/ui/ModalDialog";
 import QueryStateMessage from "../../components/ui/QueryStateMessage";
+import LoadMoreOptions from "../../components/ui/LoadMoreOptions";
 
 import type { Customer } from "../customers/customer.types";
 import type { Product } from "../products/product.types";
@@ -28,6 +29,20 @@ interface OrderFormDialogProps {
   onRetryCustomers?: () => void;
   onRetryWarehouses?: () => void;
   onRetryProducts?: () => void;
+  hasMoreCustomers?: boolean;
+  loadingMoreCustomers?: boolean;
+  customersPageError?: string | null;
+  onLoadMoreCustomers?: () => void;
+  hasMoreWarehouses?: boolean;
+  loadingMoreWarehouses?: boolean;
+  warehousesPageError?: string | null;
+  onLoadMoreWarehouses?: () => void;
+  hasMoreProducts?: boolean;
+  loadingMoreProducts?: boolean;
+  productsPageError?: string | null;
+  onLoadMoreProducts?: () => void;
+  productSearch?: string;
+  onProductSearchChange?: (value: string) => void;
   isSubmitting: boolean;
   submitError: string | null;
   onClose: () => void;
@@ -76,6 +91,20 @@ export default function OrderFormDialog({
   onRetryCustomers,
   onRetryWarehouses,
   onRetryProducts,
+  hasMoreCustomers = false,
+  loadingMoreCustomers = false,
+  customersPageError = null,
+  onLoadMoreCustomers,
+  hasMoreWarehouses = false,
+  loadingMoreWarehouses = false,
+  warehousesPageError = null,
+  onLoadMoreWarehouses,
+  hasMoreProducts = false,
+  loadingMoreProducts = false,
+  productsPageError = null,
+  onLoadMoreProducts,
+  productSearch = "",
+  onProductSearchChange,
   isSubmitting,
   submitError,
   onClose,
@@ -84,6 +113,9 @@ export default function OrderFormDialog({
   const [customerId, setCustomerId] = useState(order?.customerId ?? "");
   const [warehouseId, setWarehouseId] = useState(order?.warehouseId ?? "");
   const [items, setItems] = useState<DraftItem[]>(() => toDraftItems(order));
+  const [selectedProducts, setSelectedProducts] = useState<
+    Record<string, Product>
+  >({});
   const [validationError, setValidationError] = useState<string | null>(null);
   const optionsUnavailable =
     customersLoading ||
@@ -239,6 +271,14 @@ export default function OrderFormDialog({
                     {customer.customerCode} — {customer.name}
                   </option>
                 ))}
+                {order &&
+                  !customers.some(
+                    (customer) => customer.id === order.customerId,
+                  ) && (
+                    <option value={order.customerId}>
+                      {order.customerCode} — {order.customerName}
+                    </option>
+                  )}
               </select>
               <QueryStateMessage
                 resource="customers"
@@ -247,6 +287,13 @@ export default function OrderFormDialog({
                 isEmpty={customers.length === 0}
                 errorMessage={customersError ?? undefined}
                 onRetry={onRetryCustomers}
+              />
+              <LoadMoreOptions
+                resource="customers"
+                hasMore={hasMoreCustomers}
+                isLoading={loadingMoreCustomers}
+                error={customersPageError}
+                onLoadMore={() => onLoadMoreCustomers?.()}
               />
             </label>
             <label className="text-sm font-semibold text-slate-700">
@@ -263,6 +310,14 @@ export default function OrderFormDialog({
                     {warehouse.code} — {warehouse.name}
                   </option>
                 ))}
+                {order &&
+                  !warehouses.some(
+                    (warehouse) => warehouse.id === order.warehouseId,
+                  ) && (
+                    <option value={order.warehouseId}>
+                      {order.warehouseCode} — {order.warehouseName}
+                    </option>
+                  )}
               </select>
               <QueryStateMessage
                 resource="warehouses"
@@ -271,6 +326,13 @@ export default function OrderFormDialog({
                 isEmpty={warehouses.length === 0}
                 errorMessage={warehousesError ?? undefined}
                 onRetry={onRetryWarehouses}
+              />
+              <LoadMoreOptions
+                resource="warehouses"
+                hasMore={hasMoreWarehouses}
+                isLoading={loadingMoreWarehouses}
+                error={warehousesPageError}
+                onLoadMore={() => onLoadMoreWarehouses?.()}
               />
             </label>
           </div>
@@ -294,6 +356,19 @@ export default function OrderFormDialog({
                 <Plus size={14} /> Add item
               </button>
             </div>
+            <label className="mt-3 block text-xs font-semibold text-slate-500">
+              Search products
+              <input
+                type="search"
+                value={productSearch}
+                onChange={(event) =>
+                  onProductSearchChange?.(event.target.value)
+                }
+                placeholder="Search by SKU or product name"
+                disabled={isSubmitting}
+                className={inputClass}
+              />
+            </label>
             <div className="mt-3 space-y-3">
               {items.map((item) => (
                 <div
@@ -304,9 +379,18 @@ export default function OrderFormDialog({
                     Product
                     <select
                       value={item.productId}
-                      onChange={(event) =>
-                        updateItem(item.key, "productId", event.target.value)
-                      }
+                      onChange={(event) => {
+                        const selected = products.find(
+                          (product) => product.id === event.target.value,
+                        );
+                        if (selected) {
+                          setSelectedProducts((current) => ({
+                            ...current,
+                            [selected.id]: selected,
+                          }));
+                        }
+                        updateItem(item.key, "productId", event.target.value);
+                      }}
                       disabled={isSubmitting || optionsUnavailable}
                       className={inputClass}
                     >
@@ -316,6 +400,39 @@ export default function OrderFormDialog({
                           {product.sku} — {product.name}
                         </option>
                       ))}
+                      {order?.items?.some(
+                        (orderItem) =>
+                          orderItem.productId === item.productId &&
+                          !products.some(
+                            (product) => product.id === item.productId,
+                          ),
+                      ) &&
+                        order?.items
+                          .filter(
+                            (orderItem) =>
+                              orderItem.productId === item.productId,
+                          )
+                          .map((orderItem) => (
+                            <option
+                              key={orderItem.productId}
+                              value={orderItem.productId}
+                            >
+                              {orderItem.productSku} — {orderItem.productName}
+                            </option>
+                          ))}
+                      {item.productId &&
+                        selectedProducts[item.productId] &&
+                        !products.some(
+                          (product) => product.id === item.productId,
+                        ) &&
+                        !order?.items?.some(
+                          (orderItem) => orderItem.productId === item.productId,
+                        ) && (
+                          <option value={item.productId}>
+                            {selectedProducts[item.productId].sku} —{" "}
+                            {selectedProducts[item.productId].name}
+                          </option>
+                        )}
                     </select>
                     <QueryStateMessage
                       resource="products"
@@ -324,6 +441,13 @@ export default function OrderFormDialog({
                       isEmpty={products.length === 0}
                       errorMessage={productsError ?? undefined}
                       onRetry={onRetryProducts}
+                    />
+                    <LoadMoreOptions
+                      resource="products"
+                      hasMore={hasMoreProducts}
+                      isLoading={loadingMoreProducts}
+                      error={productsPageError}
+                      onLoadMore={() => onLoadMoreProducts?.()}
                     />
                   </label>
                   <label className="w-28 text-xs font-semibold text-slate-500">

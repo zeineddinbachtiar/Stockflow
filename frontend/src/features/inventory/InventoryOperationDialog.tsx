@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import ModalDialog from "../../components/ui/ModalDialog";
 import QueryStateMessage from "../../components/ui/QueryStateMessage";
+import LoadMoreOptions from "../../components/ui/LoadMoreOptions";
 import type { Product } from "../products/product.types";
 import type { Warehouse } from "../warehouses/warehouse.types";
 import type {
@@ -24,6 +25,16 @@ interface InventoryOperationDialogProps {
   productsError: string | null;
   onRetryWarehouses?: () => void;
   onRetryProducts?: () => void;
+  hasMoreWarehouses?: boolean;
+  loadingMoreWarehouses?: boolean;
+  warehousesPageError?: string | null;
+  onLoadMoreWarehouses?: () => void;
+  hasMoreProducts?: boolean;
+  loadingMoreProducts?: boolean;
+  productsPageError?: string | null;
+  onLoadMoreProducts?: () => void;
+  productSearch?: string;
+  onProductSearchChange?: (value: string) => void;
   isSubmitting: boolean;
   submitError: string | null;
   onClose: () => void;
@@ -51,6 +62,16 @@ export default function InventoryOperationDialog({
   productsError,
   onRetryWarehouses,
   onRetryProducts,
+  hasMoreWarehouses = false,
+  loadingMoreWarehouses = false,
+  warehousesPageError = null,
+  onLoadMoreWarehouses,
+  hasMoreProducts = false,
+  loadingMoreProducts = false,
+  productsPageError = null,
+  onLoadMoreProducts,
+  productSearch = "",
+  onProductSearchChange,
   isSubmitting,
   submitError,
   onClose,
@@ -58,6 +79,7 @@ export default function InventoryOperationDialog({
 }: InventoryOperationDialogProps) {
   const [warehouseId, setWarehouseId] = useState(inventory?.warehouseId ?? "");
   const [productId, setProductId] = useState(inventory?.productId ?? "");
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [quantity, setQuantity] = useState("");
   const [reason, setReason] = useState("");
   const [reorderLevel, setReorderLevel] = useState(
@@ -203,6 +225,14 @@ export default function InventoryOperationDialog({
                     {warehouse.code} — {warehouse.name}
                   </option>
                 ))}
+                {inventory &&
+                  !warehouses.some(
+                    (warehouse) => warehouse.id === inventory.warehouseId,
+                  ) && (
+                    <option value={inventory.warehouseId}>
+                      {inventory.warehouseCode} — {inventory.warehouseName}
+                    </option>
+                  )}
               </select>
               <QueryStateMessage
                 resource="warehouses"
@@ -212,13 +242,40 @@ export default function InventoryOperationDialog({
                 errorMessage={warehousesError ?? undefined}
                 onRetry={onRetryWarehouses}
               />
+              <LoadMoreOptions
+                resource="warehouses"
+                hasMore={hasMoreWarehouses}
+                isLoading={loadingMoreWarehouses}
+                error={warehousesPageError}
+                onLoadMore={() => onLoadMoreWarehouses?.()}
+              />
             </label>
 
             <label className="block text-sm font-semibold text-slate-700">
               Product
+              {!isInactiveClearance && (
+                <input
+                  type="search"
+                  aria-label="Search products"
+                  value={productSearch}
+                  onChange={(event) =>
+                    onProductSearchChange?.(event.target.value)
+                  }
+                  placeholder="Search by SKU or product name"
+                  disabled={isSubmitting}
+                  className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-normal text-slate-800 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:bg-slate-50"
+                />
+              )}
               <select
                 value={productId}
-                onChange={(event) => setProductId(event.target.value)}
+                onChange={(event) => {
+                  setProductId(event.target.value);
+                  setSelectedProduct(
+                    products.find(
+                      (product) => product.id === event.target.value,
+                    ) ?? null,
+                  );
+                }}
                 disabled={
                   isSubmitting || optionsUnavailable || isInactiveClearance
                 }
@@ -237,7 +294,25 @@ export default function InventoryOperationDialog({
                   ) && (
                     <option value={inventory.productId}>
                       {inventory.productSku} — {inventory.productName}{" "}
-                      (Inactive)
+                      {!inventory.productIsActive && "(Inactive)"}
+                    </option>
+                  )}
+                {!isInactiveClearance &&
+                  inventory &&
+                  !products.some(
+                    (product) => product.id === inventory.productId,
+                  ) && (
+                    <option value={inventory.productId}>
+                      {inventory.productSku} — {inventory.productName}
+                    </option>
+                  )}
+                {!isInactiveClearance &&
+                  selectedProduct &&
+                  selectedProduct.id === productId &&
+                  !products.some((product) => product.id === productId) &&
+                  !inventory && (
+                    <option value={productId}>
+                      {selectedProduct.sku} — {selectedProduct.name}
                     </option>
                   )}
               </select>
@@ -253,6 +328,15 @@ export default function InventoryOperationDialog({
                   isEmpty={products.length === 0}
                   errorMessage={productsError ?? undefined}
                   onRetry={onRetryProducts}
+                />
+              )}
+              {!isInactiveClearance && (
+                <LoadMoreOptions
+                  resource="products"
+                  hasMore={hasMoreProducts}
+                  isLoading={loadingMoreProducts}
+                  error={productsPageError}
+                  onLoadMore={() => onLoadMoreProducts?.()}
                 />
               )}
             </label>

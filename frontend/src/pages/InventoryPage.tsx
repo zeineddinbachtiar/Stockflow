@@ -1,5 +1,10 @@
-import { useCallback, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   AlertCircle,
   ChevronLeft,
@@ -16,6 +21,7 @@ import { useAuth } from "../context/useAuth";
 import useModalDialog from "../components/ui/useModalDialog";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
 import MutationFeedback from "../components/ui/MutationFeedback";
+import LoadMoreOptions from "../components/ui/LoadMoreOptions";
 import QueryStateMessage from "../components/ui/QueryStateMessage";
 import {
   adjustStock,
@@ -36,10 +42,12 @@ import type {
   StockAdjustmentPayload,
   StockOperationPayload,
 } from "../features/inventory/inventory.types";
+import type { Product } from "../features/products/product.types";
 import { getProducts } from "../features/products/product.api";
 import { getWarehouses } from "../features/warehouses/warehouse.api";
 
 const PAGE_SIZE = 10;
+const OPTION_PAGE_SIZE = 100;
 
 function formatDate(value: string): string {
   const date = new Date(value);
@@ -63,6 +71,10 @@ export default function InventoryPage() {
   const [offset, setOffset] = useState(0);
   const [warehouseId, setWarehouseId] = useState("");
   const [productId, setProductId] = useState("");
+  const [selectedProductFilter, setSelectedProductFilter] =
+    useState<Product | null>(null);
+  const [productSearchInput, setProductSearchInput] = useState("");
+  const [productOptionSearch, setProductOptionSearch] = useState("");
   const [lowStock, setLowStock] = useState(false);
   const [selectedInventory, setSelectedInventory] =
     useState<InventoryBalance | null>(null);
@@ -80,6 +92,13 @@ export default function InventoryPage() {
     closeDetail,
     Boolean(selectedInventory && !operation),
   );
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setProductOptionSearch(productSearchInput.trim());
+    }, 350);
+
+    return () => window.clearTimeout(timeout);
+  }, [productSearchInput]);
 
   const inventoryParams: InventoryQueryParams = {
     warehouseId: warehouseId || undefined,
@@ -96,16 +115,32 @@ export default function InventoryPage() {
     placeholderData: (previousData) => previousData,
   });
 
-  const warehousesQuery = useQuery({
+  const warehousesQuery = useInfiniteQuery({
     queryKey: ["warehouses", "inventory-options"],
-    queryFn: () => getWarehouses(accessToken!, 100, 0),
+    queryFn: ({ pageParam }) =>
+      getWarehouses(accessToken!, OPTION_PAGE_SIZE, pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) =>
+      lastPage.offset + lastPage.limit < lastPage.total
+        ? lastPage.offset + lastPage.limit
+        : undefined,
     enabled: Boolean(accessToken),
     staleTime: 60_000,
   });
 
-  const productsQuery = useQuery({
-    queryKey: ["products", "inventory-options"],
-    queryFn: () => getProducts(accessToken!, { limit: 100, offset: 0 }),
+  const productsQuery = useInfiniteQuery({
+    queryKey: ["products", "inventory-options", productOptionSearch],
+    queryFn: ({ pageParam }) =>
+      getProducts(accessToken!, {
+        limit: OPTION_PAGE_SIZE,
+        offset: pageParam,
+        search: productOptionSearch || undefined,
+      }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) =>
+      lastPage.offset + lastPage.limit < lastPage.total
+        ? lastPage.offset + lastPage.limit
+        : undefined,
     enabled: Boolean(accessToken),
     staleTime: 60_000,
   });
@@ -159,12 +194,18 @@ export default function InventoryPage() {
       setOperation(null);
       setSelectedInventory(null);
       setOperationError(null);
+      setProductSearchInput("");
+      setProductOptionSearch("");
       setSuccessMessage("Inventory updated successfully.");
     },
     onError: (error: Error) => setOperationError(error.message),
   });
 
   const inventory = inventoryQuery.data?.inventory ?? [];
+  const warehouses =
+    warehousesQuery.data?.pages.flatMap((page) => page.warehouses) ?? [];
+  const products =
+    productsQuery.data?.pages.flatMap((page) => page.products) ?? [];
   const total = inventoryQuery.data?.total ?? 0;
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -173,6 +214,9 @@ export default function InventoryPage() {
   function resetFilters() {
     setWarehouseId("");
     setProductId("");
+    setSelectedProductFilter(null);
+    setProductSearchInput("");
+    setProductOptionSearch("");
     setLowStock(false);
     setOffset(0);
   }
@@ -233,11 +277,14 @@ export default function InventoryPage() {
                   setWarehouseId(event.target.value);
                   setOffset(0);
                 }}
-                disabled={warehousesQuery.isPending || warehousesQuery.isError}
+                disabled={
+                  warehousesQuery.isPending ||
+                  (warehousesQuery.isError && warehouses.length === 0)
+                }
                 className="mt-1 block min-w-44 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-700"
               >
                 <option value="">All warehouses</option>
-                {warehousesQuery.data?.warehouses.map((warehouse) => (
+                {warehouses.map((warehouse) => (
                   <option key={warehouse.id} value={warehouse.id}>
                     {warehouse.code}
                   </option>
@@ -246,8 +293,8 @@ export default function InventoryPage() {
               <QueryStateMessage
                 resource="warehouses"
                 isLoading={warehousesQuery.isPending}
-                isError={warehousesQuery.isError}
-                isEmpty={warehousesQuery.data?.warehouses.length === 0}
+                isError={warehousesQuery.isError && warehouses.length === 0}
+                isEmpty={warehouses.length === 0}
                 errorMessage={
                   warehousesQuery.error instanceof Error
                     ? warehousesQuery.error.message
@@ -255,30 +302,67 @@ export default function InventoryPage() {
                 }
                 onRetry={() => void warehousesQuery.refetch()}
               />
+              <LoadMoreOptions
+                resource="warehouses"
+                hasMore={Boolean(warehousesQuery.hasNextPage)}
+                isLoading={warehousesQuery.isFetchingNextPage}
+                error={
+                  warehousesQuery.isFetchNextPageError
+                    ? warehousesQuery.error instanceof Error
+                      ? warehousesQuery.error.message
+                      : "An unexpected error occurred."
+                    : null
+                }
+                onLoadMore={() => void warehousesQuery.fetchNextPage()}
+              />
             </label>
-            <label className="text-xs font-semibold text-slate-500">
-              Product
+            <div className="text-xs font-semibold text-slate-500">
+              <label htmlFor="inventory-product-filter">Product</label>
+              <input
+                type="search"
+                aria-label="Search products"
+                value={productSearchInput}
+                onChange={(event) => setProductSearchInput(event.target.value)}
+                placeholder="Search by SKU or product name"
+                className="mt-1 block w-full min-w-44 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-700"
+              />
               <select
+                id="inventory-product-filter"
                 value={productId}
                 onChange={(event) => {
                   setProductId(event.target.value);
+                  setSelectedProductFilter(
+                    products.find(
+                      (product) => product.id === event.target.value,
+                    ) ?? null,
+                  );
                   setOffset(0);
                 }}
-                disabled={productsQuery.isPending || productsQuery.isError}
+                disabled={
+                  productsQuery.isPending ||
+                  (productsQuery.isError && products.length === 0)
+                }
                 className="mt-1 block min-w-44 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-700"
               >
                 <option value="">All products</option>
-                {productsQuery.data?.products.map((product) => (
+                {products.map((product) => (
                   <option key={product.id} value={product.id}>
                     {product.sku}
                   </option>
                 ))}
+                {selectedProductFilter &&
+                  selectedProductFilter.id === productId &&
+                  !products.some((product) => product.id === productId) && (
+                    <option value={productId}>
+                      {selectedProductFilter.sku}
+                    </option>
+                  )}
               </select>
               <QueryStateMessage
                 resource="products"
                 isLoading={productsQuery.isPending}
-                isError={productsQuery.isError}
-                isEmpty={productsQuery.data?.products.length === 0}
+                isError={productsQuery.isError && products.length === 0}
+                isEmpty={products.length === 0}
                 errorMessage={
                   productsQuery.error instanceof Error
                     ? productsQuery.error.message
@@ -286,7 +370,20 @@ export default function InventoryPage() {
                 }
                 onRetry={() => void productsQuery.refetch()}
               />
-            </label>
+              <LoadMoreOptions
+                resource="products"
+                hasMore={Boolean(productsQuery.hasNextPage)}
+                isLoading={productsQuery.isFetchingNextPage}
+                error={
+                  productsQuery.isFetchNextPageError
+                    ? productsQuery.error instanceof Error
+                      ? productsQuery.error.message
+                      : "An unexpected error occurred."
+                    : null
+                }
+                onLoadMore={() => void productsQuery.fetchNextPage()}
+              />
+            </div>
             <label className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700">
               <input
                 type="checkbox"
@@ -612,19 +709,19 @@ export default function InventoryPage() {
         <InventoryOperationDialog
           mode={operation}
           inventory={selectedInventory ?? undefined}
-          warehouses={warehousesQuery.data?.warehouses ?? []}
-          products={productsQuery.data?.products ?? []}
+          warehouses={warehouses}
+          products={products}
           warehousesLoading={warehousesQuery.isPending}
           productsLoading={productsQuery.isPending}
           warehousesError={
-            warehousesQuery.isError
+            warehousesQuery.isError && warehouses.length === 0
               ? warehousesQuery.error instanceof Error
                 ? warehousesQuery.error.message
                 : "An unexpected warehouse error occurred."
               : null
           }
           productsError={
-            productsQuery.isError
+            productsQuery.isError && products.length === 0
               ? productsQuery.error instanceof Error
                 ? productsQuery.error.message
                 : "An unexpected product error occurred."
@@ -632,12 +729,36 @@ export default function InventoryPage() {
           }
           onRetryWarehouses={() => void warehousesQuery.refetch()}
           onRetryProducts={() => void productsQuery.refetch()}
+          hasMoreWarehouses={Boolean(warehousesQuery.hasNextPage)}
+          loadingMoreWarehouses={warehousesQuery.isFetchingNextPage}
+          warehousesPageError={
+            warehousesQuery.isFetchNextPageError
+              ? warehousesQuery.error instanceof Error
+                ? warehousesQuery.error.message
+                : "An unexpected error occurred."
+              : null
+          }
+          onLoadMoreWarehouses={() => void warehousesQuery.fetchNextPage()}
+          hasMoreProducts={Boolean(productsQuery.hasNextPage)}
+          loadingMoreProducts={productsQuery.isFetchingNextPage}
+          productsPageError={
+            productsQuery.isFetchNextPageError
+              ? productsQuery.error instanceof Error
+                ? productsQuery.error.message
+                : "An unexpected error occurred."
+              : null
+          }
+          onLoadMoreProducts={() => void productsQuery.fetchNextPage()}
+          productSearch={productSearchInput}
+          onProductSearchChange={setProductSearchInput}
           isSubmitting={mutation.isPending}
           submitError={operationError}
           onClose={() => {
             if (!mutation.isPending) {
               setOperation(null);
               setOperationError(null);
+              setProductSearchInput("");
+              setProductOptionSearch("");
             }
           }}
           onSubmit={(payload) => {

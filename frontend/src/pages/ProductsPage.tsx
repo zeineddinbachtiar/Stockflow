@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   AlertCircle,
   ChevronLeft,
@@ -22,12 +27,12 @@ import MutationFeedback from "../components/ui/MutationFeedback";
 import {
   createProduct,
   deactivateProduct,
-  getCategories,
   getProductById,
   getProducts,
   reactivateProduct,
   updateProduct,
 } from "../features/products/product.api";
+import { getCategories } from "../features/categories/category.api";
 import ProductFormDialog from "../features/products/ProductFormDialog";
 import type {
   Product,
@@ -35,6 +40,7 @@ import type {
 } from "../features/products/product.types";
 
 const PAGE_SIZE = 10;
+const OPTION_PAGE_SIZE = 100;
 
 function formatPrice(value: string): string {
   const amount = Number(value);
@@ -388,15 +394,23 @@ export default function ProductsPage() {
     placeholderData: (previousData) => previousData,
   });
 
-  const categoryQuery = useQuery({
+  const categoryQuery = useInfiniteQuery({
     queryKey: ["categories", "product-form"],
-    queryFn: () => getCategories(accessToken!),
+    queryFn: ({ pageParam }) =>
+      getCategories(accessToken!, OPTION_PAGE_SIZE, pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) =>
+      lastPage.offset + lastPage.limit < lastPage.total
+        ? lastPage.offset + lastPage.limit
+        : undefined,
     enabled: Boolean(accessToken),
     staleTime: 60_000,
   });
 
+  const categoryOptions =
+    categoryQuery.data?.pages.flatMap((page) => page.categories) ?? [];
   const categories = new Map(
-    (categoryQuery.data ?? []).map((category) => [category.id, category.name]),
+    categoryOptions.map((category) => [category.id, category.name]),
   );
 
   const products = productQuery.data?.products ?? [];
@@ -769,16 +783,26 @@ export default function ProductsPage() {
         <ProductFormDialog
           mode={formMode}
           product={editingProduct ?? undefined}
-          categories={categoryQuery.data ?? []}
+          categories={categoryOptions}
           categoriesLoading={categoryQuery.isPending}
           categoriesError={
-            categoryQuery.isError
+            categoryQuery.isError && categoryOptions.length === 0
               ? categoryQuery.error instanceof Error
                 ? categoryQuery.error.message
                 : "Unknown category error."
               : null
           }
           onRetryCategories={() => void categoryQuery.refetch()}
+          hasMoreCategories={Boolean(categoryQuery.hasNextPage)}
+          loadingMoreCategories={categoryQuery.isFetchingNextPage}
+          categoriesPageError={
+            categoryQuery.isFetchNextPageError
+              ? categoryQuery.error instanceof Error
+                ? categoryQuery.error.message
+                : "An unexpected error occurred."
+              : null
+          }
+          onLoadMoreCategories={() => void categoryQuery.fetchNextPage()}
           isSubmitting={saveProductMutation.isPending}
           submitError={saveError}
           onClose={() => {

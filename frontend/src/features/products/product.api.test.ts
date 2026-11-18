@@ -5,7 +5,6 @@ import { server } from "../../test/mocks/server";
 import {
   createProduct,
   deactivateProduct,
-  getCategories,
   getProductById,
   getProducts,
   reactivateProduct,
@@ -88,40 +87,6 @@ describe("Product API", () => {
     const result = await getProductById(TOKEN, product.id);
 
     expect(result).toEqual(product);
-  });
-
-  it("gets active categories for product forms", async () => {
-    const categories = [
-      {
-        id: "category-001",
-        name: "Computers",
-        description: "Computer products",
-        isActive: true,
-        createdAt: product.createdAt,
-        updatedAt: product.updatedAt,
-      },
-    ];
-
-    server.use(
-      http.get(`${API_URL}/categories`, ({ request }) => {
-        const url = new URL(request.url);
-
-        expect(url.searchParams.get("limit")).toBe("100");
-
-        return HttpResponse.json(
-          envelope({
-            categories,
-            total: 1,
-            limit: 100,
-            offset: 0,
-          }),
-        );
-      }),
-    );
-
-    const result = await getCategories(TOKEN);
-
-    expect(result).toEqual(categories);
   });
 
   it("creates a product", async () => {

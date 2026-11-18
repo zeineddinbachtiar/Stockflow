@@ -115,6 +115,68 @@ describe("StockMovementsPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("searches product options server-side and retains the selected filter", async () => {
+    installHandlers();
+    const user = userEvent.setup();
+    const targetProduct = {
+      id: "product-target",
+      categoryId: "category-001",
+      sku: "SKU-TARGET",
+      name: "Target Product",
+      description: null,
+      unitPrice: "100.00",
+      isActive: true,
+      createdAt: "2026-01-01",
+      updatedAt: "2026-01-01",
+    };
+    const otherProduct = {
+      ...targetProduct,
+      id: "product-other",
+      sku: "SKU-OTHER",
+      name: "Other Product",
+    };
+    const receivedSearches: string[] = [];
+
+    server.use(
+      http.get(`${API_URL}/products`, ({ request }) => {
+        const search = new URL(request.url).searchParams.get("search") ?? "";
+        receivedSearches.push(search);
+
+        return HttpResponse.json(
+          success({
+            products: search === "target" ? [targetProduct] : [otherProduct],
+            total: 1,
+            limit: 100,
+            offset: 0,
+          }),
+        );
+      }),
+    );
+
+    renderWithProviders(<StockMovementsPage />);
+    const search = screen.getByRole("searchbox", { name: "Search products" });
+    const productSelect = screen.getByLabelText("Product");
+
+    await user.type(search, "target");
+    expect(
+      await screen.findByRole("option", { name: "SKU-TARGET" }),
+    ).toBeInTheDocument();
+    await user.selectOptions(productSelect, targetProduct.id);
+
+    await user.clear(search);
+    await user.type(search, "other");
+    expect(
+      await screen.findByRole("option", { name: "SKU-OTHER" }),
+    ).toBeInTheDocument();
+
+    expect(productSelect).toHaveValue(targetProduct.id);
+    expect(
+      screen.getByRole("option", { name: "SKU-TARGET" }),
+    ).toBeInTheDocument();
+    expect(receivedSearches).toContain("target");
+    expect(receivedSearches).toContain("other");
+  });
+
   it("shows a retry action when the movement list fails", async () => {
     let attempts = 0;
     server.use(
