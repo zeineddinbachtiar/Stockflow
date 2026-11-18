@@ -22,7 +22,7 @@
     },
     {
       "name": "Authentication",
-      "description": "Public registration and JWT login."
+      "description": "Public registration, login, refresh-token rotation, and logout."
     },
     {
       "name": "Categories",
@@ -109,7 +109,7 @@
         "tags": ["Authentication"],
         "operationId": "registerUser",
         "summary": "Register a user",
-        "description": "Public registration always assigns the SALES_STAFF role; clients cannot select a role. Rate limit: 5 requests per IP per hour.",
+        "description": "Public registration always assigns the SALES_STAFF role; clients cannot select a role. Returns access and refresh tokens. Rate limit: 5 requests per IP per hour.",
         "security": [],
         "requestBody": {
           "required": true,
@@ -155,7 +155,7 @@
         "tags": ["Authentication"],
         "operationId": "loginUser",
         "summary": "Log in",
-        "description": "Authenticates credentials and returns a signed JWT access token. Rate limit: 10 requests per IP per 15 minutes.",
+        "description": "Authenticates credentials and returns an access token, refresh token, and user details. Rate limit: 10 requests per IP per 15 minutes.",
         "security": [],
         "requestBody": {
           "required": true,
@@ -182,13 +182,99 @@
             "$ref": "#/components/responses/BadRequest"
           },
           "401": {
-            "$ref": "#/components/responses/Unauthorized"
+            "$ref": "#/components/responses/InvalidCredentials"
           },
           "413": {
             "$ref": "#/components/responses/PayloadTooLarge"
           },
           "429": {
             "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "tags": ["Authentication"],
+        "operationId": "refreshSession",
+        "summary": "Refresh an authentication session",
+        "description": "Rotates the one-time refresh token and returns a new access token and refresh token. Rate limit: 30 requests per IP per 15 minutes.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionTokenRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session refreshed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/InvalidRefreshToken"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": ["Authentication"],
+        "operationId": "logoutSession",
+        "summary": "Log out",
+        "description": "Revokes the session identified by the refresh token. The operation is idempotent and does not require a bearer access token.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SessionTokenRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Logout successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogoutResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
           },
           "500": {
             "$ref": "#/components/responses/InternalServerError"
@@ -1922,6 +2008,26 @@
           }
         }
       },
+      "InvalidCredentials": {
+        "description": "The email or password is invalid, or the account is inactive.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "InvalidRefreshToken": {
+        "description": "The refresh token is invalid, expired, or revoked.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
       "Forbidden": {
         "description": "The authenticated role or resource ownership does not permit this operation.",
         "content": {
@@ -2723,12 +2829,28 @@
         "required": ["email", "password"],
         "additionalProperties": false
       },
+      "SessionTokenRequest": {
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{86}$",
+            "description": "One-time base64url refresh token."
+          }
+        },
+        "required": ["refreshToken"],
+        "additionalProperties": false
+      },
       "AuthResult": {
         "type": "object",
         "properties": {
           "accessToken": {
             "type": "string",
             "description": "Signed JWT access token."
+          },
+          "refreshToken": {
+            "type": "string",
+            "description": "One-time refresh token; refresh operations return its rotated replacement."
           },
           "tokenType": {
             "type": "string",
@@ -2742,7 +2864,13 @@
             "$ref": "#/components/schemas/PublicUser"
           }
         },
-        "required": ["accessToken", "tokenType", "expiresIn", "user"],
+        "required": [
+          "accessToken",
+          "refreshToken",
+          "tokenType",
+          "expiresIn",
+          "user"
+        ],
         "additionalProperties": false
       },
       "CategoryCreateRequest": {
@@ -3209,6 +3337,20 @@
           }
         },
         "required": ["status", "message", "data"],
+        "additionalProperties": false
+      },
+      "LogoutResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "success"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["status", "message"],
         "additionalProperties": false
       },
       "CategoryListResponse": {
