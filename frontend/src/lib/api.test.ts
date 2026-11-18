@@ -223,6 +223,117 @@ describe("apiRequest authentication handling", () => {
     }
   });
 
+  it("ends the session when the retried authenticated request returns 401", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse({ code: "INVALID_ACCESS_TOKEN" }, 401),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(
+          { code: "INVALID_ACCESS_TOKEN", message: "Token was revoked." },
+          401,
+        ),
+      );
+
+    const refreshAccessToken = vi
+      .fn()
+      .mockResolvedValue("refreshed-access-token");
+    const onSessionExpired = vi.fn();
+    const unregister = registerAuthSessionHandlers({
+      refreshAccessToken,
+      onSessionExpired,
+    });
+
+    try {
+      await expect(
+        apiRequest("/products", {}, "expired-access-token"),
+      ).rejects.toMatchObject({
+        status: 401,
+        code: "INVALID_ACCESS_TOKEN",
+        message: "Token was revoked.",
+      });
+
+      expect(refreshAccessToken).toHaveBeenCalledOnce();
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(onSessionExpired).toHaveBeenCalledOnce();
+    } finally {
+      unregister();
+    }
+  });
+
+  it("propagates a network failure from the retried request without ending the session", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse({ code: "INVALID_ACCESS_TOKEN" }, 401),
+      )
+      .mockRejectedValueOnce(new TypeError("fetch failed"));
+
+    const refreshAccessToken = vi
+      .fn()
+      .mockResolvedValue("refreshed-access-token");
+    const onSessionExpired = vi.fn();
+    const unregister = registerAuthSessionHandlers({
+      refreshAccessToken,
+      onSessionExpired,
+    });
+
+    try {
+      await expect(
+        apiRequest("/products", {}, "expired-access-token"),
+      ).rejects.toMatchObject({
+        status: 0,
+        code: "NETWORK_ERROR",
+      });
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(refreshAccessToken).toHaveBeenCalledOnce();
+      expect(onSessionExpired).not.toHaveBeenCalled();
+    } finally {
+      unregister();
+    }
+  });
+
+  it("propagates a server error from the retried request without ending the session", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse({ code: "INVALID_ACCESS_TOKEN" }, 401),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(
+          { code: "PRODUCT_SERVICE_UNAVAILABLE", message: "Try again later." },
+          503,
+        ),
+      );
+
+    const refreshAccessToken = vi
+      .fn()
+      .mockResolvedValue("refreshed-access-token");
+    const onSessionExpired = vi.fn();
+    const unregister = registerAuthSessionHandlers({
+      refreshAccessToken,
+      onSessionExpired,
+    });
+
+    try {
+      await expect(
+        apiRequest("/products", {}, "expired-access-token"),
+      ).rejects.toMatchObject({
+        status: 503,
+        code: "PRODUCT_SERVICE_UNAVAILABLE",
+        message: "Try again later.",
+      });
+
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(refreshAccessToken).toHaveBeenCalledOnce();
+      expect(onSessionExpired).not.toHaveBeenCalled();
+    } finally {
+      unregister();
+    }
+  });
+
   it("shares one refresh operation between concurrent requests", async () => {
     const fetchMock = vi.mocked(fetch);
     fetchMock
@@ -266,6 +377,52 @@ describe("apiRequest authentication handling", () => {
       expect(warehouses.data.warehouses).toEqual([]);
       expect(refreshAccessToken).toHaveBeenCalledOnce();
       expect(fetchMock).toHaveBeenCalledTimes(4);
+      expect(onSessionExpired).not.toHaveBeenCalled();
+    } finally {
+      unregister();
+    }
+  });
+
+  it("propagates one shared refresh failure to every concurrent request", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock
+      .mockResolvedValueOnce(
+        jsonResponse({ code: "INVALID_ACCESS_TOKEN" }, 401),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ code: "INVALID_ACCESS_TOKEN" }, 401),
+      );
+
+    const refreshError = new ApiError(
+      "Authentication service is unavailable.",
+      503,
+      "AUTH_SERVICE_UNAVAILABLE",
+    );
+    const refreshAccessToken = vi.fn().mockRejectedValue(refreshError);
+    const onSessionExpired = vi.fn();
+    const unregister = registerAuthSessionHandlers({
+      refreshAccessToken,
+      onSessionExpired,
+    });
+
+    try {
+      const results = await Promise.allSettled([
+        apiRequest("/products", {}, "expired-access-token"),
+        apiRequest("/warehouses", {}, "expired-access-token"),
+      ]);
+
+      expect(results).toHaveLength(2);
+      expect(results[0]?.status).toBe("rejected");
+      expect(results[1]?.status).toBe("rejected");
+      if (
+        results[0]?.status === "rejected" &&
+        results[1]?.status === "rejected"
+      ) {
+        expect(results[0].reason).toBe(refreshError);
+        expect(results[1].reason).toBe(refreshError);
+      }
+      expect(refreshAccessToken).toHaveBeenCalledOnce();
+      expect(fetchMock).toHaveBeenCalledTimes(2);
       expect(onSessionExpired).not.toHaveBeenCalled();
     } finally {
       unregister();

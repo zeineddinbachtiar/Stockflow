@@ -667,6 +667,47 @@ describe("AuthContext", () => {
     expect(sessionStorage.getItem(SESSION_KEY)).not.toBeNull();
   });
 
+  it("preserves the session and refresh 5xx error for an authenticated request", async () => {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(storedSession));
+
+    server.use(
+      http.get(`${API_URL}/products`, () =>
+        HttpResponse.json(
+          {
+            status: "error",
+            code: "INVALID_ACCESS_TOKEN",
+          },
+          { status: 401 },
+        ),
+      ),
+      http.post(`${API_URL}/auth/refresh`, () =>
+        HttpResponse.json(
+          {
+            status: "error",
+            code: "AUTH_SERVICE_UNAVAILABLE",
+            message: "Authentication service is temporarily unavailable.",
+          },
+          { status: 503 },
+        ),
+      ),
+    );
+
+    const userEventInstance = userEvent.setup();
+    renderAuthProvider();
+
+    await userEventInstance.click(
+      screen.getByRole("button", { name: "Protected request" }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("request-error")).toHaveTextContent(
+        "Authentication service is temporarily unavailable.",
+      );
+    });
+    expect(screen.getByTestId("authenticated")).toHaveTextContent("true");
+    expect(sessionStorage.getItem(SESSION_KEY)).not.toBeNull();
+  });
+
   it("throws when useAuth is used outside AuthProvider", () => {
     const consoleError = vi
       .spyOn(console, "error")
