@@ -144,6 +144,8 @@ export default function OrderFormDialog({
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSubmitting) return;
+
     setValidationError(null);
 
     if (!customerId || !warehouseId) {

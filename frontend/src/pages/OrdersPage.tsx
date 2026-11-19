@@ -230,6 +230,9 @@ export default function OrdersPage() {
     onSuccess: async (_, nextAction) => {
       await queryClient.invalidateQueries({ queryKey: ["orders"] });
       await queryClient.invalidateQueries({ queryKey: ["order-detail"] });
+      if (nextAction === "confirm" || selectedOrder?.status === "CONFIRMED") {
+        await queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      }
       setAction(null);
       setSelectedOrder(null);
       setSuccessMessage(
