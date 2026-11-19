@@ -17,6 +17,7 @@
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "test:db:setup": "node scripts/setup-test-db.mjs",
+    "test:e2e": "node scripts/run-e2e.mjs",
     "pretest": "npm run test:db:setup"
   },
   "keywords": [],
@@ -36,6 +37,7 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@playwright/test": "^1.65.1",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
